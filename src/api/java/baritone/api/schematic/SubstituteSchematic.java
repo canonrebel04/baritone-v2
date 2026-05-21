@@ -27,17 +27,24 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 public class SubstituteSchematic extends AbstractSchematic {
 
     private final ISchematic schematic;
     private final Map<Block, List<Block>> substitutions;
+    private final Map<Block, Set<Block>> substitutionsSet;
     private final Map<BlockState, Map<Block, BlockState>> blockStateCache = new HashMap<>();
 
     public SubstituteSchematic(ISchematic schematic, Map<Block, List<Block>> substitutions) {
         super(schematic.widthX(), schematic.heightY(), schematic.lengthZ());
         this.schematic = schematic;
         this.substitutions = substitutions;
+        this.substitutionsSet = new HashMap<>();
+        for (Map.Entry<Block, List<Block>> entry : substitutions.entrySet()) {
+            this.substitutionsSet.put(entry.getKey(), new HashSet<>(entry.getValue()));
+        }
     }
 
     @Override
@@ -53,7 +60,7 @@ public class SubstituteSchematic extends AbstractSchematic {
             return desired;
         }
         List<Block> substitutes = substitutions.get(desiredBlock);
-        if (substitutes.contains(current.getBlock()) && !(current.getBlock() instanceof AirBlock)) {// don't preserve air, it's almost always there and almost never wanted
+        if (substitutionsSet.get(desiredBlock).contains(current.getBlock()) && !(current.getBlock() instanceof AirBlock)) {// don't preserve air, it's almost always there and almost never wanted
             return withBlock(desired, current.getBlock());
         }
         for (Block substitute : substitutes) {
