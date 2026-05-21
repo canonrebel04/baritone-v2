@@ -1,0 +1,97 @@
+name: Release
+
+# This workflow runs when a tag is pushed (e.g., v26.1)
+# It builds all mod loaders and creates a GitHub release with the JARs
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up JDK 25
+      uses: actions/setup-java@v4
+      with:
+        java-version: '25'
+        distribution: 'zulu'
+        cache: 'gradle'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Get version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+    - name: Build all mod loaders
+      run: ./gradlew build -Pmod_version=${{ steps.version.outputs.VERSION }} --stacktrace --no-daemon
+
+    - name: Create dist files
+      run: ./gradlew createDist -Pmod_version=${{ steps.version.outputs.VERSION }} --stacktrace --no-daemon
+
+    - name: List built files
+      run: |
+        echo "=== Fabric JARs ==="
+        ls -la fabric/build/libs/*.jar 2>/dev/null || echo "No Fabric JARs"
+        echo "=== Forge JARs ==="
+        ls -la forge/build/libs/*.jar 2>/dev/null || echo "No Forge JARs"
+        echo "=== NeoForge JARs ==="
+        ls -la neoforge/build/libs/*.jar 2>/dev/null || echo "No NeoForge JARs"
+        echo "=== Dist Files ==="
+        ls -la dist/*.jar 2>/dev/null || echo "No dist files"
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: Baritone v${{ steps.version.outputs.VERSION }}
+        body: |
+          ## Baritone v${{ steps.version.outputs.VERSION }} Release
+          
+          ### 📦 Downloads
+          
+          | Mod Loader | File | Size |
+          |------------|------|------|
+          | **Fabric** | [baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar) | - |
+          | **Forge** | [baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar) | - |
+          | **NeoForge** | [baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar) | - |
+          
+          ### 📝 Changelog
+          See [CHANGELOG.md](https://github.com/canonrebel04/baritone-v2/blob/${{ github.ref_name }}/CHANGELOG.md) for details.
+          
+          ### ⚡ Features
+          - Full pathfinding system for Minecraft
+          - Support for Fabric, Forge, and NeoForge mod loaders
+          - Extensive command system for chat control
+          - Elytra flying, mining, building, and more
+          
+          ### 🔧 Installation
+          1. Download the JAR for your mod loader
+          2. Place in the `mods` folder
+          3. Launch Minecraft
+          
+          ### 💬 Support
+          Join the [Baritone Discord Server](http://discord.gg/s6fRBAUpmr) for help.
+        draft: false
+        prerelease: false
+        files: |
+          fabric/build/libs/baritone-*-fabric-*.jar
+          forge/build/libs/baritone-*-forge-*.jar
+          neoforge/build/libs/baritone-*-neoforge-*.jar
+          dist/*.jar
+        fail_on_unmatched_files: false
+        make_latest: true
