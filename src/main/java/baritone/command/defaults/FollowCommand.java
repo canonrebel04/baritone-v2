@@ -105,7 +105,7 @@ public class FollowCommand extends Command {
             IDatatypeFor followType;
             try {
                 followType = args.getEnum(FollowList.class).datatype;
-            } catch (NullPointerException e) {
+            } catch (CommandException e) {
                 return Stream.empty();
             }
             while (args.has(2)) {

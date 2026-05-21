@@ -77,7 +77,7 @@ public abstract class Movement implements IMovement, MovementHelper {
         this(baritone, src, dest, toBreak, null);
     }
 
-    public double getCost() throws NullPointerException {
+    public Double getCost() {
         return cost;
     }
 

@@ -112,7 +112,10 @@ public interface IPath {
         //this is fast because we aren't requesting recalculation, it's just cached
         List<IMovement> movements = movements();
         for (int i = pathPosition; i < movements.size(); i++) {
-            sum += movements.get(i).getCost();
+            Double cost = movements.get(i).getCost();
+            if (cost != null) {
+                sum += cost;
+            }
         }
         return sum;
     }
