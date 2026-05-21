@@ -88,24 +88,8 @@ public final class BetterBlockPos extends BlockPos {
     }
 
     public static long longHash(int x, int y, int z) {
-        // TODO use the same thing as BlockPos.fromLong();
-        // invertibility would be incredibly useful
-        /*
-         *   This is the hashcode implementation of Vec3i (the superclass of the class which I shall not name)
-         *
-         *   public int hashCode() {
-         *       return (this.getY() + this.getZ() * 31) * 31 + this.getX();
-         *   }
-         *
-         *   That is terrible and has tons of collisions and makes the HashMap terribly inefficient.
-         *
-         *   That's why we grab out the X, Y, Z and calculate our own hashcode
-         */
-        long hash = 3241;
-        hash = 3457689L * hash + x;
-        hash = 8734625L * hash + y;
-        hash = 2873465L * hash + z;
-        return hash;
+        // Use serializeToLong for invertibility and 0 collisions in the Long2ObjectOpenHashMap
+        return serializeToLong(x, y, z);
     }
 
     @Override
