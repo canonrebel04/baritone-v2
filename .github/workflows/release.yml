@@ -12,10 +12,9 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    
+
     permissions:
       contents: write
-      packages: write
 
     steps:
     - name: Checkout repository
@@ -46,52 +45,67 @@ jobs:
     - name: List built files
       run: |
         echo "=== Fabric JARs ==="
-        ls -la fabric/build/libs/*.jar 2>/dev/null || echo "No Fabric JARs"
+        ls -la fabric/build/libs/baritone-fabric-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
         echo "=== Forge JARs ==="
-        ls -la forge/build/libs/*.jar 2>/dev/null || echo "No Forge JARs"
+        ls -la forge/build/libs/baritone-forge-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
         echo "=== NeoForge JARs ==="
-        ls -la neoforge/build/libs/*.jar 2>/dev/null || echo "No NeoForge JARs"
-        echo "=== Dist Files ==="
-        ls -la dist/*.jar 2>/dev/null || echo "No dist files"
+        ls -la neoforge/build/libs/baritone-neoforge-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
+        echo "=== API JARs ==="
+        ls -la dist/baritone-api-*.jar 2>/dev/null || echo "Not found"
+        ls -la fabric/build/libs/baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
+        ls -la forge/build/libs/baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
+        ls -la neoforge/build/libs/baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v4
       with:
         tag_name: ${{ github.ref_name }}
         name: Baritone v${{ steps.version.outputs.VERSION }}
         body: |
           ## Baritone v${{ steps.version.outputs.VERSION }} Release
-          
+
           ### 📦 Downloads
-          
-          | Mod Loader | File | Size |
-          |------------|------|------|
-          | **Fabric** | [baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar) | - |
-          | **Forge** | [baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar) | - |
-          | **NeoForge** | [baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar) | - |
-          
+
+          | Mod Loader | File |
+          |------------|------|
+          | **Fabric** | [baritone-fabric-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-fabric-${{ steps.version.outputs.VERSION }}.jar) |
+          | **Forge** | [baritone-forge-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-forge-${{ steps.version.outputs.VERSION }}.jar) |
+          | **NeoForge** | [baritone-neoforge-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-neoforge-${{ steps.version.outputs.VERSION }}.jar) |
+
+          **API (for developers):**
+
+          | Loader | File |
+          |--------|------|
+          | Fabric | [baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar) |
+          | Forge | [baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar) |
+          | NeoForge | [baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar) |
+          | Universal | [baritone-api-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-${{ steps.version.outputs.VERSION }}.jar) |
+
           ### 📝 Changelog
           See [CHANGELOG.md](https://github.com/canonrebel04/baritone-v2/blob/${{ github.ref_name }}/CHANGELOG.md) for details.
-          
+
           ### ⚡ Features
           - Full pathfinding system for Minecraft
           - Support for Fabric, Forge, and NeoForge mod loaders
           - Extensive command system for chat control
           - Elytra flying, mining, building, and more
-          
+
           ### 🔧 Installation
           1. Download the JAR for your mod loader
           2. Place in the `mods` folder
           3. Launch Minecraft
-          
+
           ### 💬 Support
           Join the [Baritone Discord Server](http://discord.gg/s6fRBAUpmr) for help.
         draft: false
         prerelease: false
         files: |
-          fabric/build/libs/baritone-*-fabric-*.jar
-          forge/build/libs/baritone-*-forge-*.jar
-          neoforge/build/libs/baritone-*-neoforge-*.jar
-          dist/*.jar
-        fail_on_unmatched_files: false
+          fabric/build/libs/baritone-fabric-${{ steps.version.outputs.VERSION }}.jar
+          forge/build/libs/baritone-forge-${{ steps.version.outputs.VERSION }}.jar
+          neoforge/build/libs/baritone-neoforge-${{ steps.version.outputs.VERSION }}.jar
+          fabric/build/libs/baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar
+          forge/build/libs/baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar
+          neoforge/build/libs/baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar
+          dist/baritone-api-${{ steps.version.outputs.VERSION }}.jar
+        fail_on_unmatched_files: true
         make_latest: true
