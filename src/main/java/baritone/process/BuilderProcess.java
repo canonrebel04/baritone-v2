@@ -60,6 +60,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.material.Fluids;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -719,9 +720,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                     missing.put(desired, 1 + missing.getOrDefault(desired, 0));
                 }
             } else {
-                if (state.getBlock() instanceof LiquidBlock) {
-                    // if the block itself is JUST a liquid (i.e. not just a waterlogged block), we CANNOT break it
-                    // TODO for 1.13 make sure that this only matches pure water, not waterlogged blocks
+                if (state.getBlock() instanceof LiquidBlock && state.getFluidState().getType() == Fluids.WATER) {
                     if (!MovementHelper.possiblyFlowing(state)) {
                         // if it's a source block then we want to replace it with a throwaway
                         sourceLiquids.add(pos);
