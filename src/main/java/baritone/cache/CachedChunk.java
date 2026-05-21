@@ -259,15 +259,13 @@ public final class CachedChunk {
         return specialBlockLocations;
     }
 
-    public final ArrayList<BlockPos> getAbsoluteBlocks(String blockType) {
+    public final void getAbsoluteBlocks(String blockType, java.util.List<BlockPos> res) {
         if (specialBlockLocations.get(blockType) == null) {
-            return null;
+            return;
         }
-        ArrayList<BlockPos> res = new ArrayList<>();
         for (BlockPos pos : specialBlockLocations.get(blockType)) {
             res.add(new BlockPos(pos.getX() + x * 16, pos.getY(), pos.getZ() + z * 16));
         }
-        return res;
     }
 
     /**
