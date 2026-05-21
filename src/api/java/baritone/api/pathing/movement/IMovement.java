@@ -26,7 +26,7 @@ import net.minecraft.core.BlockPos;
  */
 public interface IMovement {
 
-    double getCost();
+    Double getCost();
 
     MovementStatus update();
 

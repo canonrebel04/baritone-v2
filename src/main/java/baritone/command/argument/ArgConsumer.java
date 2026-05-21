@@ -245,12 +245,20 @@ public class ArgConsumer implements IArgConsumer {
 
     @Override
     public <T, D extends IDatatypeFor<T>> T peekDatatypeFor(Class<D> datatype) {
-        return copy().peekDatatypeFor(datatype);
+        try {
+            return copy().getDatatypeFor(datatype.newInstance());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public <T, D extends IDatatypeFor<T>> T peekDatatypeForOrDefault(Class<D> datatype, T def) {
-        return copy().peekDatatypeForOrDefault(datatype, def);
+        try {
+            return copy().getDatatypeForOrDefault(datatype.newInstance(), def);
+        } catch (Exception e) {
+            return def;
+        }
     }
 
     @Override
