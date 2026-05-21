@@ -66,7 +66,7 @@ public class NotificationHelper {
 
     private static void mac(String text) {
         ProcessBuilder processBuilder = new ProcessBuilder();
-        processBuilder.command("osascript", "-e", "display notification \"" + text + "\" with title \"Baritone\"");
+        processBuilder.command("osascript", "-e", "on run argv", "-e", "display notification (item 1 of argv) with title \"Baritone\"", "-e", "end run", "--", text);
         try {
             processBuilder.start();
         } catch (IOException e) {
