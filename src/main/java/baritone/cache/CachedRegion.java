@@ -95,20 +95,15 @@ public final class CachedRegion implements ICachedRegion {
         return chunks[x >> 4][z >> 4] != null;
     }
 
-    public final ArrayList<BlockPos> getLocationsOf(String block) {
-        ArrayList<BlockPos> res = new ArrayList<>();
+    public final void getLocationsOf(String block, java.util.List<BlockPos> res) {
         for (int chunkX = 0; chunkX < 32; chunkX++) {
             for (int chunkZ = 0; chunkZ < 32; chunkZ++) {
                 if (chunks[chunkX][chunkZ] == null) {
                     continue;
                 }
-                ArrayList<BlockPos> locs = chunks[chunkX][chunkZ].getAbsoluteBlocks(block);
-                if (locs != null) {
-                    res.addAll(locs);
-                }
+                chunks[chunkX][chunkZ].getAbsoluteBlocks(block, res);
             }
         }
-        return res;
     }
 
     public final synchronized void updateCachedChunk(int chunkX, int chunkZ, CachedChunk chunk) {
