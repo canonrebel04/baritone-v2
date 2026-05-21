@@ -57,9 +57,9 @@ jobs:
         ls -la neoforge/build/libs/baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v4
+      uses: ncipollo/release-action@v2
       with:
-        tag_name: ${{ github.ref_name }}
+        tag: ${{ github.ref_name }}
         name: Baritone v${{ steps.version.outputs.VERSION }}
         body: |
           ## Baritone v${{ steps.version.outputs.VERSION }} Release
@@ -99,13 +99,12 @@ jobs:
           Join the [Baritone Discord Server](http://discord.gg/s6fRBAUpmr) for help.
         draft: false
         prerelease: false
-        files: |
-          fabric/build/libs/baritone-fabric-${{ steps.version.outputs.VERSION }}.jar
-          forge/build/libs/baritone-forge-${{ steps.version.outputs.VERSION }}.jar
-          neoforge/build/libs/baritone-neoforge-${{ steps.version.outputs.VERSION }}.jar
-          fabric/build/libs/baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar
-          forge/build/libs/baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar
-          neoforge/build/libs/baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar
+        artifacts: |
+          fabric/build/libs/baritone-fabric-${{ steps.version.outputs.VERSION }}.jar,
+          forge/build/libs/baritone-forge-${{ steps.version.outputs.VERSION }}.jar,
+          neoforge/build/libs/baritone-neoforge-${{ steps.version.outputs.VERSION }}.jar,
+          fabric/build/libs/baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar,
+          forge/build/libs/baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar,
+          neoforge/build/libs/baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar,
           dist/baritone-api-${{ steps.version.outputs.VERSION }}.jar
-        fail_on_unmatched_files: true
-        make_latest: true
+        token: ${{ secrets.GITHUB_TOKEN }}
