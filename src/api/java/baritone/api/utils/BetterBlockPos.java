@@ -80,7 +80,7 @@ public final class BetterBlockPos extends BlockPos {
 
     @Override
     public int hashCode() {
-        return (int) longHash(x, y, z);
+        return Long.hashCode(longHash(x, y, z));
     }
 
     public static long longHash(BetterBlockPos pos) {
