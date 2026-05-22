@@ -1039,10 +1039,11 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         }
         Map<Property<?>, Comparable<?>> map1 = first.getValues().collect(Collectors.toMap(Property.Value::property, v -> (Comparable<?>) v.value()));
         Map<Property<?>, Comparable<?>> map2 = second.getValues().collect(Collectors.toMap(Property.Value::property, v -> (Comparable<?>) v.value()));
+        Set<String> ignoredPropsSet = new HashSet<>(ignoredProps);
         for (Property<?> prop : map1.keySet()) {
             if (map1.get(prop) != map2.get(prop)
                     && !(ignoreDirection && ORIENTATION_PROPS.contains(prop))
-                    && !ignoredProps.contains(prop.getName())) {
+                    && !ignoredPropsSet.contains(prop.getName())) {
                 return false;
             }
         }
