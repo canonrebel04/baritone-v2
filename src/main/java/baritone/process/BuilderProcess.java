@@ -113,12 +113,12 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         if (Baritone.settings().buildSchematicRotation.value != net.minecraft.world.level.block.Rotation.NONE) {
             this.schematic = new RotatedSchematic(this.schematic, Baritone.settings().buildSchematicRotation.value);
         }
-        // TODO this preserves the old behavior, but maybe we should bake the setting value right here
+        List<Block> skipBlocks = Baritone.settings().buildSkipBlocks.value;
         this.schematic = new MaskSchematic(this.schematic) {
             @Override
             public boolean partOfMask(int x, int y, int z, BlockState current) {
                 // partOfMask is only called inside the schematic so desiredState is not null
-                return !Baritone.settings().buildSkipBlocks.value.contains(this.desiredState(x, y, z, current, Collections.emptyList()).getBlock());
+                return !skipBlocks.contains(this.desiredState(x, y, z, current, Collections.emptyList()).getBlock());
             }
         };
         int x = origin.getX();
