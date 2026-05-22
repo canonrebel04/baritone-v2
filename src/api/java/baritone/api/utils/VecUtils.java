@@ -67,8 +67,6 @@ public final class VecUtils {
     /**
      * Gets the assumed center position of the given block position.
      * This is done by adding 0.5 to the X, Y, and Z axes.
-     * <p>
-     * TODO: We may want to consider replacing many usages of this method with #calculateBlockCenter(BlockPos)
      *
      * @param pos The block position
      * @return The assumed center of the position

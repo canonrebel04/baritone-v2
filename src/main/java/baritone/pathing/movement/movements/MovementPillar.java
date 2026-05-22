@@ -175,8 +175,8 @@ public class MovementPillar extends Movement {
         BlockState fromDown = BlockStateInterface.get(ctx, src);
         if (MovementHelper.isWater(fromDown) && MovementHelper.isWater(ctx, dest)) {
             // stay centered while swimming up a water column
-            state.setTarget(new MovementState.MovementTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.getBlockPosCenter(dest), ctx.playerRotations()), false));
-            Vec3 destCenter = VecUtils.getBlockPosCenter(dest);
+            state.setTarget(new MovementState.MovementTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.calculateBlockCenter(ctx.world(), dest), ctx.playerRotations()), false));
+            Vec3 destCenter = VecUtils.calculateBlockCenter(ctx.world(), dest);
             if (Math.abs(ctx.player().position().x - destCenter.x) > 0.2 || Math.abs(ctx.player().position().z - destCenter.z) > 0.2) {
                 state.setInput(Input.MOVE_FORWARD, true);
             }
@@ -188,7 +188,7 @@ public class MovementPillar extends Movement {
         boolean ladder = fromDown.getBlock() == Blocks.LADDER || fromDown.getBlock() == Blocks.VINE;
         boolean vine = fromDown.getBlock() == Blocks.VINE;
         Rotation rotation = RotationUtils.calcRotationFromVec3d(ctx.playerHead(),
-                VecUtils.getBlockPosCenter(positionToPlace),
+                VecUtils.calculateBlockCenter(ctx.world(), positionToPlace),
                 ctx.playerRotations());
         if (!ladder) {
             state.setTarget(new MovementState.MovementTarget(ctx.playerRotations().withPitch(rotation.getPitch()), true));
