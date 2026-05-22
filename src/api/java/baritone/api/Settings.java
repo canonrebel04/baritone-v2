@@ -190,13 +190,6 @@ public final class Settings {
     public final Setting<Boolean> allowJumpAtBuildLimit = new Setting<>(false);
 
     /**
-     * Just here so mods that use the API don't break. Does nothing.
-     */
-    @Deprecated
-    @JavaOnly
-    public final Setting<Boolean> allowJumpAt256 = new Setting<>(false);
-
-    /**
      * This should be monetized it's so good
      * <p>
      * Defaults to true, but only actually takes effect if allowParkour is also true
