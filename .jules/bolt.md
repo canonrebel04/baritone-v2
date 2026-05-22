@@ -7,3 +7,6 @@
 ## 2025-05-21 - BetterBlockPos.longHash could be BlockPos.asLong()
 **Learning:** `BetterBlockPos.longHash` currently uses a custom prime multiplier approach, but the comment says `// TODO use the same thing as BlockPos.fromLong(); invertibility would be incredibly useful`. We already have `serializeToLong` directly in `BetterBlockPos`. If `longHash` uses `serializeToLong`, we guarantee 0 collisions (it's a bijection) which makes the HashMap `O(1)` perfect hashing. This is exactly the kind of optimization that matters for A* search algorithms which perform millions of map lookups.
 **Action:** Replace the `longHash` body with a call to `serializeToLong(x, y, z)`.
+## 2025-05-21 - Hash Collisions from Long to Int Casting
+**Learning:** In Minecraft pathfinding, block coordinates (X, Y, Z) are packed into a 64-bit `long`. When `PathNode.hashCode()` and various goal `hashCode()` methods cast this long directly to `(int)`, it truncates the top 32 bits, completely dropping the X coordinate! This causes massive `O(n)` hash collisions in A* search maps and hash sets.
+**Action:** Whenever working with packed 64-bit integer coordinate representations, ALWAYS use `Long.hashCode(value)` (which XORs the upper and lower 32 bits) rather than `(int) value` to ensure all bits contribute to the hash.
