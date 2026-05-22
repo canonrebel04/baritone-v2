@@ -485,8 +485,7 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
         }
         Goal goal = this.goal;
         if (goal == null) {
-            logDebug("no goal"); // TODO should this be an exception too? definitely should be checked by caller
-            return;
+            throw new IllegalStateException("No goal"); // should have been checked by caller
         }
         long primaryTimeout;
         long failureTimeout;
