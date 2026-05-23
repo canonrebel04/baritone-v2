@@ -20,30 +20,36 @@ package baritone.pathing.precompute;
 import baritone.pathing.movement.MovementHelper;
 import baritone.utils.BlockStateInterface;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class PrecomputedData {
 
-    private final byte[] data = new byte[Block.BLOCK_STATE_REGISTRY.size()];
+    private final short[] data = new short[Block.BLOCK_STATE_REGISTRY.size()];
 
     /**
-     * byte layout
+     * short layout
      *
-     *          7              6             5              4              3              2              1             0
-     *          |              |             |              |              |              |              |             |
-     *      unused         canWalkOn       maybe       canWalkThrough    maybe        fullyPassable    maybe       completed
+     *          15-11          10              9                 8                  7                     6              5              4              3              2              1             0
+     *            |            |               |                 |                  |                     |              |              |              |              |              |             |
+     *         unused     avoidWI   isNormCube   isReplaceable   isReplaceableMaybe   canWalkOn   maybe   canWalkThrough    maybe        fullyPassable    maybe       completed
      */
 
-    private static final byte COMPLETED_MASK = (byte) 1 << 0;
-    private static final byte FULLY_PASSABLE_MAYBE_MASK = (byte) 1 << 1;
-    private static final byte FULLY_PASSABLE_MASK = (byte) 1 << 2;
-    private static final byte CAN_WALK_THROUGH_MAYBE_MASK = (byte) 1 << 3;
-    private static final byte CAN_WALK_THROUGH_MASK = (byte) 1 << 4;
-    private static final byte CAN_WALK_ON_MAYBE_MASK = (byte) 1 << 5;
-    private static final byte CAN_WALK_ON_MASK = (byte) 1 << 6;
+    private static final short COMPLETED_MASK = (short) (1 << 0);
+    private static final short FULLY_PASSABLE_MAYBE_MASK = (short) (1 << 1);
+    private static final short FULLY_PASSABLE_MASK = (short) (1 << 2);
+    private static final short CAN_WALK_THROUGH_MAYBE_MASK = (short) (1 << 3);
+    private static final short CAN_WALK_THROUGH_MASK = (short) (1 << 4);
+    private static final short CAN_WALK_ON_MAYBE_MASK = (short) (1 << 5);
+    private static final short CAN_WALK_ON_MASK = (short) (1 << 6);
+    private static final short IS_REPLACEABLE_MAYBE_MASK = (short) (1 << 7);
+    private static final short IS_REPLACEABLE_MASK = (short) (1 << 8);
+    private static final short IS_BLOCK_NORMAL_CUBE_MASK = (short) (1 << 9);
+    private static final short AVOID_WALKING_INTO_MASK = (short) (1 << 10);
 
-    private int fillData(int id, BlockState state) {
-        byte blockData = 0;
+    private short fillData(int id, BlockState state) {
+        short blockData = 0;
 
         Ternary canWalkOnState = MovementHelper.canWalkOnBlockState(state);
         switch (canWalkOnState) {
@@ -63,9 +69,31 @@ public class PrecomputedData {
             case MAYBE -> blockData |= FULLY_PASSABLE_MAYBE_MASK;
         }
 
+        // isReplaceable
+        Block block = state.getBlock();
+        if (block instanceof net.minecraft.world.level.block.AirBlock) {
+            blockData |= IS_REPLACEABLE_MASK;
+        } else if (block instanceof SnowLayerBlock) {
+            blockData |= IS_REPLACEABLE_MAYBE_MASK;
+        } else if (block == Blocks.LARGE_FERN || block == Blocks.TALL_GRASS) {
+            blockData |= IS_REPLACEABLE_MASK;
+        } else if (state.canBeReplaced()) {
+            blockData |= IS_REPLACEABLE_MASK;
+        }
+
+        // isBlockNormalCube
+        if (MovementHelper.isBlockNormalCube(state)) {
+            blockData |= IS_BLOCK_NORMAL_CUBE_MASK;
+        }
+
+        // avoidWalkingInto
+        if (MovementHelper.avoidWalkingInto(state)) {
+            blockData |= AVOID_WALKING_INTO_MASK;
+        }
+
         blockData |= COMPLETED_MASK;
 
-        data[id] = blockData; // in theory, this is thread "safe" because every thread should compute the exact same int to write?
+        data[id] = blockData;
         return blockData;
     }
 
@@ -73,7 +101,7 @@ public class PrecomputedData {
         int id = Block.BLOCK_STATE_REGISTRY.getId(state);
         int blockData = data[id];
 
-        if ((blockData & COMPLETED_MASK) == 0) { // we need to fill in the data
+        if ((blockData & COMPLETED_MASK) == 0) {
             blockData = fillData(id, state);
         }
 
@@ -88,7 +116,7 @@ public class PrecomputedData {
         int id = Block.BLOCK_STATE_REGISTRY.getId(state);
         int blockData = data[id];
 
-        if ((blockData & COMPLETED_MASK) == 0) { // we need to fill in the data
+        if ((blockData & COMPLETED_MASK) == 0) {
             blockData = fillData(id, state);
         }
 
@@ -103,7 +131,7 @@ public class PrecomputedData {
         int id = Block.BLOCK_STATE_REGISTRY.getId(state);
         int blockData = data[id];
 
-        if ((blockData & COMPLETED_MASK) == 0) { // we need to fill in the data
+        if ((blockData & COMPLETED_MASK) == 0) {
             blockData = fillData(id, state);
         }
 
@@ -112,5 +140,48 @@ public class PrecomputedData {
         } else {
             return (blockData & FULLY_PASSABLE_MASK) != 0;
         }
+    }
+
+    public boolean isReplaceable(BlockStateInterface bsi, int x, int y, int z, BlockState state) {
+        int id = Block.BLOCK_STATE_REGISTRY.getId(state);
+        int blockData = data[id];
+
+        if ((blockData & COMPLETED_MASK) == 0) {
+            blockData = fillData(id, state);
+        }
+
+        if ((blockData & IS_REPLACEABLE_MAYBE_MASK) != 0) {
+            if (state.getBlock() instanceof SnowLayerBlock) {
+                if (!bsi.worldContainsLoadedChunk(x, z)) {
+                    return true;
+                }
+                return state.getValue(SnowLayerBlock.LAYERS) == 1;
+            }
+            return false;
+        } else {
+            return (blockData & IS_REPLACEABLE_MASK) != 0;
+        }
+    }
+
+    public boolean isBlockNormalCube(BlockState state) {
+        int id = Block.BLOCK_STATE_REGISTRY.getId(state);
+        int blockData = data[id];
+
+        if ((blockData & COMPLETED_MASK) == 0) {
+            blockData = fillData(id, state);
+        }
+
+        return (blockData & IS_BLOCK_NORMAL_CUBE_MASK) != 0;
+    }
+
+    public boolean avoidWalkingInto(BlockState state) {
+        int id = Block.BLOCK_STATE_REGISTRY.getId(state);
+        int blockData = data[id];
+
+        if ((blockData & COMPLETED_MASK) == 0) {
+            blockData = fillData(id, state);
+        }
+
+        return (blockData & AVOID_WALKING_INTO_MASK) != 0;
     }
 }

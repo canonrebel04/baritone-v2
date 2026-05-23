@@ -76,6 +76,12 @@ public class PathExecutor implements IPathExecutor, Helper {
 
     private boolean sprintNextTick;
 
+    private int overshootTicksRemaining = 0;
+    private Rotation overshootRotation = null;
+    private int ticksSprinting = 0;
+    private int sprintDropTicksRemaining = 0;
+    private final java.util.Random sprintRandom = new java.util.Random();
+
     public PathExecutor(PathingBehavior behavior, IPath path) {
         this.behavior = behavior;
         this.ctx = behavior.ctx;
@@ -90,6 +96,24 @@ public class PathExecutor implements IPathExecutor, Helper {
      * not sneaking out over lava), false otherwise
      */
     public boolean onTick() {
+        if (overshootTicksRemaining > 0) {
+            overshootTicksRemaining--;
+            if (overshootTicksRemaining == 0) {
+                overshootRotation = null;
+                pathPosition++;
+                onChangeInPathPosition();
+                onTick();
+                return true;
+            } else {
+                if (overshootRotation != null) {
+                    behavior.baritone.getLookBehavior().updateTarget(overshootRotation, true);
+                }
+                behavior.baritone.getInputOverrideHandler().clearAllKeys();
+                behavior.baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
+                behavior.baritone.getInputOverrideHandler().setInputForceState(Input.SPRINT, true);
+                return false;
+            }
+        }
         if (pathPosition == path.length() - 1) {
             pathPosition++;
         }
@@ -229,6 +253,51 @@ public class PathExecutor implements IPathExecutor, Helper {
             return true;
         }
         if (movementStatus == SUCCESS) {
+            if (Baritone.settings().humanizeMovements.value && pathPosition + 1 < path.movements().size()) {
+                Movement currentMov = (Movement) path.movements().get(pathPosition);
+                IMovement nextMov = path.movements().get(pathPosition + 1);
+                if (nextMov instanceof Movement) {
+                    Movement next = (Movement) nextMov;
+                    BlockPos src1 = currentMov.getSrc();
+                    BlockPos dest1 = currentMov.getDest();
+                    BlockPos src2 = next.getSrc();
+                    BlockPos dest2 = next.getDest();
+                    
+                    int dx1 = dest1.getX() - src1.getX();
+                    int dz1 = dest1.getZ() - src1.getZ();
+                    int dy1 = dest1.getY() - src1.getY();
+                    
+                    int dx2 = dest2.getX() - src2.getX();
+                    int dz2 = dest2.getZ() - src2.getZ();
+                    int dy2 = dest2.getY() - src2.getY();
+                    
+                    if (dy1 == 0 && dy2 == 0 && (dx1 != 0 || dz1 != 0) && (dx2 != 0 || dz2 != 0)) {
+                        if (dx1 != dx2 || dz1 != dz2) {
+                            int ox = dx1 > 0 ? 1 : (dx1 < 0 ? -1 : 0);
+                            int oz = dz1 > 0 ? 1 : (dz1 < 0 ? -1 : 0);
+                            BlockPos overshootPos = dest1.offset(ox, 0, oz);
+                            
+                            BlockStateInterface bsiTemp = new BlockStateInterface(ctx);
+                            if (MovementHelper.canWalkThrough(bsiTemp, overshootPos.getX(), overshootPos.getY(), overshootPos.getZ())
+                                    && MovementHelper.canWalkThrough(bsiTemp, overshootPos.getX(), overshootPos.getY() + 1, overshootPos.getZ())
+                                    && MovementHelper.canWalkOn(bsiTemp, overshootPos.getX(), overshootPos.getY() - 1, overshootPos.getZ())) {
+                                overshootTicksRemaining = new java.util.Random().nextInt(3) + 2;
+                                overshootRotation = RotationUtils.calcRotationFromVec3d(
+                                    ctx.playerHead(),
+                                    VecUtils.getBlockPosCenter(overshootPos),
+                                    ctx.playerRotations()
+                                );
+                                
+                                behavior.baritone.getLookBehavior().updateTarget(overshootRotation, true);
+                                behavior.baritone.getInputOverrideHandler().clearAllKeys();
+                                behavior.baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
+                                behavior.baritone.getInputOverrideHandler().setInputForceState(Input.SPRINT, true);
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
             //System.out.println("Movement done, next path");
             pathPosition++;
             onChangeInPathPosition();
@@ -343,6 +412,35 @@ public class PathExecutor implements IPathExecutor, Helper {
     }
 
     private boolean shouldSprintNextTick() {
+        boolean normalSprint = shouldSprintNextTick0();
+        if (normalSprint) {
+            if (Baritone.settings().humanizeMovements.value) {
+                if (sprintDropTicksRemaining > 0) {
+                    sprintDropTicksRemaining--;
+                    ticksSprinting = 0;
+                    return false;
+                }
+                
+                ticksSprinting++;
+                if (ticksSprinting > 40) { // Sprinting for at least 2 seconds (40 ticks)
+                    if (sprintRandom.nextFloat() < 0.02f) { // 2% chance per tick to drop sprint
+                        sprintDropTicksRemaining = sprintRandom.nextInt(3) + 2; // 2 to 4 ticks
+                        ticksSprinting = 0;
+                        return false;
+                    }
+                }
+            } else {
+                ticksSprinting = 0;
+                sprintDropTicksRemaining = 0;
+            }
+        } else {
+            ticksSprinting = 0;
+            sprintDropTicksRemaining = 0;
+        }
+        return normalSprint;
+    }
+
+    private boolean shouldSprintNextTick0() {
         boolean requested = behavior.baritone.getInputOverrideHandler().isInputForcedDown(Input.SPRINT);
 
         // we'll take it from here, no need for minecraft to see we're holding down control and sprint for us

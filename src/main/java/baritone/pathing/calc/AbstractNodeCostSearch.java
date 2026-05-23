@@ -200,7 +200,8 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
             if (dist > bestDist) {
                 bestDist = dist;
             }
-            if (dist > MIN_DIST_PATH * MIN_DIST_PATH) { // square the comparison since distFromStartSq is squared
+            double limit = context.combatMode ? 2.0 : MIN_DIST_PATH;
+            if (dist > limit * limit) { // square the comparison since distFromStartSq is squared
                 if (logInfo) {
                     if (COEFFICIENTS[i] >= 3) {
                         System.out.println("Warning: cost coefficient is greater than three! Probably means that");

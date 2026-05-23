@@ -93,6 +93,7 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                 } catch (InterruptedException ignored) {}
             }
             PathNode currentNode = openSet.removeLowest();
+            calcContext.setCacheCenter(currentNode.x, currentNode.y, currentNode.z);
             mostRecentConsidered = currentNode;
             numNodes++;
             if (goal.isInGoal(currentNode.x, currentNode.y, currentNode.z)) {

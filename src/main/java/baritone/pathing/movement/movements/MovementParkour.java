@@ -176,7 +176,7 @@ public class MovementParkour extends Movement {
             if (placeCost >= COST_INF) {
                 continue;
             }
-            if (!MovementHelper.isReplaceable(destX, y - 1, destZ, toReplace, context.bsi)) {
+            if (!MovementHelper.isReplaceable(context, destX, y - 1, destZ, toReplace)) {
                 continue;
             }
             if (!checkOvershootSafety(context.bsi, destX + xDiff, y, destZ + zDiff)) {
@@ -189,7 +189,7 @@ public class MovementParkour extends Movement {
                 if (againstX == destX - xDiff && againstZ == destZ - zDiff) { // we can't turn around that fast
                     continue;
                 }
-                if (MovementHelper.canPlaceAgainst(context.bsi, againstX, againstY, againstZ)) {
+                if (MovementHelper.canPlaceAgainst(context, againstX, againstY, againstZ)) {
                     res.x = destX;
                     res.y = y;
                     res.z = destZ;

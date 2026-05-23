@@ -84,6 +84,7 @@ public class CalculationContext {
     public final double walkOnWaterOnePenalty;
     public final boolean allowWalkOnMagmaBlocks;
     public final BetterWorldBorder worldBorder;
+    public final boolean combatMode;
 
     public final PrecomputedData precomputedData;
 
@@ -92,6 +93,7 @@ public class CalculationContext {
     }
 
     public CalculationContext(IBaritone baritone, boolean forUseOnAnotherThread) {
+        this.combatMode = Baritone.settings().combatMode.value;
         this.precomputedData = new PrecomputedData();
         this.safeForThreadedUse = forUseOnAnotherThread;
         this.baritone = baritone;
@@ -165,7 +167,32 @@ public class CalculationContext {
         return baritone;
     }
 
+    private int cacheCenterX = Integer.MIN_VALUE;
+    private int cacheCenterY = Integer.MIN_VALUE;
+    private int cacheCenterZ = Integer.MIN_VALUE;
+    private final BlockState[] cubeCache = new BlockState[9 * 9 * 9];
+
+    public void setCacheCenter(int x, int y, int z) {
+        this.cacheCenterX = x;
+        this.cacheCenterY = y;
+        this.cacheCenterZ = z;
+        java.util.Arrays.fill(cubeCache, null);
+    }
+
     public BlockState get(int x, int y, int z) {
+        int dx = x - cacheCenterX;
+        int dy = y - cacheCenterY;
+        int dz = z - cacheCenterZ;
+        if (dx >= -4 && dx <= 4 && dy >= -4 && dy <= 4 && dz >= -4 && dz <= 4) {
+            int index = (dx + 4) * 81 + (dy + 4) * 9 + (dz + 4);
+            BlockState cached = cubeCache[index];
+            if (cached != null) {
+                return cached;
+            }
+            BlockState state = bsi.get0(x, y, z);
+            cubeCache[index] = state;
+            return state;
+        }
         return bsi.get0(x, y, z); // laughs maniacally
     }
 

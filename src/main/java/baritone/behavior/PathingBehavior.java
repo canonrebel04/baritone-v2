@@ -490,7 +490,10 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
         }
         long primaryTimeout;
         long failureTimeout;
-        if (current == null) {
+        if (Baritone.settings().combatMode.value) {
+            primaryTimeout = Baritone.settings().combatTimeoutMS.value;
+            failureTimeout = primaryTimeout * 5 / 2;
+        } else if (current == null) {
             primaryTimeout = Baritone.settings().primaryTimeoutMS.value;
             failureTimeout = Baritone.settings().failureTimeoutMS.value;
         } else {

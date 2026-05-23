@@ -327,6 +327,22 @@ public interface MovementHelper extends ActionCosts, Helper {
         return isReplaceable(x, y, z, state, bsi);
     }
 
+    static boolean isReplaceable(CalculationContext context, int x, int y, int z, BlockState state) {
+        return context.precomputedData.isReplaceable(context.bsi, x, y, z, state);
+    }
+
+    static boolean isReplaceable(CalculationContext context, int x, int y, int z) {
+        return isReplaceable(context, x, y, z, context.get(x, y, z));
+    }
+
+    static boolean isBlockNormalCube(CalculationContext context, BlockState state) {
+        return context.precomputedData.isBlockNormalCube(state);
+    }
+
+    static boolean avoidWalkingInto(CalculationContext context, BlockState state) {
+        return context.precomputedData.avoidWalkingInto(state);
+    }
+
     static boolean isDoorPassable(IPlayerContext ctx, BlockPos doorPos, BlockPos playerPos) {
         if (playerPos.equals(doorPos)) {
             return false;
@@ -591,6 +607,17 @@ public interface MovementHelper extends ActionCosts, Helper {
         return isBlockNormalCube(state) || state.getBlock() == Blocks.GLASS || state.getBlock() instanceof StainedGlassBlock;
     }
 
+    static boolean canPlaceAgainst(CalculationContext context, int x, int y, int z, BlockState state) {
+        if (!context.worldBorder.canPlaceAt(x, z)) {
+            return false;
+        }
+        return isBlockNormalCube(context, state) || state.getBlock() == Blocks.GLASS || state.getBlock() instanceof StainedGlassBlock;
+    }
+
+    static boolean canPlaceAgainst(CalculationContext context, int x, int y, int z) {
+        return canPlaceAgainst(context, x, y, z, context.get(x, y, z));
+    }
+
     static double getMiningDurationTicks(CalculationContext context, int x, int y, int z, boolean includeFalling) {
         return getMiningDurationTicks(context, x, y, z, context.get(x, y, z), includeFalling);
     }
@@ -641,6 +668,40 @@ public interface MovementHelper extends ActionCosts, Helper {
         switchToBestToolFor(ctx, b, new ToolSet(ctx.player()), BaritoneAPI.getSettings().preferSilkTouch.value);
     }
 
+    class InventoryDelayTracker {
+        private static int targetSlot = -1;
+        private static int executionTick = -1;
+        private static final java.util.Random random = new java.util.Random();
+
+        public static void requestSwap(IPlayerContext ctx, int slot) {
+            int currentSlot = ctx.player().getInventory().getSelectedSlot();
+            if (currentSlot == slot) {
+                targetSlot = -1;
+                executionTick = -1;
+                return;
+            }
+
+            int currentTick = ctx.player().tickCount;
+
+            if (targetSlot != slot) {
+                targetSlot = slot;
+                double val = 3.0 + random.nextGaussian() * 0.7;
+                int ticks = (int) Math.round(val);
+                if (ticks < 2) ticks = 2;
+                if (ticks > 4) ticks = 4;
+                executionTick = currentTick + ticks;
+            }
+
+            if (executionTick != -1 && currentTick >= executionTick) {
+                if (ctx.player().getInventory().getSelectedSlot() != targetSlot) {
+                    ctx.player().getInventory().setSelectedSlot(targetSlot);
+                }
+                targetSlot = -1;
+                executionTick = -1;
+            }
+        }
+    }
+
     /**
      * AutoTool for a specific block with precomputed ToolSet data
      *
@@ -650,7 +711,12 @@ public interface MovementHelper extends ActionCosts, Helper {
      */
     static void switchToBestToolFor(IPlayerContext ctx, BlockState b, ToolSet ts, boolean preferSilkTouch) {
         if (Baritone.settings().autoTool.value && !Baritone.settings().assumeExternalAutoTool.value) {
-            ctx.player().getInventory().setSelectedSlot(ts.getBestSlot(b.getBlock(), preferSilkTouch));
+            int bestSlot = ts.getBestSlot(b.getBlock(), preferSilkTouch);
+            if (Baritone.settings().inventoryDelay.value) {
+                InventoryDelayTracker.requestSwap(ctx, bestSlot);
+            } else {
+                ctx.player().getInventory().setSelectedSlot(bestSlot);
+            }
         }
     }
 

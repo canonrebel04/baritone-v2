@@ -600,6 +600,31 @@ public final class Settings {
     public final Setting<Long> primaryTimeoutMS = new Setting<>(500L);
 
     /**
+     * Enable combat mode pathing tweaks (shorter timeout, relaxed cost heuristic, lower MIN_DIST_PATH)
+     */
+    public final Setting<Boolean> combatMode = new Setting<>(false);
+
+    /**
+     * Timeout for primary path searches when combatMode is enabled
+     */
+    public final Setting<Long> combatTimeoutMS = new Setting<>(200L);
+
+    /**
+     * Humanize movement transitions (corner overshoot, sprint drop) to reduce mechanical profile
+     */
+    public final Setting<Boolean> humanizeMovements = new Setting<>(true);
+
+    /**
+     * Add timing jitter (0-1 tick delays) to input action triggers (jump, sprint-toggle, block breaking/placing start)
+     */
+    public final Setting<Boolean> inputJitter = new Setting<>(true);
+
+    /**
+     * Delay tool switching by 2-4 ticks (100-200ms) with Gaussian noise to mimic human hotbar selection
+     */
+    public final Setting<Boolean> inventoryDelay = new Setting<>(true);
+
+    /**
      * Pathing can never take longer than this, even if that means failing to find any path at all
      */
     public final Setting<Long> failureTimeoutMS = new Setting<>(2000L);

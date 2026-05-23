@@ -127,7 +127,7 @@ public class MovementTraverse extends Movement {
             if (srcDownBlock == Blocks.LADDER || srcDownBlock == Blocks.VINE) {
                 return COST_INF;
             }
-            if (MovementHelper.isReplaceable(destX, y - 1, destZ, destOn, context.bsi)) {
+            if (MovementHelper.isReplaceable(context, destX, y - 1, destZ, destOn)) {
                 boolean throughWater = MovementHelper.isWater(pb0) || MovementHelper.isWater(pb1);
                 if (MovementHelper.isWater(destOn) && throughWater) {
                     // this happens when assume walk on water is true and this is a traverse in water, which isn't allowed
@@ -150,7 +150,7 @@ public class MovementTraverse extends Movement {
                     if (againstX == x && againstZ == z) { // this would be a backplace
                         continue;
                     }
-                    if (MovementHelper.canPlaceAgainst(context.bsi, againstX, againstY, againstZ)) { // found a side place option
+                    if (MovementHelper.canPlaceAgainst(context, againstX, againstY, againstZ)) { // found a side place option
                         return WC + placeCost + hardness1 + hardness2;
                     }
                 }

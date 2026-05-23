@@ -24,6 +24,7 @@ import baritone.api.utils.IPlayerContext;
 import baritone.pathing.movement.CalculationContext;
 import it.unimi.dsi.fastutil.longs.Long2DoubleOpenHashMap;
 
+@baritone.KeepName
 public final class Favoring {
 
     private final Long2DoubleOpenHashMap favorings;
@@ -45,11 +46,18 @@ public final class Favoring {
         }
     }
 
+    @baritone.KeepName
+    public static java.util.function.LongToDoubleFunction combatFavoringSupplier = null;
+
     public boolean isEmpty() {
-        return favorings.isEmpty();
+        return favorings.isEmpty() && combatFavoringSupplier == null;
     }
 
     public double calculate(long hash) {
-        return favorings.get(hash);
+        double val = favorings.get(hash);
+        if (combatFavoringSupplier != null) {
+            val *= combatFavoringSupplier.applyAsDouble(hash);
+        }
+        return val;
     }
 }

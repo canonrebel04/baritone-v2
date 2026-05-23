@@ -20,6 +20,7 @@ package baritone.utils;
 import baritone.Baritone;
 import baritone.api.BaritoneAPI;
 import baritone.api.event.events.TickEvent;
+import baritone.api.event.events.type.EventState;
 import baritone.api.utils.IInputOverrideHandler;
 import baritone.api.utils.input.Input;
 import baritone.behavior.Behavior;
@@ -42,6 +43,10 @@ public final class InputOverrideHandler extends Behavior implements IInputOverri
      * Maps inputs to whether or not we are forcing their state down.
      */
     private final Map<Input, Boolean> inputForceStateMap = new HashMap<>();
+    private final Map<Input, Boolean> lastRawState = new HashMap<>();
+    private final Map<Input, Integer> delayTicks = new HashMap<>();
+    private final Map<Input, Boolean> jitteredState = new HashMap<>();
+    private final java.util.Random jitterRandom = new java.util.Random();
 
     private final BlockBreakHelper blockBreakHelper;
     private final BlockPlaceHelper blockPlaceHelper;
@@ -60,7 +65,13 @@ public final class InputOverrideHandler extends Behavior implements IInputOverri
      */
     @Override
     public final boolean isInputForcedDown(Input input) {
-        return input == null ? false : this.inputForceStateMap.getOrDefault(input, false);
+        if (input == null) {
+            return false;
+        }
+        if (Baritone.settings().inputJitter.value && this.jitteredState.containsKey(input)) {
+            return this.jitteredState.getOrDefault(input, false);
+        }
+        return this.inputForceStateMap.getOrDefault(input, false);
     }
 
     /**
@@ -86,6 +97,44 @@ public final class InputOverrideHandler extends Behavior implements IInputOverri
     public final void onTick(TickEvent event) {
         if (event.getType() == TickEvent.Type.OUT) {
             return;
+        }
+        if (Baritone.settings().inputJitter.value && event.getState() == EventState.PRE) {
+            for (Input input : Input.values()) {
+                boolean currentRaw = this.inputForceStateMap.getOrDefault(input, false);
+                boolean lastRaw = this.lastRawState.getOrDefault(input, false);
+
+                if (currentRaw && !lastRaw) {
+                    if (input == Input.JUMP || input == Input.SPRINT || input == Input.CLICK_LEFT || input == Input.CLICK_RIGHT) {
+                        if (jitterRandom.nextBoolean()) {
+                            delayTicks.put(input, 1);
+                            jitteredState.put(input, false);
+                        } else {
+                            delayTicks.put(input, 0);
+                            jitteredState.put(input, true);
+                        }
+                    } else {
+                        delayTicks.put(input, 0);
+                        jitteredState.put(input, true);
+                    }
+                } else if (!currentRaw) {
+                    delayTicks.put(input, 0);
+                    jitteredState.put(input, false);
+                } else {
+                    int remaining = delayTicks.getOrDefault(input, 0);
+                    if (remaining > 0) {
+                        remaining--;
+                        delayTicks.put(input, remaining);
+                        if (remaining == 0) {
+                            jitteredState.put(input, true);
+                        } else {
+                            jitteredState.put(input, false);
+                        }
+                    } else {
+                        jitteredState.put(input, true);
+                    }
+                }
+                this.lastRawState.put(input, currentRaw);
+            }
         }
         if (isInputForcedDown(Input.CLICK_LEFT)) {
             setInputForceState(Input.CLICK_RIGHT, false);

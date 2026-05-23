@@ -72,7 +72,7 @@ public class MovementAscend extends Movement {
             if (additionalPlacementCost >= COST_INF) {
                 return COST_INF;
             }
-            if (!MovementHelper.isReplaceable(destX, y, destZ, toPlace, context.bsi)) {
+            if (!MovementHelper.isReplaceable(context, destX, y, destZ, toPlace)) {
                 return COST_INF;
             }
             boolean foundPlaceOption = false;
@@ -83,7 +83,7 @@ public class MovementAscend extends Movement {
                 if (againstX == x && againstZ == z) { // we might be able to backplace now, but it doesn't matter because it will have been broken by the time we'd need to use it
                     continue;
                 }
-                if (MovementHelper.canPlaceAgainst(context.bsi, againstX, againstY, againstZ)) {
+                if (MovementHelper.canPlaceAgainst(context, againstX, againstY, againstZ)) {
                     foundPlaceOption = true;
                     break;
                 }
