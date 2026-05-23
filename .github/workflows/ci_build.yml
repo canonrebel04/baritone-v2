@@ -40,10 +40,10 @@ jobs:
         fi
 
     - name: Build mod
-      run: ./gradlew build -Pmod_version=${{ steps.version.outputs.version }} --stacktrace --no-daemon
+      run: ./gradlew build -Pmod_version=${{ steps.version.outputs.VERSION }} --stacktrace --no-daemon
 
     - name: Create dist files
-      run: ./gradlew createDist -Pmod_version=${{ steps.version.outputs.version }} --stacktrace --no-daemon
+      run: ./gradlew createDist -Pmod_version=${{ steps.version.outputs.VERSION }} --stacktrace --no-daemon
 
     - name: Collect release artifacts
       run: |
