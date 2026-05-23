@@ -1,7 +1,7 @@
 name: CI Build
 
 # This workflow runs on every push and pull request
-# It dynamically builds the loaders specified in gradle.properties and runs tests
+# It builds all active loaders and uploads the final release jars
 
 on:
   push:
@@ -10,18 +10,25 @@ on:
     branches: [ "26.1", "main", "master" ]
 
 jobs:
-  setup:
-    name: Setup and Validate
+  build:
+    name: Build Baritone
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.VERSION }}
-      loaders: ${{ steps.loaders.outputs.LOADERS }}
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+
+    - name: Set up JDK 25
+      uses: actions/setup-java@v4
+      with:
+        java-version: '25'
+        distribution: 'zulu'
+        cache: 'gradle'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
 
     - name: Get version
       id: version
@@ -32,77 +39,24 @@ jobs:
           echo "VERSION=26.1-SNAPSHOT" >> $GITHUB_OUTPUT
         fi
 
-    - name: Get available loaders
-      id: loaders
-      run: |
-        loaders=$(grep "available_loaders" gradle.properties | cut -d'=' -f2)
-        json_loaders=$(echo "[\"$(echo $loaders | sed 's/,/\",\"/g')\"]")
-        echo "LOADERS=$json_loaders" >> $GITHUB_OUTPUT
-
-  build:
-    name: Build ${{ matrix.loader }}
-    needs: setup
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        loader: ${{ fromJson(needs.setup.outputs.loaders) }}
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Set up JDK 25
-      uses: actions/setup-java@v4
-      with:
-        java-version: '25'
-        distribution: 'zulu'
-        cache: 'gradle'
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
     - name: Build mod
-      run: ./gradlew :${{ matrix.loader }}:build -Pmod_version=${{ needs.setup.outputs.version }} --stacktrace --no-daemon
+      run: ./gradlew build -Pmod_version=${{ steps.version.outputs.version }} --stacktrace --no-daemon
+
+    - name: Create dist files
+      run: ./gradlew createDist -Pmod_version=${{ steps.version.outputs.version }} --stacktrace --no-daemon
+
+    - name: Collect release artifacts
+      run: |
+        mkdir release_artifacts
+        # Copy regular jars and api jars, but exclude dev, unoptimized, shadow, and common jars
+        find . -name "*.jar" -path "*/build/libs/*" ! -name "*dev*" ! -name "*unoptimized*" ! -name "*shadow*" ! -name "*common*" -exec cp {} release_artifacts/ \;
+        cp dist/*.jar release_artifacts/ 2>/dev/null || true
+        echo "=== Collected Release Artifacts ==="
+        ls -la release_artifacts
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: baritone-${{ matrix.loader }}-${{ needs.setup.outputs.version }}
-        path: ${{ matrix.loader }}/build/libs/*.jar
+        name: baritone-release-jars
+        path: release_artifacts/*.jar
         retention-days: 30
-
-  test:
-    name: Run Tests
-    needs: [setup, build]
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Set up JDK 25
-      uses: actions/setup-java@v4
-      with:
-        java-version: '25'
-        distribution: 'zulu'
-        cache: 'gradle'
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
-    - name: Run tests
-      run: ./gradlew test -Pmod_version=${{ needs.setup.outputs.version }} --stacktrace --no-daemon --continue
-
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: Test-Results
-        path: |
-          **/build/reports/
-          **/build/test-results/
-        retention-days: 14
