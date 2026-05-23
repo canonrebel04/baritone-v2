@@ -94,7 +94,7 @@ public final class NetherPathfinderContext {
             if (ptr == 0) return; // this shouldn't ever happen
             event.getBlocks().forEach(pair -> {
                 BlockPos pos = pair.first();
-                if (pos.getY() >= 128) return;
+                if (pos.getY() < 0 || pos.getY() >= 128) return;
                 boolean isSolid = pair.second() != AIR_BLOCK_STATE;
                 Octree.setBlock(ptr, pos.getX() & 15, pos.getY(), pos.getZ() & 15, isSolid);
             });
@@ -189,13 +189,14 @@ public final class NetherPathfinderContext {
 
     private static void writeChunkData(LevelChunk chunk, long ptr) {
         try {
-            LevelChunkSection[] chunkInternalStorageArray = chunk.getSections();
-            for (int y0 = 0; y0 < 8; y0++) {
-                final LevelChunkSection extendedblockstorage = chunkInternalStorageArray[y0];
-                if (extendedblockstorage == null) {
+            LevelChunkSection[] sections = chunk.getSections();
+            int minSectionY = chunk.getMinY() >> 4;
+            for (int sectionIdx = 0; sectionIdx < sections.length; sectionIdx++) {
+                final LevelChunkSection section = sections[sectionIdx];
+                if (section == null) {
                     continue;
                 }
-                final PalettedContainer<BlockState> bsc = extendedblockstorage.getStates();
+                final PalettedContainer<BlockState> bsc = section.getStates();
                 IPalettedContainer<BlockState> iPalettedContainer = (IPalettedContainer<BlockState>) bsc;
                 int airId = -1;
                 if (iPalettedContainer.getPalette().maybeHas(state -> state.equals(AIR_BLOCK_STATE))) {
@@ -209,13 +210,15 @@ public final class NetherPathfinderContext {
                 int bitsPerEntry = array.getBits();
                 long maxEntryValue = (1L << bitsPerEntry) - 1L;
 
-                final int yReal = y0 << 4;
+                final int sectionY = minSectionY + sectionIdx;
+                final int yReal = sectionY << 4;
                 for (int i = 0, idx = 0; i < longArray.length && idx < arraySize; ++i) {
                     long l = longArray[i];
                     for (int offset = 0; offset <= (64 - bitsPerEntry) && idx < arraySize; offset += bitsPerEntry, ++idx) {
                         int value = (int) ((l >> offset) & maxEntryValue);
                         int x = (idx & 15);
                         int y = yReal + (idx >> 8);
+                        if (y < 0 || y >= 128) continue;
                         int z = ((idx >> 4) & 15);
                         Octree.setBlock(ptr, x, y, z, value != airId);
                     }

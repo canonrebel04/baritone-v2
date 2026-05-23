@@ -220,7 +220,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                 return new PathingCommand(null, PathingCommandType.CANCEL_AND_SET_GOAL);
             }
             if (this.goal == null) {
-                this.goal = new GoalYLevel(31);
+                this.goal = new GoalYLevel(getJumpOffYLevel());
             }
             final IPathExecutor executor = baritone.getPathingBehavior().getCurrent();
             if (executor != null && executor.getPath().getGoal() == this.goal) {
@@ -328,7 +328,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     }
 
     private void pathTo0(BlockPos destination, boolean appendDestination) {
-        if (ctx.player() == null || ctx.player().level().dimension() != Level.NETHER) {
+        if (ctx.player() == null) {
             return;
         }
         this.onLostControl();
@@ -471,12 +471,36 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         }
     }
 
-    private static boolean isInBounds(BlockPos pos) {
-        return pos.getY() >= 0 && pos.getY() < 128;
+    private static final Set<Block> OVERWORLD_SAFE_BLOCKS = Set.of(
+        Blocks.GRASS_BLOCK, Blocks.DIRT, Blocks.STONE, Blocks.COBBLESTONE,
+        Blocks.SAND, Blocks.SANDSTONE, Blocks.GRAVEL, Blocks.SNOW_BLOCK,
+        Blocks.OAK_PLANKS, Blocks.STONE_BRICKS, Blocks.GRANITE,
+        Blocks.DIORITE, Blocks.ANDESITE, Blocks.TUFF, Blocks.DEEPSLATE
+    );
+
+    private int getJumpOffYLevel() {
+        if (ctx.world().dimension() == Level.NETHER) {
+            return 31;
+        }
+        if (ctx.world().dimension() == Level.END) {
+            return 100;
+        }
+        return Math.min(ctx.world().getMaxY() - 16, 120);
+    }
+
+    private boolean isInBounds(BlockPos pos) {
+        return pos.getY() >= ctx.world().getMinY() && pos.getY() < ctx.world().getMaxY();
     }
 
     private boolean isSafeBlock(Block block) {
-        return block == Blocks.NETHERRACK || block == Blocks.GRAVEL || (block == Blocks.NETHER_BRICKS && Baritone.settings().elytraAllowLandOnNetherFortress.value);
+        if (ctx.world().dimension() == Level.NETHER) {
+            return block == Blocks.NETHERRACK || block == Blocks.GRAVEL
+                || (block == Blocks.NETHER_BRICKS && Baritone.settings().elytraAllowLandOnNetherFortress.value);
+        }
+        if (ctx.world().dimension() == Level.END) {
+            return block == Blocks.END_STONE || block == Blocks.OBSIDIAN;
+        }
+        return OVERWORLD_SAFE_BLOCKS.contains(block);
     }
 
     private boolean isSafeBlock(BlockPos pos) {
