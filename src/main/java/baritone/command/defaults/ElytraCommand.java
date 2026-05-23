@@ -71,9 +71,7 @@ public class ElytraCommand extends Command {
             if (iGoal == null) {
                 throw new CommandInvalidStateException("No goal has been set");
             }
-            if (ctx.world().dimension() != Level.NETHER) {
-                throw new CommandInvalidStateException("Only works in the nether");
-            }
+            // Elytra pathing works in all dimensions now
             try {
                 elytra.pathTo(iGoal);
             } catch (IllegalArgumentException ex) {
@@ -202,7 +200,7 @@ public class ElytraCommand extends Command {
     @Override
     public List<String> getLongDesc() {
         return Arrays.asList(
-                "The elytra command tells baritone to, in the nether, automatically fly to the current goal.",
+                "The elytra command tells baritone to automatically fly to the current goal.",
                 "",
                 "Usage:",
                 "> elytra - fly to the current goal",
