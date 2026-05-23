@@ -1,7 +1,7 @@
 name: CI Build
 
 # This workflow runs on every push and pull request
-# It builds all three mod loaders and runs tests
+# It dynamically builds the loaders specified in gradle.properties and runs tests
 
 on:
   push:
@@ -15,19 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
+      loaders: ${{ steps.loaders.outputs.LOADERS }}
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-
-    - name: Set up JDK 25
-      uses: actions/setup-java@v4
-      with:
-        java-version: '25'
-        distribution: 'zulu'
-        cache: 'gradle'
 
     - name: Get version
       id: version
@@ -38,10 +32,20 @@ jobs:
           echo "VERSION=26.1-SNAPSHOT" >> $GITHUB_OUTPUT
         fi
 
-  build-fabric:
-    name: Build Fabric
+    - name: Get available loaders
+      id: loaders
+      run: |
+        loaders=$(grep "available_loaders" gradle.properties | cut -d'=' -f2)
+        json_loaders=$(echo "[\"$(echo $loaders | sed 's/,/\",\"/g')\"]")
+        echo "LOADERS=$json_loaders" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build ${{ matrix.loader }}
     needs: setup
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        loader: ${{ fromJson(needs.setup.outputs.loaders) }}
     
     steps:
     - name: Checkout repository
@@ -59,81 +63,19 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build Fabric mod
-      run: ./gradlew :fabric:build -Pmod_version=${{ needs.setup.outputs.version }} --stacktrace --no-daemon
+    - name: Build mod
+      run: ./gradlew :${{ matrix.loader }}:build -Pmod_version=${{ needs.setup.outputs.version }} --stacktrace --no-daemon
 
-    - name: Upload Fabric artifacts
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: baritone-fabric-${{ needs.setup.outputs.version }}
-        path: fabric/build/libs/*.jar
-        retention-days: 30
-
-  build-forge:
-    name: Build Forge
-    needs: setup
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Set up JDK 25
-      uses: actions/setup-java@v4
-      with:
-        java-version: '25'
-        distribution: 'zulu'
-        cache: 'gradle'
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
-    - name: Build Forge mod
-      run: ./gradlew :forge:build -Pmod_version=${{ needs.setup.outputs.version }} --stacktrace --no-daemon
-
-    - name: Upload Forge artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: baritone-forge-${{ needs.setup.outputs.version }}
-        path: forge/build/libs/*.jar
-        retention-days: 30
-
-  build-neoforge:
-    name: Build NeoForge
-    needs: setup
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Set up JDK 25
-      uses: actions/setup-java@v4
-      with:
-        java-version: '25'
-        distribution: 'zulu'
-        cache: 'gradle'
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
-    - name: Build NeoForge mod
-      run: ./gradlew :neoforge:build -Pmod_version=${{ needs.setup.outputs.version }} --stacktrace --no-daemon
-
-    - name: Upload NeoForge artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: baritone-neoforge-${{ needs.setup.outputs.version }}
-        path: neoforge/build/libs/*.jar
+        name: baritone-${{ matrix.loader }}-${{ needs.setup.outputs.version }}
+        path: ${{ matrix.loader }}/build/libs/*.jar
         retention-days: 30
 
   test:
     name: Run Tests
-    needs: [build-fabric, build-forge, build-neoforge]
+    needs: [setup, build]
     runs-on: ubuntu-latest
     
     steps:

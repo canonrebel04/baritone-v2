@@ -1,7 +1,7 @@
 name: Release
 
 # This workflow runs when a tag is pushed (e.g., v26.1)
-# It builds all mod loaders and creates a GitHub release with the JARs
+# It dynamically builds loaders specified in gradle.properties and creates a GitHub release with the JARs
 
 on:
   push:
@@ -36,25 +36,24 @@ jobs:
       id: version
       run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
-    - name: Build all mod loaders
+    - name: Build mod loaders
       run: ./gradlew build -Pmod_version=${{ steps.version.outputs.VERSION }} --stacktrace --no-daemon
 
     - name: Create dist files
       run: ./gradlew createDist -Pmod_version=${{ steps.version.outputs.VERSION }} --stacktrace --no-daemon
 
-    - name: List built files
+    - name: Collect release artifacts
+      id: collect
       run: |
-        echo "=== Fabric mod JAR ==="
-        ls -la fabric/build/libs/baritone-fabric-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
-        echo "=== Forge mod JAR ==="
-        ls -la forge/build/libs/baritone-forge-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
-        echo "=== NeoForge mod JAR ==="
-        ls -la neoforge/build/libs/baritone-neoforge-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
-        echo "=== API JARs ==="
-        ls -la dist/baritone-api-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
-        ls -la fabric/build/libs/baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
-        ls -la forge/build/libs/baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
-        ls -la neoforge/build/libs/baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar 2>/dev/null || echo "Not found"
+        mkdir release_artifacts
+        # Copy regular jars and api jars, but exclude dev, unoptimized, shadow, and common jars
+        find . -name "*.jar" -path "*/build/libs/*" ! -name "*dev*" ! -name "*unoptimized*" ! -name "*shadow*" ! -name "*common*" -exec cp {} release_artifacts/ \;
+        cp dist/*.jar release_artifacts/ 2>/dev/null || true
+        echo "=== Collected Release Artifacts ==="
+        ls -la release_artifacts
+        # Count the number of files
+        count=$(ls -1 release_artifacts/*.jar 2>/dev/null | wc -l)
+        echo "artifacts_count=$count" >> $GITHUB_OUTPUT
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
@@ -64,48 +63,23 @@ jobs:
         body: |
           ## Baritone v${{ steps.version.outputs.VERSION }} Release
 
-          ### 📦 Downloads
-
-          | Mod Loader | File |
-          |------------|------|
-          | **Fabric** | [baritone-fabric-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-fabric-${{ steps.version.outputs.VERSION }}.jar) |
-          | **Forge** | [baritone-forge-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-forge-${{ steps.version.outputs.VERSION }}.jar) |
-          | **NeoForge** | [baritone-neoforge-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-neoforge-${{ steps.version.outputs.VERSION }}.jar) |
-
-          **API (for developers):**
-
-          | Loader | File |
-          |--------|------|
-          | Fabric | [baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-fabric-${{ steps.version.outputs.VERSION }}.jar) |
-          | Forge | [baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-forge-${{ steps.version.outputs.VERSION }}.jar) |
-          | NeoForge | [baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-neoforge-${{ steps.version.outputs.VERSION }}.jar) |
-          | Universal | [baritone-api-${{ steps.version.outputs.VERSION }}.jar](https://github.com/canonrebel04/baritone-v2/releases/download/${{ github.ref_name }}/baritone-api-${{ steps.version.outputs.VERSION }}.jar) |
-
+          📦 All built artifacts are attached as release assets.
+          
           ### 📝 Changelog
           See [CHANGELOG.md](https://github.com/canonrebel04/baritone-v2/blob/${{ github.ref_name }}/CHANGELOG.md) for details.
 
           ### ⚡ Features
           - Full pathfinding system for Minecraft
-          - Support for Fabric, Forge, and NeoForge mod loaders
+          - Dynamic loader support based on configuration
           - Extensive command system for chat control
           - Elytra flying, mining, building, and more
 
           ### 🔧 Installation
-          1. Download the JAR for your mod loader
+          1. Download the JAR for your mod loader (e.g. Fabric, Forge, etc.)
           2. Place in the `mods` folder
           3. Launch Minecraft
-
-          ### 💬 Support
-          Join the [Baritone Discord Server](http://discord.gg/s6fRBAUpmr) for help.
-        draft: "false"
-        prerelease: "false"
-        files: |
-          fabric/build/libs/baritone-fabric-26.1.jar
-          forge/build/libs/baritone-forge-26.1.jar
-          neoforge/build/libs/baritone-neoforge-26.1.jar
-          fabric/build/libs/baritone-api-fabric-26.1.jar
-          forge/build/libs/baritone-api-forge-26.1.jar
-          neoforge/build/libs/baritone-api-neoforge-26.1.jar
-          dist/baritone-api-26.1.jar
+        draft: false
+        prerelease: false
+        files: release_artifacts/*.jar
         fail_on_unmatched_files: true
         make_latest: true
