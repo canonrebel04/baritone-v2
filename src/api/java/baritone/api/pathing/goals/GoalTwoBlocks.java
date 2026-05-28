@@ -90,7 +90,8 @@ public class GoalTwoBlocks implements Goal, IGoalRenderPos {
 
     @Override
     public int hashCode() {
-        return (int) BetterBlockPos.longHash(x, y, z) * 516508351;
+        // ⚡ Bolt: Using Long.hashCode instead of (int) cast to prevent severe hash collisions caused by truncating the upper 32 bits (X coordinate)
+        return Long.hashCode(BetterBlockPos.longHash(x, y, z)) * 516508351;
     }
 
     @Override
