@@ -180,8 +180,8 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             return false;
         }
         IStaticSchematic parsed;
-        try {
-            parsed = format.get().parse(new FileInputStream(schematic));
+        try (FileInputStream fis = new FileInputStream(schematic)) {
+            parsed = format.get().parse(fis);
         } catch (Exception e) {
             e.printStackTrace();
             return false;
@@ -925,7 +925,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         public int hashCode() {
             int hash = 806368046;
             hash = hash * 1412661222 + super.hashCode();
-            hash = hash * 1730799370 + (int) BetterBlockPos.longHash(no.getX(), no.getY(), no.getZ());
+            hash = hash * 1730799370 + Long.hashCode(BetterBlockPos.longHash(no.getX(), no.getY(), no.getZ()));
             hash = hash * 260592149 + (allowSameLevel ? -1314802005 : 1565710265);
             return hash;
         }
