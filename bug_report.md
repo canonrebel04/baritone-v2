@@ -1,0 +1,13 @@
+- **File & Line:** `src/main/java/baritone/pathing/calc/PathNode.java:96` (and `src/api/java/baritone/api/pathing/goals/Goal*.java`)
+- **Severity:** Critical
+- **Bug Type:** Logic Errors
+- **Description:** Casting a 64-bit packed block coordinate (from `BetterBlockPos.longHash()`) to an `int` for use in `hashCode()` silently truncates the upper 32 bits. Because `BetterBlockPos.serializeToLong` places the X coordinate and upper bits of the Y coordinate in the top 32 bits of the `long`, casting to `int` completely discards the X and part of the Y coordinates. This leads to massive hash collisions where blocks at different X/Y coordinates produce the exact same hash code. While `Long2ObjectOpenHashMap` uses `BetterBlockPos.longHash` directly (which operates perfectly with bijections), anywhere standard Java hash structures or `hashCode()` are used for these objects (like `Set<Goal>` or `Set<PathNode>`) will suffer devastating performance degradation and potentially incorrect logic.
+- **Reproduction:** Call `new PathNode(100, 64, 50, goal).hashCode()` and `new PathNode(-200, 64, 50, goal).hashCode()`. They will evaluate to the same value because the X coordinate is located in the truncated top 32 bits.
+- **Fix:** Replace `(int) BetterBlockPos.longHash(x, y, z)` with `Long.hashCode(BetterBlockPos.longHash(x, y, z))` in all affected files:
+  - `src/main/java/baritone/pathing/calc/PathNode.java:96`
+  - `src/api/java/baritone/api/pathing/goals/GoalGetToBlock.java:81`
+  - `src/api/java/baritone/api/pathing/goals/GoalTwoBlocks.java:93`
+  - `src/api/java/baritone/api/pathing/goals/GoalStrictDirection.java:92`
+  - `src/api/java/baritone/api/pathing/goals/GoalNear.java:108`
+  - `src/api/java/baritone/api/pathing/goals/GoalBlock.java:87`
+  - `src/main/java/baritone/process/BuilderProcess.java:928`
