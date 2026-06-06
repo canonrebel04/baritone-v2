@@ -1,0 +1,15 @@
+1. Bug Type: Logic Errors (Hash Collisions)
+File: src/api/java/baritone/api/pathing/goals/GoalGetToBlock.java:81
+File: src/api/java/baritone/api/pathing/goals/GoalTwoBlocks.java:93
+File: src/api/java/baritone/api/pathing/goals/GoalStrictDirection.java:92
+File: src/api/java/baritone/api/pathing/goals/GoalNear.java:108
+File: src/api/java/baritone/api/pathing/goals/GoalBlock.java:87
+File: src/main/java/baritone/process/BuilderProcess.java:928
+File: src/main/java/baritone/pathing/calc/PathNode.java:96
+Severity: High
+Description: In several hashCode() implementations, `BetterBlockPos.longHash(x, y, z)` (which returns a packed 64-bit coordinate representation) is cast directly to `(int)`. This truncates the upper 32 bits, which contains the X coordinate, meaning coordinates differing only in their X coordinate will produce identical hash values before any further multiplication. This causes severe hash collisions when storing these objects in HashMaps.
+Reproduction: Create two `GoalBlock` objects with coordinates (100, 50, 50) and (200, 50, 50). Calling `hashCode()` will yield the exact same result because the `(int)` cast removes the X-coordinate bits.
+Fix: Use `Long.hashCode(BetterBlockPos.longHash(x, y, z))` instead of `(int) BetterBlockPos.longHash(x, y, z)`.
+
+2. Bug Type: Logic Errors (Incorrect operator order)
+File: src/main/java/baritone/pathing/movement/movements/MovementFall.java (If applicable, checking...)
