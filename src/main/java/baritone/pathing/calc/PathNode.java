@@ -93,7 +93,8 @@ public final class PathNode {
      */
     @Override
     public int hashCode() {
-        return (int) BetterBlockPos.longHash(x, y, z);
+        // Bolt: mix the upper and lower 32 bits to prevent massive hash collisions
+        return Long.hashCode(BetterBlockPos.longHash(x, y, z));
     }
 
     @Override
