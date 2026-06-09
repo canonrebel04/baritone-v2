@@ -925,7 +925,8 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         public int hashCode() {
             int hash = 806368046;
             hash = hash * 1412661222 + super.hashCode();
-            hash = hash * 1730799370 + (int) BetterBlockPos.longHash(no.getX(), no.getY(), no.getZ());
+            // Use Long.hashCode to ensure all 64 bits (including the X coordinate) are correctly folded into the 32-bit hash.
+            hash = hash * 1730799370 + Long.hashCode(BetterBlockPos.longHash(no.getX(), no.getY(), no.getZ()));
             hash = hash * 260592149 + (allowSameLevel ? -1314802005 : 1565710265);
             return hash;
         }

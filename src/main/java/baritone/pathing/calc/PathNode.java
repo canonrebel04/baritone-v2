@@ -93,7 +93,8 @@ public final class PathNode {
      */
     @Override
     public int hashCode() {
-        return (int) BetterBlockPos.longHash(x, y, z);
+        // Use Long.hashCode to ensure all 64 bits (including the X coordinate) are correctly folded into the 32-bit hash.
+        return Long.hashCode(BetterBlockPos.longHash(x, y, z));
     }
 
     @Override

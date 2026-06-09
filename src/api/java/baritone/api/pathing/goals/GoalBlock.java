@@ -84,7 +84,8 @@ public class GoalBlock implements Goal, IGoalRenderPos {
 
     @Override
     public int hashCode() {
-        return (int) BetterBlockPos.longHash(x, y, z) * 905165533;
+        // Use Long.hashCode to ensure all 64 bits (including the X coordinate) are correctly folded into the 32-bit hash.
+        return Long.hashCode(BetterBlockPos.longHash(x, y, z)) * 905165533;
     }
 
     @Override
