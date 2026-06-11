@@ -93,7 +93,10 @@ public final class PathNode {
      */
     @Override
     public int hashCode() {
-        return (int) BetterBlockPos.longHash(x, y, z);
+        // ⚡ Bolt optimization: Use Long.hashCode instead of casting to (int)
+        // to prevent truncating the upper 32 bits (which include the X coordinate).
+        // This ensures proper hash distribution and avoids massive hash collisions.
+        return Long.hashCode(BetterBlockPos.longHash(x, y, z));
     }
 
     @Override

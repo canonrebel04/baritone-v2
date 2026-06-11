@@ -78,7 +78,8 @@ public class GoalGetToBlock implements Goal, IGoalRenderPos {
 
     @Override
     public int hashCode() {
-        return (int) BetterBlockPos.longHash(x, y, z) * -49639096;
+        // ⚡ Bolt optimization: Use Long.hashCode to avoid truncating upper bits
+        return Long.hashCode(BetterBlockPos.longHash(x, y, z)) * -49639096;
     }
 
     @Override
