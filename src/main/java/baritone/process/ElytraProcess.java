@@ -73,7 +73,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
 
     @Override
     public void onLostControl() {
-        this.state = State.START_FLYING; // TODO: null state?
+        this.state = State.NONE;
         this.goingToLandingSpot = false;
         this.landingSpot = null;
         this.reachedGoal = false;
@@ -258,8 +258,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
 
         if (this.state == State.GET_TO_JUMP) {
             final IPathExecutor executor = baritone.getPathingBehavior().getCurrent();
-            // TODO 1.21.5: replace `ctx.player().getDeltaMovement().y < -0.377` with `ctx.player().fallDistance > 1.0f`
-            final boolean canStartFlying = ctx.player().getDeltaMovement().y < -0.377
+            final boolean canStartFlying = ctx.player().fallDistance > 1.0f
                     && !isSafeToCancel
                     && executor != null
                     && executor.getPath().movements().get(executor.getPosition()) instanceof MovementFall;
@@ -277,8 +276,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                 baritone.getPathingBehavior().secretInternalSegmentCancel();
             }
             baritone.getInputOverrideHandler().clearAllKeys();
-            // TODO 1.21.5: replace `ctx.player().getDeltaMovement().y < -0.377` with `ctx.player().fallDistance > 1.0f`
-            if (ctx.player().getDeltaMovement().y < -0.377) {
+            if (ctx.player().fallDistance > 1.0f) {
                 baritone.getInputOverrideHandler().setInputForceState(Input.JUMP, true);
             }
         }
@@ -395,6 +393,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     }
 
     public enum State {
+        NONE("None"),
         LOCATE_JUMP("Finding spot to jump off"),
         PAUSE("Waiting for elytra path"),
         GET_TO_JUMP("Walking to takeoff"),

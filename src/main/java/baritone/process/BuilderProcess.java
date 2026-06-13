@@ -113,12 +113,12 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         if (Baritone.settings().buildSchematicRotation.value != net.minecraft.world.level.block.Rotation.NONE) {
             this.schematic = new RotatedSchematic(this.schematic, Baritone.settings().buildSchematicRotation.value);
         }
-        // TODO this preserves the old behavior, but maybe we should bake the setting value right here
+        List<Block> skipBlocks = Baritone.settings().buildSkipBlocks.value;
         this.schematic = new MaskSchematic(this.schematic) {
             @Override
             public boolean partOfMask(int x, int y, int z, BlockState current) {
                 // partOfMask is only called inside the schematic so desiredState is not null
-                return !Baritone.settings().buildSkipBlocks.value.contains(this.desiredState(x, y, z, current, Collections.emptyList()).getBlock());
+                return !skipBlocks.contains(this.desiredState(x, y, z, current, Collections.emptyList()).getBlock());
             }
         };
         int x = origin.getX();
@@ -180,8 +180,8 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             return false;
         }
         IStaticSchematic parsed;
-        try {
-            parsed = format.get().parse(new FileInputStream(schematic));
+        try (FileInputStream in = new FileInputStream(schematic)) {
+            parsed = format.get().parse(in);
         } catch (Exception e) {
             e.printStackTrace();
             return false;
@@ -847,9 +847,6 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
     }
 
     private Goal placementGoal(BlockPos pos, BuilderCalculationContext bcc) {
-        if (!(ctx.world().getBlockState(pos).getBlock() instanceof AirBlock)) {  // TODO can this even happen?
-            return new GoalPlace(pos);
-        }
         boolean allowSameLevel = !(ctx.world().getBlockState(pos.above()).getBlock() instanceof AirBlock);
         BlockState current = ctx.world().getBlockState(pos);
         for (Direction facing : Movement.HORIZONTALS_BUT_ALSO_DOWN_____SO_EVERY_DIRECTION_EXCEPT_UP) {
@@ -925,7 +922,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         public int hashCode() {
             int hash = 806368046;
             hash = hash * 1412661222 + super.hashCode();
-            hash = hash * 1730799370 + (int) BetterBlockPos.longHash(no.getX(), no.getY(), no.getZ());
+            hash = hash * 1730799370 + Long.hashCode(BetterBlockPos.longHash(no.getX(), no.getY(), no.getZ()));
             hash = hash * 260592149 + (allowSameLevel ? -1314802005 : 1565710265);
             return hash;
         }
@@ -1039,10 +1036,11 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         }
         Map<Property<?>, Comparable<?>> map1 = first.getValues().collect(Collectors.toMap(Property.Value::property, v -> (Comparable<?>) v.value()));
         Map<Property<?>, Comparable<?>> map2 = second.getValues().collect(Collectors.toMap(Property.Value::property, v -> (Comparable<?>) v.value()));
+        Set<String> ignoredPropsSet = new HashSet<>(ignoredProps);
         for (Property<?> prop : map1.keySet()) {
             if (map1.get(prop) != map2.get(prop)
                     && !(ignoreDirection && ORIENTATION_PROPS.contains(prop))
-                    && !ignoredProps.contains(prop.getName())) {
+                    && !ignoredPropsSet.contains(prop.getName())) {
                 return false;
             }
         }
