@@ -93,7 +93,8 @@ public final class PathNode {
      */
     @Override
     public int hashCode() {
-        return (int) BetterBlockPos.longHash(x, y, z);
+        // Mixes high and low bits to avoid severe hash collisions from dropped X coordinates
+        return Long.hashCode(BetterBlockPos.longHash(x, y, z));
     }
 
     @Override

@@ -7,3 +7,6 @@
 ## 2025-05-21 - BetterBlockPos.longHash could be BlockPos.asLong()
 **Learning:** `BetterBlockPos.longHash` currently uses a custom prime multiplier approach, but the comment says `// TODO use the same thing as BlockPos.fromLong(); invertibility would be incredibly useful`. We already have `serializeToLong` directly in `BetterBlockPos`. If `longHash` uses `serializeToLong`, we guarantee 0 collisions (it's a bijection) which makes the HashMap `O(1)` perfect hashing. This is exactly the kind of optimization that matters for A* search algorithms which perform millions of map lookups.
 **Action:** Replace the `longHash` body with a call to `serializeToLong(x, y, z)`.
+## 2025-05-21 - Hash Collision Fix for Block Positions
+**Learning:** Casting a packed 64-bit coordinate `long` directly to an `int` to generate a hash code truncates the upper 32 bits, which often includes the X coordinate. This causes severe hash collisions in `HashMap` and `HashSet` where items with the same Y and Z but different X coordinates hash to the same bucket.
+**Action:** Always use `Long.hashCode()` when deriving an integer hash from a 64-bit coordinate representation, as it XORs the high and low bits to ensure all coordinate axes influence the final hash.

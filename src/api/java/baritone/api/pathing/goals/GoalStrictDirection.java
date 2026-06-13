@@ -89,7 +89,8 @@ public class GoalStrictDirection implements Goal {
 
     @Override
     public int hashCode() {
-        int hash = (int) BetterBlockPos.longHash(x, y, z);
+        // Mixes high and low bits to avoid severe hash collisions from dropped X coordinates
+        int hash = Long.hashCode(BetterBlockPos.longHash(x, y, z));
         hash = hash * 630627507 + dx;
         hash = hash * -283028380 + dz;
         return hash;
