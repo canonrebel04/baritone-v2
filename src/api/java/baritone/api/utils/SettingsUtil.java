@@ -54,6 +54,20 @@ public class SettingsUtil {
     public static final String SETTINGS_DEFAULT_NAME = "settings.txt";
     private static final Pattern SETTING_PATTERN = Pattern.compile("^(?<setting>[^ ]+) +(?<value>.+)"); // key and value split by the first space
 
+    public static boolean isMeteorClientLoaded() {
+        try {
+            Class.forName("meteordevelopment.meteorclient.MeteorClient");
+            return true;
+        } catch (ClassNotFoundException e1) {
+            try {
+                Class.forName("minegame159.meteorclient.MeteorClient");
+                return true;
+            } catch (ClassNotFoundException e2) {
+                return false;
+            }
+        }
+    }
+
 
     private static boolean isComment(String line) {
         return line.startsWith("#") || line.startsWith("//");

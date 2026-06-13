@@ -200,6 +200,10 @@ public class SetCommand extends Command {
                 logDirect("Warning: Chat commands will no longer work. If you want to revert this change, use prefix control (if enabled) or click the old value listed above.", ChatFormatting.RED);
             } else if (setting.getName().equals("prefixControl") && !(Boolean) setting.value) {
                 logDirect("Warning: Prefixed commands will no longer work. If you want to revert this change, use chat control (if enabled) or click the old value listed above.", ChatFormatting.RED);
+            } else if (setting.getName().equals("combatMode") && (Boolean) setting.value) {
+                if (!SettingsUtil.isMeteorClientLoaded()) {
+                    logDirect("Warning: combatMode is enabled but Meteor Client was not detected! Combat features will not function.", ChatFormatting.RED);
+                }
             }
         }
         SettingsUtil.save(Baritone.settings());

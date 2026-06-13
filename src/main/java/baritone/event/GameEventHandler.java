@@ -24,9 +24,11 @@ import baritone.api.event.listener.IEventBus;
 import baritone.api.event.listener.IGameEventListener;
 import baritone.api.utils.Helper;
 import baritone.api.utils.Pair;
+import baritone.api.utils.SettingsUtil;
 import baritone.cache.CachedChunk;
 import baritone.cache.WorldProvider;
 import baritone.utils.BlockStateInterface;
+import net.minecraft.ChatFormatting;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -141,6 +143,9 @@ public final class GameEventHandler implements IEventBus, Helper {
             cache.closeWorld();
             if (event.getWorld() != null) {
                 cache.initWorld(event.getWorld());
+                if (Baritone.settings().combatMode.value && !SettingsUtil.isMeteorClientLoaded()) {
+                    logDirect("Warning: combatMode is enabled but Meteor Client was not detected! Combat features will not function.", ChatFormatting.RED);
+                }
             }
         }
 
