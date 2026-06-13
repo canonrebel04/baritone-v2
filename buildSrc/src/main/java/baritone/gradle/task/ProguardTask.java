@@ -18,7 +18,7 @@
 package baritone.gradle.task;
 
 import baritone.gradle.util.Determinizer;
-import org.gradle.api.plugins.JavaPluginConvention;
+import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.TaskAction;
@@ -174,7 +174,7 @@ public class ProguardTask extends BaritoneGradleTask {
     }
 
     private Stream<File> acquireDependencies() {
-        var sourceSet = getProject().getExtensions().getByType(JavaPluginConvention.class).getSourceSets().findByName("main");
+        var sourceSet = getProject().getExtensions().getByType(JavaPluginExtension.class).getSourceSets().findByName("main");
         if (sourceSet == null) {
             throw new IllegalStateException("Source set 'main' not found");
         }
