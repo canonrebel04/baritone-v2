@@ -79,7 +79,7 @@ public class NotificationHelper {
     // library is licenced under the GPL, see (https://en.wikipedia.org/wiki/Java-gnome)
     private static void linux(String text) {
         ProcessBuilder processBuilder = new ProcessBuilder();
-        processBuilder.command("notify-send", "-a", "Baritone", text);
+        processBuilder.command("notify-send", "-a", "Baritone", "--", text);
         try {
             processBuilder.start();
         } catch (IOException e) {
