@@ -105,7 +105,7 @@ public class GoalNear implements Goal, IGoalRenderPos {
 
     @Override
     public int hashCode() {
-        return (int) BetterBlockPos.longHash(x, y, z) + rangeSq;
+        return Long.hashCode(BetterBlockPos.longHash(x, y, z)) + rangeSq;
     }
 
     @Override
