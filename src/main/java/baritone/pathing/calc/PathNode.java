@@ -87,19 +87,26 @@ public final class PathNode {
     }
 
     /**
-     * TODO: Possibly reimplement hashCode and equals. They are necessary for this class to function but they could be done better
-     *
      * @return The hash code value for this {@link PathNode}
      */
     @Override
     public int hashCode() {
-        return (int) BetterBlockPos.longHash(x, y, z);
+        int result = 1;
+        result = 31 * result + x;
+        result = 31 * result + y;
+        result = 31 * result + z;
+        return result;
     }
 
     @Override
     public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
         final PathNode other = (PathNode) obj;
-
         return x == other.x && y == other.y && z == other.z;
     }
 }
