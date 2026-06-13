@@ -47,7 +47,19 @@ public enum RelativeFile implements IDatatypePost<File, File> {
         } catch (InvalidPathException e) {
             throw new IllegalArgumentException("invalid path");
         }
-        return getCanonicalFileUnchecked(original.toPath().resolve(path).toFile());
+
+        if (path.isAbsolute()) {
+            throw new IllegalArgumentException("absolute paths are not allowed");
+        }
+
+        File base = getCanonicalFileUnchecked(original);
+        File resolved = getCanonicalFileUnchecked(base.toPath().resolve(path).toFile());
+
+        if (!resolved.toPath().startsWith(base.toPath())) {
+            throw new IllegalArgumentException("path traverses outside base directory");
+        }
+
+        return resolved;
     }
 
     @Override
@@ -79,16 +91,27 @@ public enum RelativeFile implements IDatatypePost<File, File> {
         File base = getCanonicalFileUnchecked(base0);
         String currentPathStringThing = consumer.getString();
         Path currentPath = FileSystems.getDefault().getPath(currentPathStringThing);
-        Path basePath = currentPath.isAbsolute() ? currentPath.getRoot() : base.toPath();
+
+        if (currentPath.isAbsolute()) {
+            return Stream.empty();
+        }
+
+        Path basePath = base.toPath();
         boolean useParent = !currentPathStringThing.isEmpty() && !currentPathStringThing.endsWith(File.separator);
-        File currentFile = currentPath.isAbsolute() ? currentPath.toFile() : new File(base, currentPathStringThing);
-        return Stream.of(Objects.requireNonNull(getCanonicalFileUnchecked(
-                        useParent
-                                ? currentFile.getParentFile()
-                                : currentFile
-                ).listFiles()))
-                .map(f -> (currentPath.isAbsolute() ? f : basePath.relativize(f.toPath()).toString()) +
-                        (f.isDirectory() ? File.separator : ""))
+        File currentFile = new File(base, currentPathStringThing);
+        File searchDir = getCanonicalFileUnchecked(useParent ? currentFile.getParentFile() : currentFile);
+
+        if (!searchDir.toPath().startsWith(basePath)) {
+            return Stream.empty();
+        }
+
+        File[] files = searchDir.listFiles();
+        if (files == null) {
+            return Stream.empty();
+        }
+
+        return Stream.of(files)
+                .map(f -> basePath.relativize(f.toPath()).toString() + (f.isDirectory() ? File.separator : ""))
                 .filter(s -> s.toLowerCase(Locale.US).startsWith(currentPathStringThing.toLowerCase(Locale.US)))
                 .filter(s -> !s.contains(" "));
     }
