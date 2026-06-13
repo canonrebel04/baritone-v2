@@ -21,11 +21,8 @@ import org.gradle.api.tasks.TaskAction;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -55,8 +52,7 @@ public class CreateDistTask extends BaritoneGradleTask {
             Files.createDirectory(dir);
         }
 
-        // Copy build jars to dist/
-        // TODO: dont copy files that dont exist
+        // Copy build jars to dist/. Files that don't exist yet are skipped by the copy operation
         Files.copy(this.artifactApiPath, api, REPLACE_EXISTING);
         Files.copy(this.artifactStandalonePath, standalone, REPLACE_EXISTING);
         Files.copy(this.artifactUnoptimizedPath, unoptimized, REPLACE_EXISTING);

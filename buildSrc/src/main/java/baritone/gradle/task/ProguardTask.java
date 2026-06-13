@@ -22,10 +22,6 @@ import org.gradle.api.plugins.JavaPluginConvention;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.TaskAction;
-import org.gradle.api.tasks.TaskCollection;
-import org.gradle.api.tasks.compile.ForkOptions;
-import org.gradle.api.tasks.compile.JavaCompile;
-import org.gradle.internal.jvm.Jvm;
 import org.gradle.jvm.toolchain.JavaLanguageVersion;
 import org.gradle.jvm.toolchain.JavaLauncher;
 import org.gradle.jvm.toolchain.JavaToolchainService;
@@ -47,6 +43,7 @@ import java.util.zip.ZipFile;
  * @author Brady
  * @since 10/11/2018
  */
+@SuppressWarnings("deprecation")
 public class ProguardTask extends BaritoneGradleTask {
 
     @Input
@@ -55,8 +52,6 @@ public class ProguardTask extends BaritoneGradleTask {
     public String getProguardVersion() {
         return proguardVersion;
     }
-
-    private List<String> requiredLibraries;
 
     @TaskAction
     protected void exec() throws Exception {
@@ -113,8 +108,12 @@ public class ProguardTask extends BaritoneGradleTask {
 
     private JavaLauncher getJavaLauncherForProguard() {
         var toolchains = getProject().getExtensions().getByType(JavaToolchainService.class);
+        Object rawVersion = getProject().findProperty("java_version");
+        if (rawVersion == null) {
+            throw new IllegalStateException("java_version property not found");
+        }
         var toolchain = toolchains.launcherFor((spec) -> {
-            spec.getLanguageVersion().set(JavaLanguageVersion.of(getProject().findProperty("java_version").toString()));
+            spec.getLanguageVersion().set(JavaLanguageVersion.of(rawVersion.toString()));
         }).getOrNull();
 
         if (toolchain == null) {
@@ -175,7 +174,11 @@ public class ProguardTask extends BaritoneGradleTask {
     }
 
     private Stream<File> acquireDependencies() {
-        return getProject().getConvention().getPlugin(JavaPluginConvention.class).getSourceSets().findByName("main").getCompileClasspath().getFiles()
+        var sourceSet = getProject().getExtensions().getByType(JavaPluginConvention.class).getSourceSets().findByName("main");
+        if (sourceSet == null) {
+            throw new IllegalStateException("Source set 'main' not found");
+        }
+        return sourceSet.getCompileClasspath().getFiles()
                 .stream()
                 .filter(File::isFile);
     }
@@ -188,25 +191,6 @@ public class ProguardTask extends BaritoneGradleTask {
     private void proguardStandalone() throws Exception {
         runProguard(getTemporaryFile(compType + PROGUARD_STANDALONE_CONFIG));
         Determinizer.determinize(this.proguardOut.toString(), this.artifactStandalonePath.toString(), List.of(), false);
-    }
-
-    private static final class Pair<A, B> {
-        public final A a;
-        public final B b;
-
-        private Pair(final A a, final B b) {
-            this.a = a;
-            this.b = b;
-        }
-
-        @Override
-        public String toString() {
-            return "Pair{" +
-                    "a=" + this.a +
-                    ", " +
-                    "b=" + this.b +
-                    '}';
-        }
     }
 
     private void cleanup() {

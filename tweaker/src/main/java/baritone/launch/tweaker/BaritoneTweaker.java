@@ -39,11 +39,11 @@ public class BaritoneTweaker extends SimpleTweaker {
 
         MixinBootstrap.init();
 
-        // noinspection unchecked
+        @SuppressWarnings("unchecked")
         List<String> tweakClasses = (List<String>) Launch.blackboard.get("TweakClasses");
 
         String obfuscation = ObfuscationServiceMCP.NOTCH;
-        if (tweakClasses.stream().anyMatch(s -> s.contains("net.minecraftforge.fml.common.launcher"))) {
+        if (tweakClasses != null && tweakClasses.stream().anyMatch(s -> s.contains("net.minecraftforge.fml.common.launcher"))) {
             obfuscation = ObfuscationServiceMCP.SEARGE;
         }
 
