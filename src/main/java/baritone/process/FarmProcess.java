@@ -58,7 +58,9 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 import java.util.function.Predicate;
 
@@ -81,7 +83,7 @@ public final class FarmProcess extends BaritoneProcessHelper implements IFarmPro
             Items.CARROT
     );
 
-    private static final List<Item> PICKUP_DROPPED = Arrays.asList(
+    private static final Set<Item> PICKUP_DROPPED = new HashSet<>(Arrays.asList(
             Items.BEETROOT_SEEDS,
             Items.BEETROOT,
             Items.MELON_SEEDS,
@@ -98,7 +100,7 @@ public final class FarmProcess extends BaritoneProcessHelper implements IFarmPro
             Blocks.SUGAR_CANE.asItem(),
             Blocks.BAMBOO.asItem(),
             Blocks.CACTUS.asItem()
-    );
+    ));
 
     public FarmProcess(Baritone baritone) {
         super(baritone);
