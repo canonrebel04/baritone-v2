@@ -283,23 +283,35 @@ public final class FarmProcess extends BaritoneProcessHelper implements IFarmPro
                 return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
             }
         }
-        for (int i = 0; i < 2; i++) {
-            boolean soulsand = i == 1;
-            List<BlockPos> list = soulsand ? openSoulsand : openFarmland;
-            for (BlockPos pos : list) {
-                if (playerPos.distSqr(pos) > blockReachDistance * blockReachDistance) {
-                    continue;
-                }
-                Optional<Rotation> rot = RotationUtils.reachableOffset(ctx, pos, new Vec3(pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5), blockReachDistance, false);
-                if (rot.isPresent() && isSafeToCancel && baritone.getInventoryBehavior().throwaway(true, soulsand ? this::isNetherWart : this::isPlantable)) {
-                    HitResult result = RayTraceUtils.rayTraceTowards(ctx.player(), rot.get(), blockReachDistance);
-                    if (result instanceof BlockHitResult && ((BlockHitResult) result).getDirection() == Direction.UP) {
-                        baritone.getLookBehavior().updateTarget(rot.get(), true);
-                        if (ctx.isLookingAt(pos)) {
-                            baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_RIGHT, true);
-                        }
-                        return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+        for (BlockPos pos : openFarmland) {
+            if (playerPos.distSqr(pos) > blockReachDistance * blockReachDistance) {
+                continue;
+            }
+            Optional<Rotation> rot = RotationUtils.reachableOffset(ctx, pos, new Vec3(pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5), blockReachDistance, false);
+            if (rot.isPresent() && isSafeToCancel && baritone.getInventoryBehavior().throwaway(true, this::isPlantable)) {
+                HitResult result = RayTraceUtils.rayTraceTowards(ctx.player(), rot.get(), blockReachDistance);
+                if (result instanceof BlockHitResult && ((BlockHitResult) result).getDirection() == Direction.UP) {
+                    baritone.getLookBehavior().updateTarget(rot.get(), true);
+                    if (ctx.isLookingAt(pos)) {
+                        baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_RIGHT, true);
                     }
+                    return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+                }
+            }
+        }
+        for (BlockPos pos : openSoulsand) {
+            if (playerPos.distSqr(pos) > blockReachDistance * blockReachDistance) {
+                continue;
+            }
+            Optional<Rotation> rot = RotationUtils.reachableOffset(ctx, pos, new Vec3(pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5), blockReachDistance, false);
+            if (rot.isPresent() && isSafeToCancel && baritone.getInventoryBehavior().throwaway(true, this::isNetherWart)) {
+                HitResult result = RayTraceUtils.rayTraceTowards(ctx.player(), rot.get(), blockReachDistance);
+                if (result instanceof BlockHitResult && ((BlockHitResult) result).getDirection() == Direction.UP) {
+                    baritone.getLookBehavior().updateTarget(rot.get(), true);
+                    if (ctx.isLookingAt(pos)) {
+                        baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_RIGHT, true);
+                    }
+                    return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
                 }
             }
         }
