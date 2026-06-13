@@ -94,10 +94,11 @@ public class GoalRunAway implements Goal {
             minX = Math.min(minX, p.getX() - distance);
             minY = Math.min(minY, p.getY() - distance);
             minZ = Math.min(minZ, p.getZ() - distance);
-            maxX = Math.max(minX, p.getX() + distance);
-            maxY = Math.max(minY, p.getY() + distance);
-            maxZ = Math.max(minZ, p.getZ() + distance);
+            maxX = Math.max(maxX, p.getX() + distance);
+            maxY = Math.max(maxY, p.getY() + distance);
+            maxZ = Math.max(maxZ, p.getZ() + distance);
         }
+
         double minOutside = Double.POSITIVE_INFINITY;
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
@@ -109,6 +110,7 @@ public class GoalRunAway implements Goal {
                 }
             }
         }
+
         double maxInside = Double.NEGATIVE_INFINITY;
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
@@ -122,6 +124,7 @@ public class GoalRunAway implements Goal {
                 }
             }
         }
+
         return maxInside;
     }
 
