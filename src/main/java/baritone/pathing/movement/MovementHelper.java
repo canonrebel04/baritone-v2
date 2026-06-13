@@ -723,7 +723,7 @@ public interface MovementHelper extends ActionCosts, Helper {
     static void moveTowards(IPlayerContext ctx, MovementState state, BlockPos pos) {
         state.setTarget(new MovementTarget(
                 RotationUtils.calcRotationFromVec3d(ctx.playerHead(),
-                        VecUtils.getBlockPosCenter(pos),
+                        VecUtils.calculateBlockCenter(ctx.world(), pos),
                         ctx.playerRotations()).withPitch(ctx.playerRotations().getPitch()),
                 false
         )).setInput(Input.MOVE_FORWARD, true);
@@ -743,7 +743,7 @@ public interface MovementHelper extends ActionCosts, Helper {
     static void moveTowardsWithoutRotation(IPlayerContext ctx, MovementState state, BlockPos dest) {
         float idealYaw = RotationUtils.calcRotationFromVec3d(
                 ctx.playerHead(),
-                VecUtils.getBlockPosCenter(dest),
+                VecUtils.calculateBlockCenter(ctx.world(), dest),
                 ctx.playerRotations()
         ).getYaw();
         moveTowardsWithoutRotation(ctx, state, idealYaw);
@@ -752,7 +752,7 @@ public interface MovementHelper extends ActionCosts, Helper {
     static void moveTowardsWithSlightRotation(IPlayerContext ctx, MovementState state, BlockPos dest) {
         float idealYaw = RotationUtils.calcRotationFromVec3d(
                 ctx.playerHead(),
-                VecUtils.getBlockPosCenter(dest),
+                VecUtils.calculateBlockCenter(ctx.world(), dest),
                 ctx.playerRotations()
         ).getYaw();
         float distance = Rotation.yawDistanceFromOffset(ctx.playerRotations().getYaw(), idealYaw) % 45f;
