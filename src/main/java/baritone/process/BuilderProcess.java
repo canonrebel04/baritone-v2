@@ -847,9 +847,6 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
     }
 
     private Goal placementGoal(BlockPos pos, BuilderCalculationContext bcc) {
-        if (!(ctx.world().getBlockState(pos).getBlock() instanceof AirBlock)) {  // TODO can this even happen?
-            return new GoalPlace(pos);
-        }
         boolean allowSameLevel = !(ctx.world().getBlockState(pos.above()).getBlock() instanceof AirBlock);
         BlockState current = ctx.world().getBlockState(pos);
         for (Direction facing : Movement.HORIZONTALS_BUT_ALSO_DOWN_____SO_EVERY_DIRECTION_EXCEPT_UP) {
