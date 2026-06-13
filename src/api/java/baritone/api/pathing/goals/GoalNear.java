@@ -20,8 +20,6 @@ package baritone.api.pathing.goals;
 import baritone.api.utils.BetterBlockPos;
 import baritone.api.utils.SettingsUtil;
 import baritone.api.utils.interfaces.IGoalRenderPos;
-import it.unimi.dsi.fastutil.doubles.DoubleIterator;
-import it.unimi.dsi.fastutil.doubles.DoubleOpenHashSet;
 import net.minecraft.core.BlockPos;
 
 public class GoalNear implements Goal, IGoalRenderPos {
@@ -55,28 +53,30 @@ public class GoalNear implements Goal, IGoalRenderPos {
     }
 
     @Override
-    public double heuristic() {// TODO less hacky solution
+    public double heuristic() {
         int range = (int) Math.ceil(Math.sqrt(rangeSq));
-        DoubleOpenHashSet maybeAlwaysInside = new DoubleOpenHashSet(); // see pull request #1978
         double minOutside = Double.POSITIVE_INFINITY;
         for (int dx = -range; dx <= range; dx++) {
             for (int dy = -range; dy <= range; dy++) {
                 for (int dz = -range; dz <= range; dz++) {
-                    double h = heuristic(x + dx, y + dy, z + dz);
-                    if (h < minOutside && isInGoal(x + dx, y + dy, z + dz)) {
-                        maybeAlwaysInside.add(h);
-                    } else {
+                    if (!isInGoal(x + dx, y + dy, z + dz)) {
+                        double h = heuristic(x + dx, y + dy, z + dz);
                         minOutside = Math.min(minOutside, h);
                     }
                 }
             }
         }
         double maxInside = Double.NEGATIVE_INFINITY;
-        DoubleIterator it = maybeAlwaysInside.iterator();
-        while (it.hasNext()) {
-            double inside = it.nextDouble();
-            if (inside < minOutside) {
-                maxInside = Math.max(maxInside, inside);
+        for (int dx = -range; dx <= range; dx++) {
+            for (int dy = -range; dy <= range; dy++) {
+                for (int dz = -range; dz <= range; dz++) {
+                    if (isInGoal(x + dx, y + dy, z + dz)) {
+                        double h = heuristic(x + dx, y + dy, z + dz);
+                        if (h < minOutside) {
+                            maxInside = Math.max(maxInside, h);
+                        }
+                    }
+                }
             }
         }
         return maxInside;
