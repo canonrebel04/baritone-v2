@@ -73,7 +73,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
 
     @Override
     public void onLostControl() {
-        this.state = State.START_FLYING; // TODO: null state?
+        this.state = State.NONE;
         this.goingToLandingSpot = false;
         this.landingSpot = null;
         this.reachedGoal = false;
@@ -393,6 +393,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     }
 
     public enum State {
+        NONE("None"),
         LOCATE_JUMP("Finding spot to jump off"),
         PAUSE("Waiting for elytra path"),
         GET_TO_JUMP("Walking to takeoff"),
