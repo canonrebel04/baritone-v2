@@ -67,6 +67,7 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
      * @see <a href="https://docs.google.com/document/d/1WVHHXKXFdCR1Oz__KtK8sFqyvSwJN_H4lftkHFgmzlc/edit">here</a>
      */
     protected static final double[] COEFFICIENTS = {1.5, 2, 2.5, 3, 4, 5, 10};
+    protected static final double[] COEFFICIENTS_INV = {1.0 / 1.5, 1.0 / 2.0, 1.0 / 2.5, 1.0 / 3.0, 1.0 / 4.0, 1.0 / 5.0, 1.0 / 10.0};
 
     /**
      * If a path goes less than 5 blocks and doesn't make it to its goal, it's not worth considering.

@@ -175,7 +175,7 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                         openSet.insert(neighbor);//dont double count, dont insert into open set if it's already there
                     }
                     for (int i = 0; i < COEFFICIENTS.length; i++) {
-                        double heuristic = neighbor.estimatedCostToGoal + neighbor.cost / COEFFICIENTS[i];
+                        double heuristic = neighbor.estimatedCostToGoal + neighbor.cost * COEFFICIENTS_INV[i];
                         if (bestHeuristicSoFar[i] - heuristic > minimumImprovement) {
                             bestHeuristicSoFar[i] = heuristic;
                             bestSoFar[i] = neighbor;
