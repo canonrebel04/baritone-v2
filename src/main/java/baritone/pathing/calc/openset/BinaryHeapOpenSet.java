@@ -72,16 +72,18 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         int index = val.heapPosition;
         int parentInd = index >>> 1;
         double cost = val.combinedCost;
-        PathNode parentNode = array[parentInd];
-        while (index > 1 && parentNode.combinedCost > cost) {
+        while (index > 1) {
+            PathNode parentNode = array[parentInd];
+            if (parentNode.combinedCost <= cost) {
+                break;
+            }
             array[index] = parentNode;
-            array[parentInd] = val;
-            val.heapPosition = parentInd;
             parentNode.heapPosition = index;
             index = parentInd;
             parentInd = index >>> 1;
-            parentNode = array[parentInd];
         }
+        array[index] = val;
+        val.heapPosition = index;
     }
 
     @Override
@@ -96,18 +98,16 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         }
         PathNode result = array[1];
         PathNode val = array[size];
-        array[1] = val;
-        val.heapPosition = 1;
         array[size] = null;
         size--;
         result.heapPosition = -1;
-        if (size < 2) {
+        if (size == 0) {
             return result;
         }
         int index = 1;
         int smallerChild = 2;
         double cost = val.combinedCost;
-        do {
+        while (smallerChild <= size) {
             PathNode smallerChildNode = array[smallerChild];
             double smallerChildCost = smallerChildNode.combinedCost;
             if (smallerChild < size) {
@@ -123,11 +123,12 @@ public final class BinaryHeapOpenSet implements IOpenSet {
                 break;
             }
             array[index] = smallerChildNode;
-            array[smallerChild] = val;
-            val.heapPosition = smallerChild;
             smallerChildNode.heapPosition = index;
             index = smallerChild;
-        } while ((smallerChild <<= 1) <= size);
+            smallerChild <<= 1;
+        }
+        array[index] = val;
+        val.heapPosition = index;
         return result;
     }
 }
