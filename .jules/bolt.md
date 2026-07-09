@@ -17,3 +17,6 @@
 ## 2026-06-05 - AStar Inner Loop Floating Point Division
 **Learning:** In `AStarPathFinder`, heuristics fallback `bestSoFar` nodes are tracked by scaling `cost` down using an array of `COEFFICIENTS` to determine "distance traveled versus estimated remaining distance". However, floating point division is notoriously slow compared to multiplication. Because this block sits inside the absolute innermost node checking loop (running millions of times per long path execution segment) saving CPU cycles on division is extremely valuable.
 **Action:** Replaced `cost / COEFFICIENTS[i]` with multiplication of pre-calculated inverses `cost * COEFFICIENTS_INV[i]` in the base search class.
+## 2026-06-05 - BinaryHeapOpenSet Half-Exchange
+**Learning:** Priority queues in Java typically execute a full swap on elements being shifted during `siftUp` and `siftDown`. When storing an open set inside an A* pathfinder inner loop, saving `array[index] = val; val.heapPosition = index;` across multiple depth traversals uses excessive memory write operations.
+**Action:** Applied a half-exchange algorithm to `BinaryHeapOpenSet`. Shift the parents/children respectively and defer writing the original `val` until the final correct slot has been identified, halving the array writes.
