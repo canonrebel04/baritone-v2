@@ -90,7 +90,9 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
             if (slowPath) {
                 try {
                     Thread.sleep(Baritone.settings().slowPathTimeDelayMS.value);
-                } catch (InterruptedException ignored) {}
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                }
             }
             PathNode currentNode = openSet.removeLowest();
             calcContext.setCacheCenter(currentNode.x, currentNode.y, currentNode.z);
