@@ -147,7 +147,7 @@ public class GoalRunAway implements Goal {
     public int hashCode() {
         int hash = Arrays.hashCode(from);
         hash = hash * 1196803141 + distanceSq;
-        hash = hash * -2053788840 + maintainY;
+        hash = hash * -2053788840 + (maintainY != null ? maintainY.hashCode() : 0);
         return hash;
     }
 
