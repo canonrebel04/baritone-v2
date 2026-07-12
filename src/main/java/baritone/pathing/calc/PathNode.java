@@ -91,11 +91,7 @@ public final class PathNode {
      */
     @Override
     public int hashCode() {
-        int result = 1;
-        result = 31 * result + x;
-        result = 31 * result + y;
-        result = 31 * result + z;
-        return result;
+        return Long.hashCode(BetterBlockPos.longHash(x, y, z));
     }
 
     @Override
