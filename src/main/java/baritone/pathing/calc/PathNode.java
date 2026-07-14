@@ -91,11 +91,10 @@ public final class PathNode {
      */
     @Override
     public int hashCode() {
-        int result = 1;
-        result = 31 * result + x;
-        result = 31 * result + y;
-        result = 31 * result + z;
-        return result;
+        // PERF: Replace naive polynomial hash with perfect hash mapping based on
+        // Long.hashCode(BetterBlockPos.longHash). This avoids severe hash collisions
+        // for spatially local coordinates during millions of map lookups.
+        return Long.hashCode(BetterBlockPos.longHash(x, y, z));
     }
 
     @Override
