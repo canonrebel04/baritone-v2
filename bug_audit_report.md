@@ -1,0 +1,13 @@
+- **File & Line:** `src/main/java/baritone/pathing/calc/PathNode.java:93`
+- **Severity:** Critical
+- **Bug Type:** Logic Errors
+- **Description:** The `hashCode()` method uses a naive polynomial hash (`31 * result + coord`), which causes severe hash collisions for spatially local coordinates. This leads to massive hash collisions where blocks at different X/Y coordinates can produce the exact same hash code, causing devastating performance degradation and potentially incorrect logic during A* pathfinding.
+- **Reproduction:** Call `new PathNode(100, 64, 50, goal).hashCode()` and evaluate hash collisions for nearby blocks.
+- **Fix:** Replace naive polynomial hash with `Long.hashCode(baritone.api.utils.BetterBlockPos.longHash(x, y, z))` in `PathNode.java` to use the bijection guaranteeing zero hash collisions.
+
+- **File & Line:** `src/main/java/baritone/pathing/calc/openset/BinaryHeapOpenSet.java:73` and `114`
+- **Severity:** High
+- **Bug Type:** Logic Errors
+- **Description:** The `update` and `removeLowest` methods do not use the half-exchange optimization. They repeatedly assign `array[parentInd] = val` and `val.heapPosition = parentInd` inside the loop during sift-up and sift-down operations. This involves unnecessary memory stores on every iteration of the loop, which slows down the A* search Priority Queue operations.
+- **Reproduction:** Observe the source code in `update` and `removeLowest` where these unnecessary assignments are performed inside the while/do-while loops.
+- **Fix:** Defer `array[index] = val` and `val.heapPosition = index` until the end of the loop in both methods to minimize memory stores.
