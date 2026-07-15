@@ -73,15 +73,19 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         int parentInd = index >>> 1;
         double cost = val.combinedCost;
         PathNode parentNode = array[parentInd];
+        // ⚡ Bolt: Half-exchange optimization
+        // Instead of fully swapping nodes at each step of the sift-up process,
+        // we move the parent node down and defer placing the inserted/updated node
+        // until the correct position is found. This reduces memory stores by ~50%.
         while (index > 1 && parentNode.combinedCost > cost) {
             array[index] = parentNode;
-            array[parentInd] = val;
-            val.heapPosition = parentInd;
             parentNode.heapPosition = index;
             index = parentInd;
             parentInd = index >>> 1;
             parentNode = array[parentInd];
         }
+        array[index] = val;
+        val.heapPosition = index;
     }
 
     @Override
@@ -96,18 +100,20 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         }
         PathNode result = array[1];
         PathNode val = array[size];
-        array[1] = val;
-        val.heapPosition = 1;
         array[size] = null;
         size--;
         result.heapPosition = -1;
-        if (size < 2) {
+        if (size == 0) {
             return result;
         }
         int index = 1;
         int smallerChild = 2;
         double cost = val.combinedCost;
-        do {
+        // ⚡ Bolt: Half-exchange optimization
+        // Similar to sift-up, we move the smaller child up and defer placing
+        // the last node until the correct position is found. This avoids redundant
+        // array writes during the sift-down process.
+        while (smallerChild <= size) {
             PathNode smallerChildNode = array[smallerChild];
             double smallerChildCost = smallerChildNode.combinedCost;
             if (smallerChild < size) {
@@ -123,11 +129,12 @@ public final class BinaryHeapOpenSet implements IOpenSet {
                 break;
             }
             array[index] = smallerChildNode;
-            array[smallerChild] = val;
-            val.heapPosition = smallerChild;
             smallerChildNode.heapPosition = index;
             index = smallerChild;
-        } while ((smallerChild <<= 1) <= size);
+            smallerChild <<= 1;
+        }
+        array[index] = val;
+        val.heapPosition = index;
         return result;
     }
 }
