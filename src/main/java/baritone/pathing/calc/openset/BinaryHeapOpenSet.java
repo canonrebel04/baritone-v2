@@ -75,13 +75,15 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         PathNode parentNode = array[parentInd];
         while (index > 1 && parentNode.combinedCost > cost) {
             array[index] = parentNode;
-            array[parentInd] = val;
-            val.heapPosition = parentInd;
+            // ⚡ Bolt: Half-exchange optimization defers 'val' assignment to after loop
             parentNode.heapPosition = index;
             index = parentInd;
             parentInd = index >>> 1;
             parentNode = array[parentInd];
         }
+        // ⚡ Bolt: Write 'val' to final position once after sift-up minimizes memory stores
+        array[index] = val;
+        val.heapPosition = index;
     }
 
     @Override
@@ -96,12 +98,16 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         }
         PathNode result = array[1];
         PathNode val = array[size];
-        array[1] = val;
-        val.heapPosition = 1;
+        // ⚡ Bolt: Defer assignment of 'val' to position 1 until after sift-down loop
         array[size] = null;
         size--;
         result.heapPosition = -1;
+        if (size == 0) {
+            return result;
+        }
         if (size < 2) {
+            array[1] = val;
+            val.heapPosition = 1;
             return result;
         }
         int index = 1;
@@ -123,11 +129,14 @@ public final class BinaryHeapOpenSet implements IOpenSet {
                 break;
             }
             array[index] = smallerChildNode;
-            array[smallerChild] = val;
-            val.heapPosition = smallerChild;
+            // ⚡ Bolt: Half-exchange optimization avoids intermediate stores for 'val'
             smallerChildNode.heapPosition = index;
             index = smallerChild;
         } while ((smallerChild <<= 1) <= size);
+
+        // ⚡ Bolt: Final single assignment of 'val'
+        array[index] = val;
+        val.heapPosition = index;
         return result;
     }
 }
