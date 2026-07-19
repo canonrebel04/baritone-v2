@@ -17,3 +17,6 @@
 ## 2026-06-05 - AStar Inner Loop Floating Point Division
 **Learning:** In `AStarPathFinder`, heuristics fallback `bestSoFar` nodes are tracked by scaling `cost` down using an array of `COEFFICIENTS` to determine "distance traveled versus estimated remaining distance". However, floating point division is notoriously slow compared to multiplication. Because this block sits inside the absolute innermost node checking loop (running millions of times per long path execution segment) saving CPU cycles on division is extremely valuable.
 **Action:** Replaced `cost / COEFFICIENTS[i]` with multiplication of pre-calculated inverses `cost * COEFFICIENTS_INV[i]` in the base search class.
+## 2025-05-21 - BinaryHeapOpenSet Half-Exchange
+**Learning:** `BinaryHeapOpenSet` sift-up and sift-down operations previously performed full swaps (updating array indices and `heapPosition` properties) at every level of the tree. By using a "half-exchange" optimization, we defer writing the target node and updating its `heapPosition` until the final correct slot is found, eliminating ~50% of the stores in the A* innermost loop.
+**Action:** Always check Priority Queue / Heap implementations for the half-exchange optimization if they are in the hot path.
