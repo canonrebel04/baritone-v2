@@ -88,8 +88,10 @@ public final class BetterBlockPos extends BlockPos {
     }
 
     public static long longHash(int x, int y, int z) {
-        // Use BlockPos.asLong for invertibility and 0 collisions in the Long2ObjectOpenHashMap
-        return BlockPos.asLong(x, y, z);
+        // PERF: Use BetterBlockPos.serializeToLong instead of BlockPos.asLong
+        // BlockPos.asLong packs bits in a way that causes severe collisions in Fastutil's Long2ObjectOpenHashMap
+        // Using serializeToLong ensures O(1) map lookups via perfect hashing
+        return serializeToLong(x, y, z);
     }
 
     @Override
