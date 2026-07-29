@@ -75,13 +75,14 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         PathNode parentNode = array[parentInd];
         while (index > 1 && parentNode.combinedCost > cost) {
             array[index] = parentNode;
-            array[parentInd] = val;
-            val.heapPosition = parentInd;
             parentNode.heapPosition = index;
             index = parentInd;
             parentInd = index >>> 1;
             parentNode = array[parentInd];
         }
+        // Half-exchange optimization: defers array assignment and position update until end
+        array[index] = val;
+        val.heapPosition = index;
     }
 
     @Override
@@ -96,38 +97,39 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         }
         PathNode result = array[1];
         PathNode val = array[size];
-        array[1] = val;
-        val.heapPosition = 1;
         array[size] = null;
         size--;
         result.heapPosition = -1;
-        if (size < 2) {
+        if (size == 0) {
             return result;
         }
         int index = 1;
-        int smallerChild = 2;
-        double cost = val.combinedCost;
-        do {
-            PathNode smallerChildNode = array[smallerChild];
-            double smallerChildCost = smallerChildNode.combinedCost;
-            if (smallerChild < size) {
-                PathNode rightChildNode = array[smallerChild + 1];
-                double rightChildCost = rightChildNode.combinedCost;
-                if (smallerChildCost > rightChildCost) {
-                    smallerChild++;
-                    smallerChildCost = rightChildCost;
-                    smallerChildNode = rightChildNode;
+        if (size >= 2) {
+            int smallerChild = 2;
+            double cost = val.combinedCost;
+            do {
+                PathNode smallerChildNode = array[smallerChild];
+                double smallerChildCost = smallerChildNode.combinedCost;
+                if (smallerChild < size) {
+                    PathNode rightChildNode = array[smallerChild + 1];
+                    double rightChildCost = rightChildNode.combinedCost;
+                    if (smallerChildCost > rightChildCost) {
+                        smallerChild++;
+                        smallerChildCost = rightChildCost;
+                        smallerChildNode = rightChildNode;
+                    }
                 }
-            }
-            if (cost <= smallerChildCost) {
-                break;
-            }
-            array[index] = smallerChildNode;
-            array[smallerChild] = val;
-            val.heapPosition = smallerChild;
-            smallerChildNode.heapPosition = index;
-            index = smallerChild;
-        } while ((smallerChild <<= 1) <= size);
+                if (cost <= smallerChildCost) {
+                    break;
+                }
+                array[index] = smallerChildNode;
+                smallerChildNode.heapPosition = index;
+                index = smallerChild;
+            } while ((smallerChild <<= 1) <= size);
+        }
+        // Half-exchange optimization: defers array assignment and position update until end
+        array[index] = val;
+        val.heapPosition = index;
         return result;
     }
 }
