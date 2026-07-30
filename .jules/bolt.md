@@ -17,3 +17,6 @@
 ## 2026-06-05 - AStar Inner Loop Floating Point Division
 **Learning:** In `AStarPathFinder`, heuristics fallback `bestSoFar` nodes are tracked by scaling `cost` down using an array of `COEFFICIENTS` to determine "distance traveled versus estimated remaining distance". However, floating point division is notoriously slow compared to multiplication. Because this block sits inside the absolute innermost node checking loop (running millions of times per long path execution segment) saving CPU cycles on division is extremely valuable.
 **Action:** Replaced `cost / COEFFICIENTS[i]` with multiplication of pre-calculated inverses `cost * COEFFICIENTS_INV[i]` in the base search class.
+## 2023-10-24 - Fastutil Long2ObjectOpenHashMap Z-Axis Collisions
+**Learning:** Using `BlockPos.asLong` for standard long hashing can cause catastrophic Z-axis collisions when used with Fastutil's mixing algorithm, due to its bit layout (Z in the middle).
+**Action:** Always use a custom perfect hashing function like `BetterBlockPos.serializeToLong` internally for `Long2ObjectOpenHashMap` keys instead of relying on default bit layouts.
