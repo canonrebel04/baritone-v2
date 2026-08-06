@@ -29,6 +29,16 @@ public class GoalNear implements Goal, IGoalRenderPos {
     private final int z;
     private final int rangeSq;
 
+    /**
+     * Vertical tolerance for the goal. GoalNear is used by FollowProcess for
+     * entity follow; a pure 3D sphere (x²+y²+z² ≤ range²) declares the bot "in
+     * goal" when it is directly above/below the target within `range` blocks,
+     * so it stops pathing and never digs/climbs the last few blocks. Cylinder
+     * semantics (XZ radius + tight Y tolerance) keeps the bot moving vertically
+     * until it is actually at the target's height.
+     */
+    private static final int Y_TOLERANCE = 2;
+
     public GoalNear(BlockPos pos, int range) {
         this.x = pos.getX();
         this.y = pos.getY();
@@ -41,7 +51,7 @@ public class GoalNear implements Goal, IGoalRenderPos {
         int xDiff = x - this.x;
         int yDiff = y - this.y;
         int zDiff = z - this.z;
-        return xDiff * xDiff + yDiff * yDiff + zDiff * zDiff <= rangeSq;
+        return Math.abs(yDiff) <= Y_TOLERANCE && xDiff * xDiff + zDiff * zDiff <= rangeSq;
     }
 
     @Override
