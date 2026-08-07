@@ -75,13 +75,14 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         PathNode parentNode = array[parentInd];
         while (index > 1 && parentNode.combinedCost > cost) {
             array[index] = parentNode;
-            array[parentInd] = val;
-            val.heapPosition = parentInd;
             parentNode.heapPosition = index;
             index = parentInd;
             parentInd = index >>> 1;
             parentNode = array[parentInd];
         }
+        // Defer array assignment and heap position update until the end to minimize memory stores
+        array[index] = val;
+        val.heapPosition = index;
     }
 
     @Override
@@ -123,11 +124,12 @@ public final class BinaryHeapOpenSet implements IOpenSet {
                 break;
             }
             array[index] = smallerChildNode;
-            array[smallerChild] = val;
-            val.heapPosition = smallerChild;
             smallerChildNode.heapPosition = index;
             index = smallerChild;
         } while ((smallerChild <<= 1) <= size);
+        // Defer array assignment and heap position update until the end to minimize memory stores
+        array[index] = val;
+        val.heapPosition = index;
         return result;
     }
 }
