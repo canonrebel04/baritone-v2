@@ -25,3 +25,7 @@
 ## 2025-05-21 - BetterBlockPos.longHash needs serializeToLong over BlockPos.asLong
 **Learning:** We replaced `BlockPos.asLong(x, y, z)` with `BetterBlockPos.serializeToLong(x, y, z)` in `BetterBlockPos.longHash` because `BlockPos.asLong` has a bit layout (Z in the middle) that combined with Fastutil's mixing algorithm causes catastrophic Z-axis collisions in the `Long2ObjectOpenHashMap`. Using `serializeToLong` preserves the invertibility but guarantees zero hash collisions for adjacent nodes, making map lookups during A* extremely fast.
 **Action:** When implementing spatial hashes for fastutil maps, ensure the serialization format avoids structural collisions with the fastutil mixing algorithm; prefer custom serializers when vanilla bit layouts cause collisions.
+
+## 2026-06-05 - PathNode.hashCode needs Long.hashCode() and BetterBlockPos.longHash()
+**Learning:** Naive polynomial hashes (`31 * result + coord`) for 3D block coordinates cause severe hash collisions for spatially local coordinates. This causes a massive performance degradation in algorithms like A* that process millions of spatially contiguous blocks and store them in hash maps/sets (e.g. `PathNode`).
+**Action:** Replace `PathNode.hashCode()`'s naive polynomial math with `Long.hashCode(BetterBlockPos.longHash(x, y, z))`. This combines zero-collision perfect packed 64-bit coordinate hashing (from `BetterBlockPos`) with `Long.hashCode` mixing to prevent truncation.
