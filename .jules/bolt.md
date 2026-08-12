@@ -29,3 +29,7 @@
 ## 2026-06-05 - PathNode.hashCode needs Long.hashCode() and BetterBlockPos.longHash()
 **Learning:** Naive polynomial hashes (`31 * result + coord`) for 3D block coordinates cause severe hash collisions for spatially local coordinates. This causes a massive performance degradation in algorithms like A* that process millions of spatially contiguous blocks and store them in hash maps/sets (e.g. `PathNode`).
 **Action:** Replace `PathNode.hashCode()`'s naive polynomial math with `Long.hashCode(BetterBlockPos.longHash(x, y, z))`. This combines zero-collision perfect packed 64-bit coordinate hashing (from `BetterBlockPos`) with `Long.hashCode` mixing to prevent truncation.
+
+## 2026-08-12 - Hoisting AStar Invariants
+**Learning:** In AStarPathFinder, node coordinates are evaluated against multiple adjacent movements. Hoisting invariant calculations for the base node (such as calculating chunk X/Z bitshifts via `node.x >> 4`) outside the adjacent movement loop is a critical optimization that avoids executing redundant operations millions of times per pathing segment.
+**Action:** Hoisted `currentNode.x >> 4` and other node coordinates out of the `for (Moves moves : allMoves)` inner loop.
