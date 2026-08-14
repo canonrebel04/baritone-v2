@@ -336,6 +336,8 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
         boolean doIt = isSafeToCancel();
         if (doIt) {
             secretInternalSegmentCancel();
+        } else {
+            cancelRequested = true;
         }
         baritone.getPathingControlManager().cancelEverything(); // regardless of if we can stop the current segment, we can still stop the processes
         return doIt;
