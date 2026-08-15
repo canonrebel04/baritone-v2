@@ -112,7 +112,15 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
     @Override
     public void onPlayerSprintState(SprintStateEvent event) {
         if (isPathing()) {
-            event.setState(current.isSprinting());
+            if (current != null) {
+                // Normal case: let the executing movement primitive decide sprint.
+                event.setState(current.isSprinting());
+            } else {
+                // Path calculation gap: A* is running on the worker thread and there
+                // is no movement executing right now. Keep sprint asserted so the player
+                // doesn't decelerate during recalculation (typically 10-40 ms per segment).
+                event.setState(Baritone.settings().allowSprint.value);
+            }
         }
     }
 

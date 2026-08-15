@@ -104,7 +104,10 @@ public class CalculationContext {
         this.toolSet = new ToolSet(player);
         this.hasThrowaway = Baritone.settings().allowPlace.value && ((Baritone) baritone).getInventoryBehavior().hasGenericThrowaway();
         this.hasWaterBucket = Baritone.settings().allowWaterBucketFall.value && Inventory.isHotbarSlot(player.getInventory().findSlotMatchingItem(STACK_BUCKET_WATER)) && world.dimension() != Level.NETHER;
-        this.canSprint = Baritone.settings().allowSprint.value && player.getFoodData().getFoodLevel() > 6;
+        // Sprint is allowed when food > 6 (survival), OR when the player is
+        // invulnerable (Creative / Spectator — food is always 0 in these modes).
+        this.canSprint = Baritone.settings().allowSprint.value
+            && (player.getAbilities().invulnerable || player.getFoodData().getFoodLevel() > 6);
         this.placeBlockCost = Baritone.settings().blockPlacementPenalty.value;
         this.allowBreak = Baritone.settings().allowBreak.value;
         this.allowBreakAnyway = new ArrayList<>(Baritone.settings().allowBreakAnyway.value);
