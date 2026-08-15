@@ -20,6 +20,7 @@ package baritone.behavior;
 import baritone.Baritone;
 import baritone.api.behavior.IPathingBehavior;
 import baritone.api.event.events.*;
+import baritone.api.utils.input.Input;
 import baritone.api.pathing.calc.IPath;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalXZ;
@@ -112,14 +113,16 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
     @Override
     public void onPlayerSprintState(SprintStateEvent event) {
         if (isPathing()) {
-            if (current != null) {
-                // Normal case: let the executing movement primitive decide sprint.
-                event.setState(current.isSprinting());
+            boolean sneaking = baritone.getInputOverrideHandler().isInputForcedDown(Input.SNEAK)
+                || baritone.getPlayerContext().player().isCrouching();
+            if (sneaking) {
+                event.setState(false);
+            } else if (current != null && current.isSprinting()) {
+                event.setState(true);
             } else {
-                // Path calculation gap: A* is running on the worker thread and there
-                // is no movement executing right now. Keep sprint asserted so the player
-                // doesn't decelerate during recalculation (typically 10-40 ms per segment).
-                event.setState(Baritone.settings().allowSprint.value);
+                boolean inWater = baritone.getPlayerContext().player().isInWater();
+                boolean allow = Baritone.settings().allowSprint.value && (!inWater || Baritone.settings().sprintInWater.value);
+                event.setState(allow);
             }
         }
     }
