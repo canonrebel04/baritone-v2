@@ -96,14 +96,20 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
             calcContext.setCacheCenter(currentNode.x, currentNode.y, currentNode.z);
             mostRecentConsidered = currentNode;
             numNodes++;
-            if (goal.isInGoal(currentNode.x, currentNode.y, currentNode.z)) {
+            int cx = currentNode.x;
+            int cy = currentNode.y;
+            int cz = currentNode.z;
+            if (goal.isInGoal(cx, cy, cz)) {
                 logDebug("Took " + (System.currentTimeMillis() - startTime) + "ms, " + numMovementsConsidered + " movements considered");
                 return Optional.of(new Path(realStart, startNode, currentNode, numNodes, goal, calcContext));
             }
+            int cxChunk = cx >> 4;
+            int czChunk = cz >> 4;
+            double currentCost = currentNode.cost;
             for (Moves moves : allMoves) {
-                int newX = currentNode.x + moves.xOffset;
-                int newZ = currentNode.z + moves.zOffset;
-                if ((newX >> 4 != currentNode.x >> 4 || newZ >> 4 != currentNode.z >> 4) && !calcContext.isLoaded(newX, newZ)) {
+                int newX = cx + moves.xOffset;
+                int newZ = cz + moves.zOffset;
+                if ((newX >> 4 != cxChunk || newZ >> 4 != czChunk) && !calcContext.isLoaded(newX, newZ)) {
                     // only need to check if the destination is a loaded chunk if it's in a different chunk than the start of the movement
                     if (!moves.dynamicXZ) { // only increment the counter if the movement would have gone out of bounds guaranteed
                         numEmptyChunk++;
@@ -113,11 +119,11 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                 if (!moves.dynamicXZ && !worldBorder.entirelyContains(newX, newZ)) {
                     continue;
                 }
-                if (currentNode.y + moves.yOffset > height || currentNode.y + moves.yOffset < minY) {
+                if (cy + moves.yOffset > height || cy + moves.yOffset < minY) {
                     continue;
                 }
                 res.reset();
-                moves.apply(calcContext, currentNode.x, currentNode.y, currentNode.z, res);
+                moves.apply(calcContext, cx, cy, cz, res);
                 numMovementsConsidered++;
                 double actionCost = res.cost;
                 if (actionCost >= ActionCosts.COST_INF) {
@@ -127,9 +133,9 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                     throw new IllegalStateException(String.format(
                             "%s from %s %s %s calculated implausible cost %s",
                             moves,
-                            SettingsUtil.maybeCensor(currentNode.x),
-                            SettingsUtil.maybeCensor(currentNode.y),
-                            SettingsUtil.maybeCensor(currentNode.z),
+                            SettingsUtil.maybeCensor(cx),
+                            SettingsUtil.maybeCensor(cy),
+                            SettingsUtil.maybeCensor(cz),
                             actionCost));
                 }
                 // check destination after verifying it's not COST_INF -- some movements return COST_INF without adjusting the destination
@@ -140,23 +146,23 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                     throw new IllegalStateException(String.format(
                             "%s from %s %s %s ended at x z %s %s instead of %s %s",
                             moves,
-                            SettingsUtil.maybeCensor(currentNode.x),
-                            SettingsUtil.maybeCensor(currentNode.y),
-                            SettingsUtil.maybeCensor(currentNode.z),
+                            SettingsUtil.maybeCensor(cx),
+                            SettingsUtil.maybeCensor(cy),
+                            SettingsUtil.maybeCensor(cz),
                             SettingsUtil.maybeCensor(res.x),
                             SettingsUtil.maybeCensor(res.z),
                             SettingsUtil.maybeCensor(newX),
                             SettingsUtil.maybeCensor(newZ)));
                 }
-                if (!moves.dynamicY && res.y != currentNode.y + moves.yOffset) {
+                if (!moves.dynamicY && res.y != cy + moves.yOffset) {
                     throw new IllegalStateException(String.format(
                             "%s from %s %s %s ended at y %s instead of %s",
                             moves,
-                            SettingsUtil.maybeCensor(currentNode.x),
-                            SettingsUtil.maybeCensor(currentNode.y),
-                            SettingsUtil.maybeCensor(currentNode.z),
+                            SettingsUtil.maybeCensor(cx),
+                            SettingsUtil.maybeCensor(cy),
+                            SettingsUtil.maybeCensor(cz),
                             SettingsUtil.maybeCensor(res.y),
-                            SettingsUtil.maybeCensor(currentNode.y + moves.yOffset)));
+                            SettingsUtil.maybeCensor(cy + moves.yOffset)));
                 }
                 long hashCode = BetterBlockPos.longHash(res.x, res.y, res.z);
                 if (isFavoring) {
@@ -164,7 +170,7 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                     actionCost *= favoring.calculate(hashCode);
                 }
                 PathNode neighbor = getNodeAtPosition(res.x, res.y, res.z, hashCode);
-                double tentativeCost = currentNode.cost + actionCost;
+                double tentativeCost = currentCost + actionCost;
                 if (neighbor.cost - tentativeCost > minimumImprovement) {
                     neighbor.previous = currentNode;
                     neighbor.cost = tentativeCost;
