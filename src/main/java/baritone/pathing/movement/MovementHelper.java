@@ -34,6 +34,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
@@ -541,6 +543,22 @@ public interface MovementHelper extends ActionCosts, Helper {
         return hasFrostWalker
                 && state == FrostedIceBlock.meltsInto()
                 && state.getValue(LiquidBlock.LEVEL) == 0;
+    }
+
+    /**
+     * Whether the player can walk up a full 1-block step without jumping, based on their
+     * STEP_HEIGHT attribute (vanilla base 0.6; a value >= 1.0 enables auto-stepping onto
+     * full blocks, e.g. from armor modifiers or potion effects).
+     * <p>
+     * Gated by the {@code honorStepHeight} setting: when disabled, this always returns false
+     * so step-ups keep the legacy jump behavior.
+     */
+    static boolean canStepUp(IPlayerContext ctx) {
+        if (!Baritone.settings().honorStepHeight.value) {
+            return false;
+        }
+        AttributeInstance stepHeight = ctx.player().getAttribute(Attributes.STEP_HEIGHT);
+        return stepHeight != null && stepHeight.getValue() >= 1.0;
     }
 
     /**

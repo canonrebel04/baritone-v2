@@ -29,6 +29,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
@@ -81,6 +82,7 @@ public class CalculationContext {
     public final double breakBlockAdditionalCost;
     public double backtrackCostFavoringCoefficient;
     public double jumpPenalty;
+    public final boolean canStepUp;
     public final double walkOnWaterOnePenalty;
     public final boolean allowWalkOnMagmaBlocks;
     public final BetterWorldBorder worldBorder;
@@ -158,6 +160,12 @@ public class CalculationContext {
         this.breakBlockAdditionalCost = Baritone.settings().blockBreakAdditionalPenalty.value;
         this.backtrackCostFavoringCoefficient = Baritone.settings().backtrackCostFavoringCoefficient.value;
         this.jumpPenalty = Baritone.settings().jumpPenalty.value;
+        // P2-13: whether the player can auto-step up a full block (STEP_HEIGHT attribute >= 1.0),
+        // which makes 1-block step-ups plain walks instead of jumps; cached per context so the
+        // cost model agrees with execution, gated by the honorStepHeight setting
+        AttributeInstance stepHeight = player.getAttribute(Attributes.STEP_HEIGHT);
+        this.canStepUp = Baritone.settings().honorStepHeight.value
+                && stepHeight != null && stepHeight.getValue() >= 1.0;
         this.walkOnWaterOnePenalty = Baritone.settings().walkOnWaterOnePenalty.value;
         this.allowWalkOnMagmaBlocks = Baritone.settings().allowWalkOnMagmaBlocks.value;
         // why cache these things here, why not let the movements just get directly from settings?
