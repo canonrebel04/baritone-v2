@@ -17,6 +17,7 @@
 
 allprojects {
     apply plugin: 'java'
+    apply plugin: 'eclipse'
     apply plugin: "xyz.wagyourtail.unimined"
     apply plugin: "maven-publish"
 
@@ -85,6 +86,8 @@ allprojects {
     dependencies {
         compileOnly "org.spongepowered:mixin:${project.mixin_version}"
         compileOnly "org.ow2.asm:asm:${project.asm_version}"
+        compileOnly "org.ow2.asm:asm-tree:${project.asm_version}"
+        compileOnly "org.ow2.asm:asm-commons:${project.asm_version}"
 
         implementation "dev.babbaj:nether-pathfinder:${project.nether_pathfinder_version}"
 
@@ -142,6 +145,21 @@ sourceSets {
     main {
         compileClasspath += schematica_api.output
         runtimeClasspath += schematica_api.output
+    }
+}
+
+configurations {
+    apiImplementation.extendsFrom(implementation)
+    apiCompileOnly.extendsFrom(compileOnly)
+    launchImplementation.extendsFrom(implementation)
+    launchCompileOnly.extendsFrom(compileOnly)
+    schematica_apiImplementation.extendsFrom(implementation)
+    schematica_apiCompileOnly.extendsFrom(compileOnly)
+}
+
+eclipse {
+    classpath {
+        plusConfigurations += [configurations.compileClasspath, configurations.runtimeClasspath]
     }
 }
 
