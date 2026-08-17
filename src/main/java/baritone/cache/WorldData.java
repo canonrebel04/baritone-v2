@@ -51,6 +51,7 @@ public class WorldData implements IWorldData {
         Baritone.getExecutor().execute(() -> {
             System.out.println("Started saving the world in a new thread");
             cache.save();
+            cache.close();
         });
     }
 

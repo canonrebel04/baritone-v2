@@ -114,6 +114,8 @@ public final class CachedChunk {
 
     public final int height;
 
+    public final int minY;
+
     /**
      * The size of the chunk data in bits. Equal to 16 KiB.
      * <p>
@@ -156,7 +158,7 @@ public final class CachedChunk {
 
     public final long cacheTimestamp;
 
-    CachedChunk(int x, int z, int height, BitSet data, BlockState[] overview, Map<String, List<BlockPos>> specialBlockLocations, long cacheTimestamp) {
+    CachedChunk(int x, int z, int height, int minY, BitSet data, BlockState[] overview, Map<String, List<BlockPos>> specialBlockLocations, long cacheTimestamp) {
         this.size = size(height);
         this.sizeInBytes = sizeInBytes(size);
         validateSize(data);
@@ -164,6 +166,7 @@ public final class CachedChunk {
         this.x = x;
         this.z = z;
         this.height = height;
+        this.minY = minY;
         this.data = data;
         this.overview = overview;
         this.heightMap = new int[256];
@@ -189,7 +192,7 @@ public final class CachedChunk {
     private final void setSpecial() {
         for (Map.Entry<String, List<BlockPos>> entry : specialBlockLocations.entrySet()) {
             for (BlockPos pos : entry.getValue()) {
-                special.put(getPositionIndex(pos.getX(), pos.getY(), pos.getZ()), entry.getKey());
+                special.put(getPositionIndex(pos.getX(), pos.getY() - minY, pos.getZ()), entry.getKey());
             }
         }
     }

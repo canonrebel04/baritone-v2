@@ -237,6 +237,11 @@ public class MovementParkour extends Movement {
                 set.add(src.relative(direction, i).above(y));
             }
         }
+        // the bot steps back one block behind the start to build up sprint momentum for
+        // long jumps; that position must also be valid, otherwise PathExecutor aborts the path
+        for (int y = 0; y < 2; y++) {
+            set.add(src.relative(direction, -1).above(y));
+        }
         return set;
     }
 

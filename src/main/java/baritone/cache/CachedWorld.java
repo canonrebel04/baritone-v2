@@ -78,6 +78,12 @@ public final class CachedWorld implements ICachedWorld, Helper {
 
     private final ResourceKey<Level> dimensionId;
 
+    private final Thread packerThread;
+
+    private final Thread autosaveThread;
+
+    private volatile boolean closed = false;
+
     CachedWorld(Path directory, DimensionType dimension, ResourceKey<Level> dimensionId) {
         if (!Files.exists(directory)) {
             try {
@@ -89,11 +95,13 @@ public final class CachedWorld implements ICachedWorld, Helper {
         this.dimension = dimension;
         this.dimensionId = dimensionId;
         System.out.println("Cached world directory: " + directory);
-        Baritone.getExecutor().execute(new PackerThread());
-        Baritone.getExecutor().execute(() -> {
+        this.packerThread = new Thread(new PackerThread(), "Baritone Packer");
+        this.packerThread.setDaemon(true);
+        this.packerThread.start();
+        this.autosaveThread = new Thread(() -> {
             try {
                 Thread.sleep(30000);
-                while (true) {
+                while (!closed) {
                     // since a region only saves if it's been modified since its last save
                     // saving every 10 minutes means that once it's time to exit
                     // we'll only have a couple regions to save
@@ -101,9 +109,22 @@ public final class CachedWorld implements ICachedWorld, Helper {
                     Thread.sleep(600000);
                 }
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                // world was closed; stop autosaving
             }
-        });
+        }, "Baritone Autosave");
+        this.autosaveThread.setDaemon(true);
+        this.autosaveThread.start();
+    }
+
+    /**
+     * Stops the background packer and autosave threads so that they no longer
+     * hold this {@link CachedWorld} (and all of its cached regions) alive after
+     * the world or dimension is unloaded.
+     */
+    public void close() {
+        closed = true;
+        packerThread.interrupt();
+        autosaveThread.interrupt();
     }
 
     @Override
@@ -306,7 +327,7 @@ public final class CachedWorld implements ICachedWorld, Helper {
     private class PackerThread implements Runnable {
 
         public void run() {
-            while (true) {
+            while (!closed) {
                 try {
                     ChunkPos pos = toPackQueue.take();
                     LevelChunk chunk = toPackMap.remove(pos);

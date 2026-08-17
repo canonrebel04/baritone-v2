@@ -865,7 +865,7 @@ public interface MovementHelper extends ActionCosts, Helper {
                     return PlaceResult.NO_OPTION;
                 }
                 double faceX = (placeAt.getX() + against1.getX() + 1.0D) * 0.5D;
-                double faceY = (placeAt.getY() + against1.getY() + 0.5D) * 0.5D;
+                double faceY = (placeAt.getY() + against1.getY() + 1.0D) * 0.5D;
                 double faceZ = (placeAt.getZ() + against1.getZ() + 1.0D) * 0.5D;
                 Rotation place = RotationUtils.calcRotationFromVec3d(wouldSneak ? RayTraceUtils.inferSneakingEyePosition(ctx.player()) : ctx.playerHead(), new Vec3(faceX, faceY, faceZ), ctx.playerRotations());
                 Rotation actual = baritone.getLookBehavior().getAimProcessor().peekRotation(place);

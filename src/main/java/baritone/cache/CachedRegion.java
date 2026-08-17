@@ -27,9 +27,11 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.dimension.DimensionType;
 
 import java.io.*;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -125,11 +127,9 @@ public final class CachedRegion implements ICachedRegion {
             }
             System.out.println("Saving region " + x + "," + z + " to disk " + path);
             Path regionFile = getRegionFile(path, this.x, this.z);
-            if (!Files.exists(regionFile)) {
-                Files.createFile(regionFile);
-            }
+            Path tmpFile = regionFile.resolveSibling(regionFile.getFileName().toString() + ".tmp");
             try (
-                    FileOutputStream fileOut = new FileOutputStream(regionFile.toFile());
+                    FileOutputStream fileOut = new FileOutputStream(tmpFile.toFile());
                     GZIPOutputStream gzipOut = new GZIPOutputStream(fileOut, 16384);
                     DataOutputStream out = new DataOutputStream(gzipOut)
             ) {
@@ -180,6 +180,11 @@ public final class CachedRegion implements ICachedRegion {
                         }
                     }
                 }
+            }
+            try {
+                Files.move(tmpFile, regionFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(tmpFile, regionFile, StandardCopyOption.REPLACE_EXISTING);
             }
             hasUnsavedChanges = false;
             System.out.println("Saved region successfully");
@@ -263,10 +268,6 @@ public final class CachedRegion implements ICachedRegion {
                                 List<BlockPos> locs = new ArrayList<>();
                                 location[x][z].put(blockName, locs);
                                 int numLocations = in.readShort() & 0xffff;
-                                if (numLocations == 0) {
-                                    // an entire chunk full of air can happen in the end
-                                    numLocations = 65536;
-                                }
                                 for (int j = 0; j < numLocations; j++) {
                                     byte xz = in.readByte();
                                     int X = xz & 0x0f;
@@ -293,7 +294,7 @@ public final class CachedRegion implements ICachedRegion {
                             int regionZ = this.z;
                             int chunkX = x + 32 * regionX;
                             int chunkZ = z + 32 * regionZ;
-                            this.chunks[x][z] = new CachedChunk(chunkX, chunkZ, dimension.height(), bitSets[x][z], overview[x][z], location[x][z], cacheTimestamp[x][z]);
+                            this.chunks[x][z] = new CachedChunk(chunkX, chunkZ, dimension.height(), dimension.minY(), bitSets[x][z], overview[x][z], location[x][z], cacheTimestamp[x][z]);
                         }
                     }
                 }
