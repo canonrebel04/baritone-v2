@@ -32,8 +32,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -47,6 +50,8 @@ public final class FollowProcess extends BaritoneProcessHelper implements IFollo
     private Predicate<Entity> filter;
     private List<Entity> cache;
     private boolean into; // walk straight into the target, regardless of settings
+    private Goal lastGoal;
+    private final Map<Entity, Vec3> anchorPositions = new HashMap<>();
 
     public FollowProcess(Baritone baritone) {
         super(baritone);
@@ -55,8 +60,39 @@ public final class FollowProcess extends BaritoneProcessHelper implements IFollo
     @Override
     public PathingCommand onTick(boolean calcFailed, boolean isSafeToCancel) {
         scanWorld();
-        Goal goal = new GoalComposite(cache.stream().map(this::towards).toArray(Goal[]::new));
-        return new PathingCommand(goal, PathingCommandType.REVALIDATE_GOAL_AND_PATH);
+        if (cache.isEmpty()) {
+            anchorPositions.clear();
+            lastGoal = null;
+            return new PathingCommand(new GoalComposite(), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
+        }
+
+        double threshold = Baritone.settings().followGoalQuantization.value;
+        boolean needsReanchor = lastGoal == null
+                || threshold <= 0
+                || calcFailed
+                || cache.size() != anchorPositions.size()
+                || shouldReanchor(threshold);
+
+        if (needsReanchor) {
+            anchorPositions.clear();
+            for (Entity entity : cache) {
+                anchorPositions.put(entity, entity.position());
+            }
+            lastGoal = new GoalComposite(cache.stream().map(this::towards).toArray(Goal[]::new));
+        }
+
+        return new PathingCommand(lastGoal, PathingCommandType.REVALIDATE_GOAL_AND_PATH);
+    }
+
+    private boolean shouldReanchor(double threshold) {
+        double thresholdSq = threshold * threshold;
+        for (Entity entity : cache) {
+            Vec3 anchor = anchorPositions.get(entity);
+            if (anchor == null || entity.position().distanceToSqr(anchor) > thresholdSq) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Goal towards(Entity following) {
@@ -112,6 +148,8 @@ public final class FollowProcess extends BaritoneProcessHelper implements IFollo
     public void onLostControl() {
         filter = null;
         cache = null;
+        lastGoal = null;
+        anchorPositions.clear();
     }
 
     @Override
@@ -123,12 +161,16 @@ public final class FollowProcess extends BaritoneProcessHelper implements IFollo
     public void follow(Predicate<Entity> filter) {
         this.filter = filter;
         this.into = false;
+        this.lastGoal = null;
+        this.anchorPositions.clear();
     }
 
     @Override
     public void pickup(Predicate<ItemStack> filter) {
         this.filter = e -> e instanceof ItemEntity && filter.test(((ItemEntity) e).getItem());
         this.into = true;
+        this.lastGoal = null;
+        this.anchorPositions.clear();
     }
 
     @Override

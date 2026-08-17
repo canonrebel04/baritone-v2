@@ -1267,6 +1267,14 @@ public final class Settings {
     public final Setting<Integer> followTargetMaxDistance = new Setting<>(0);
 
     /**
+     * Goal quantization threshold in blocks for follow process.
+     * When following a target, a new path is only calculated if the target has moved more than this distance
+     * from the anchor position the current path was computed for. This suppresses per-tick micro-repaths.
+     * Set to 0 to disable quantization.
+     */
+    public final Setting<Double> followGoalQuantization = new Setting<>(1.0D);
+
+    /**
      * Turn this on if your exploration filter is enormous, you don't want it to check if it's done,
      * and you are just fine with it just hanging on completion
      */
