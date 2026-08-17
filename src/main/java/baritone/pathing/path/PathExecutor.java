@@ -77,11 +77,20 @@ public class PathExecutor implements IPathExecutor, Helper {
 
     private boolean sprintNextTick;
 
+    /**
+     * Deterministic humanize cadence: sprint continuously for this many ticks before
+     * dropping sprint for {@link #SPRINT_DROP_DURATION_TICKS} ticks. Fixed instead of
+     * random so the pattern is repeatable and doesn't look like sprint spam.
+     */
+    private static final int SPRINT_DROP_INTERVAL_TICKS = 80;
+
+    /** Fixed number of ticks sprint is dropped each time the cadence triggers. */
+    private static final int SPRINT_DROP_DURATION_TICKS = 3;
+
     private int overshootTicksRemaining = 0;
     private Rotation overshootRotation = null;
     private int ticksSprinting = 0;
     private int sprintDropTicksRemaining = 0;
-    private final java.util.Random sprintRandom = new java.util.Random();
 
     public PathExecutor(PathingBehavior behavior, IPath path) {
         this.behavior = behavior;
@@ -421,23 +430,26 @@ public class PathExecutor implements IPathExecutor, Helper {
             if (Baritone.settings().humanizeMovements.value) {
                 if (sprintDropTicksRemaining > 0) {
                     sprintDropTicksRemaining--;
-                    ticksSprinting = 0;
                     return false;
                 }
-                
+
                 ticksSprinting++;
-                if (ticksSprinting > 40) { // Sprinting for at least 2 seconds (40 ticks)
-                    if (sprintRandom.nextFloat() < 0.02f) { // 2% chance per tick to drop sprint
-                        sprintDropTicksRemaining = sprintRandom.nextInt(3) + 2; // 2 to 4 ticks
-                        ticksSprinting = 0;
-                        return false;
-                    }
+                if (ticksSprinting >= SPRINT_DROP_INTERVAL_TICKS) {
+                    // Deterministic cadence: after sprinting for a fixed interval, drop sprint
+                    // for a fixed few ticks, then resume. No randomness, so the sprint on/off
+                    // pattern is always the same instead of looking like sprint spam.
+                    sprintDropTicksRemaining = SPRINT_DROP_DURATION_TICKS;
+                    ticksSprinting = 0;
+                    return false;
                 }
             } else {
                 ticksSprinting = 0;
                 sprintDropTicksRemaining = 0;
             }
         } else {
+            // Sprint is genuinely inappropriate right now (sharp corner, diagonal turn,
+            // unsafe descend, ...) -- drop it. Reset the counters so the deterministic
+            // cadence restarts fresh when sprint resumes.
             ticksSprinting = 0;
             sprintDropTicksRemaining = 0;
         }
