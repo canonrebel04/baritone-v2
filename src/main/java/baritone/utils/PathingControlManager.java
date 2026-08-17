@@ -93,9 +93,15 @@ public class PathingControlManager implements IPathingControlManager {
             p.secretInternalSetGoal(null);
             return;
         }
-        if (!Objects.equals(inControlThisTick, inControlLastTick) && command.commandType != PathingCommandType.REQUEST_PAUSE && inControlLastTick != null && !inControlLastTick.isTemporary()) {
-            // if control has changed from a real process to another real process, and the new process wants to do something
-            p.cancelSegmentIfSafe();
+        if (!Objects.equals(inControlThisTick, inControlLastTick) && command.commandType != PathingCommandType.REQUEST_PAUSE && inControlLastTick != null) {
+            // Cancel when control changed from a real process, or from a temporary process
+            // that moved the player off the current path (e.g. combat evasion) -- otherwise
+            // the underlying process would resume a stale path from an invalid starting
+            // point and stall with off-path timeouts. Temporary processes that did not
+            // move the player (e.g. inventory pause) resume seamlessly.
+            if (!inControlLastTick.isTemporary() || playerOffPath()) {
+                p.cancelSegmentIfSafe();
+            }
             // get rid of the in progress stuff from the last process
         }
         switch (command.commandType) {
@@ -175,6 +181,16 @@ public class PathingControlManager implements IPathingControlManager {
             }
         }
         return false;
+    }
+
+    /**
+     * Whether the player has been moved more than 2 blocks away from the current path by
+     * a temporary process (combat evasion, knockback, etc.), making the in-progress path
+     * stale. 2.0 matches {@code PathExecutor.MAX_DIST_FROM_PATH}.
+     */
+    private boolean playerOffPath() {
+        PathExecutor current = baritone.getPathingBehavior().getCurrent();
+        return current != null && current.isPlayerOffPath(2.0);
     }
 
 

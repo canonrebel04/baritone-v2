@@ -350,6 +350,19 @@ public class PathExecutor implements IPathExecutor, Helper {
         return new Tuple<>(best, bestPos);
     }
 
+    /**
+     * Returns whether the player's feet are further than {@code leniency} blocks from
+     * every valid position of the current path. Used to detect when a temporary process
+     * (e.g. combat evasion) moved the player off-path while it held control, so the
+     * underlying process can cancel and re-path instead of resuming a stale path.
+     */
+    public boolean isPlayerOffPath(double leniency) {
+        if (path == null || path.movements().isEmpty()) {
+            return false;
+        }
+        return closestPathPos(path).getA() > leniency;
+    }
+
     private boolean shouldPause() {
         Optional<AbstractNodeCostSearch> current = behavior.getInProgress();
         if (!current.isPresent()) {
@@ -415,7 +428,22 @@ public class PathExecutor implements IPathExecutor, Helper {
                 return false; // so don't
             }
         }
-        int index = path.positions().indexOf(ctx.playerFeet());
+        // indexOf would return the FIRST occurrence of the player feet, so on a path that
+        // loops over itself (visits the same block twice) the bot would snap back to the
+        // start of the loop every time and backtrack forever. Find the occurrence nearest
+        // to the current path position instead.
+        List<BetterBlockPos> positions = path.positions();
+        int index = -1;
+        int bestDist = Integer.MAX_VALUE;
+        for (int i = 0; i < positions.size(); i++) {
+            if (positions.get(i).equals(ctx.playerFeet())) {
+                int dist = Math.abs(i - pathPosition);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    index = i;
+                }
+            }
+        }
         if (index == -1) {
             return false;
         }
