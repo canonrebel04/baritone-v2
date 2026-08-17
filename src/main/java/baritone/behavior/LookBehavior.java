@@ -28,6 +28,7 @@ import baritone.api.event.events.*;
 import baritone.api.utils.IPlayerContext;
 import baritone.api.utils.Rotation;
 import baritone.behavior.look.ForkableRandom;
+import baritone.utils.MouseGCD;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 
 import java.util.ArrayDeque;
@@ -65,6 +66,29 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
     private final AimProcessor processor;
 
+    /**
+     * State for the eased (smoothstep) rotation animation. See {@link #smoothRotation}.
+     */
+    private Rotation smoothStart;
+    private Rotation smoothEnd;
+    private int smoothTicks;
+    private int smoothTotalTicks;
+    private boolean smoothActive;
+
+    /**
+     * If the arbitration target moves by less than this (degrees) between ticks, the eased
+     * animation keeps running instead of restarting (Baritone re-submits near-identical targets
+     * every tick, e.g. with {@code randomLooking} jitter).
+     */
+    private static final double SMOOTH_TARGET_EPSILON = 0.5;
+
+    /**
+     * If the player's actual camera is more than this (degrees) away from where the eased animation
+     * thinks it should be, the animation is restarted from the real camera position (free look
+     * toggles, external mods, ...).
+     */
+    private static final double SMOOTH_RESYNC_EPSILON = 5.0;
+
     public LookBehavior(Baritone baritone) {
         super(baritone);
         this.processor = new AimProcessor(baritone.getPlayerContext());
@@ -78,6 +102,10 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
     @Override
     public void updateTarget(Rotation rotation, boolean blockInteract) {
+        // GCD-quantize the requested target so the smoothing path, the silent rotation stream and
+        // (via PathExecutor) overshoot rotations never contain angles a real mouse couldn't produce.
+        final float gcdStep = MouseGCD.step(ctx);
+        rotation = MouseGCD.quantize(rotation, gcdStep);
         this.target = new Target(rotation, Target.Mode.resolve(ctx, blockInteract), blockInteract);
     }
 
@@ -128,6 +156,7 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
                 if (targetRotation == null || targetMode == Target.Mode.NONE) {
                     this.lastAppliedMode = targetMode;
+                    this.smoothActive = false;
                     return;
                 }
 
@@ -136,8 +165,11 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
                 if (targetMode == Target.Mode.SERVER) {
                     this.prevRotation = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
-                    ctx.player().setYRot(actual.getYaw());
-                    ctx.player().setXRot(actual.getPitch());
+                    // GCD-quantize so the silent rotation stream only contains angles reachable by
+                    // real mouse input at the player's current sensitivity.
+                    final float gcdStep = MouseGCD.step(ctx);
+                    ctx.player().setYRot(MouseGCD.quantize(actual.getYaw(), gcdStep));
+                    ctx.player().setXRot(MouseGCD.quantize(actual.getPitch(), gcdStep));
                 } else if (targetMode == Target.Mode.CLIENT) {
                     boolean useSmooth;
                     if (customSmooth != null) {
@@ -148,24 +180,25 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
                                 : Baritone.settings().smoothLook.value;
                     }
 
+                    final float gcdStep = MouseGCD.step(ctx);
                     if (useSmooth) {
                         Rotation current = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
-                        Rotation delta = actual.subtract(current).normalize();
 
                         double maxTurn = Baritone.settings().maxLookTurnSpeed.value;
                         if (blockInteract) {
                             maxTurn = Math.max(maxTurn, 65.0);
                         }
 
-                        // Human-like smooth exponential interpolation clamped to max turn speed
-                        float stepYaw = (float) Math.max(-maxTurn, Math.min(maxTurn, delta.getYaw() * 0.45f));
-                        float stepPitch = (float) Math.max(-maxTurn, Math.min(maxTurn, delta.getPitch() * 0.45f));
-
-                        ctx.player().setYRot(current.getYaw() + stepYaw);
-                        ctx.player().setXRot(current.getPitch() + stepPitch);
+                        // Eased (smoothstep) interpolation: the camera accelerates out of rest,
+                        // cruises at its peak turn rate mid-turn, then decelerates into the target.
+                        // The tick budget is derived from maxLookTurnSpeed so the peak eased velocity
+                        // never exceeds it, and the final angle is GCD-quantized.
+                        Rotation smoothed = this.smoothRotation(current, actual, (float) maxTurn);
+                        ctx.player().setYRot(MouseGCD.quantize(smoothed.getYaw(), gcdStep));
+                        ctx.player().setXRot(MouseGCD.quantize(smoothed.getPitch(), gcdStep));
                     } else {
-                        ctx.player().setYRot(actual.getYaw());
-                        ctx.player().setXRot(actual.getPitch());
+                        ctx.player().setYRot(MouseGCD.quantize(actual.getYaw(), gcdStep));
+                        ctx.player().setXRot(MouseGCD.quantize(actual.getPitch(), gcdStep));
                     }
                 }
                 break;
@@ -222,11 +255,109 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
         return null;
     }
 
+    /**
+     * Advances the eased smoothing animation by one tick and returns the next rotation to apply.
+     *
+     * <p>The animation interpolates from the rotation at which it started to the arbitration winner
+     * using classic smoothstep ({@code 3t^2 - 2t^3}), which has zero velocity at both endpoints: the
+     * camera accelerates out of rest, reaches its peak turn rate at the midpoint, and decelerates
+     * into the target — instead of the old linear clamping which moved at a constant rate or an
+     * exponential that never settled.
+     *
+     * <p>The tick budget is chosen so the peak eased velocity equals {@code maxTurn} (smoothstep's
+     * peak velocity is {@code 1.5 * distance / duration}), keeping peak turn speed capped at
+     * {@code maxLookTurnSpeed}. The animation continues as long as the arbitration target stays
+     * within {@link #SMOOTH_TARGET_EPSILON} degrees of the animation's end (Baritone re-submits
+     * near-identical targets every tick), and restarts from the player's real camera position
+     * whenever the target genuinely changes or the camera was displaced externally by more than
+     * {@link #SMOOTH_RESYNC_EPSILON} degrees (free look toggles, other mods, ...).
+     *
+     * @param current  The player's current rotation
+     * @param target   The rotation the arbitration winner wants
+     * @param maxTurn  Peak allowed turn rate in degrees per tick
+     * @return The next rotation on the eased path (not yet GCD-quantized)
+     */
+    private Rotation smoothRotation(Rotation current, Rotation target, float maxTurn) {
+        final double distance = rotationDistance(current, target);
+
+        if (distance < 1e-4) { // already (effectively) at the target
+            this.smoothActive = false;
+            return target;
+        }
+
+        final boolean sameTarget = this.smoothActive
+                && Math.abs(this.smoothEnd.getYaw() - target.getYaw()) < SMOOTH_TARGET_EPSILON
+                && Math.abs(this.smoothEnd.getPitch() - target.getPitch()) < SMOOTH_TARGET_EPSILON;
+
+        if (!sameTarget) {
+            this.beginSmooth(current, target, maxTurn);
+        }
+
+        Rotation smoothed = this.easedPosition(
+                Math.min(1.0, (double) (this.smoothTicks + 1) / this.smoothTotalTicks));
+
+        // The player's camera was moved externally (free look toggle, another mod, ...): resync the
+        // animation from where the camera actually is instead of fighting it.
+        if (rotationDistance(smoothed, current) > SMOOTH_RESYNC_EPSILON) {
+            this.beginSmooth(current, target, maxTurn);
+            smoothed = this.easedPosition(Math.min(1.0, 1.0 / this.smoothTotalTicks));
+        }
+
+        this.smoothTicks++;
+        if ((double) this.smoothTicks / this.smoothTotalTicks >= 1.0) {
+            this.smoothActive = false;
+        }
+        return smoothed;
+    }
+
+    /**
+     * Starts a new eased animation from {@code from} toward {@code to}, budgeting the tick count so
+     * that smoothstep's peak velocity ({@code 1.5 * distance / ticks}) equals {@code maxTurn}.
+     */
+    private void beginSmooth(Rotation from, Rotation to, float maxTurn) {
+        this.smoothStart = from;
+        this.smoothEnd = to;
+        final double distance = rotationDistance(from, to);
+        final int ticks = (int) Math.ceil(1.5 * distance / Math.max(maxTurn, 0.01));
+        this.smoothTotalTicks = Math.max(2, ticks);
+        this.smoothTicks = 0;
+        this.smoothActive = true;
+    }
+
+    /**
+     * Lerps {@code start -> end} by the smoothstep-eased progress {@code t} (wrap-safe for yaw).
+     */
+    private Rotation easedPosition(double t) {
+        final double eased = smoothstep(t);
+        final Rotation offset = this.smoothEnd.subtract(this.smoothStart).normalize();
+        return new Rotation(
+                this.smoothStart.getYaw() + (float) (offset.getYaw() * eased),
+                this.smoothStart.getPitch() + (float) (offset.getPitch() * eased)
+        ).clamp();
+    }
+
+    /**
+     * Classic smoothstep ({@code 3t^2 - 2t^3}): zero first derivative at {@code t = 0} and
+     * {@code t = 1}, peak velocity at {@code t = 0.5}.
+     */
+    private static double smoothstep(double t) {
+        return t * t * (3.0 - 2.0 * t);
+    }
+
+    /**
+     * Angular distance between two rotations: the max of the wrap-aware yaw distance and the raw
+     * pitch distance, in degrees.
+     */
+    private static double rotationDistance(Rotation a, Rotation b) {
+        final Rotation delta = a.subtract(b).normalize();
+        return Math.max(Math.abs(delta.getYaw()), Math.abs(delta.getPitch()));
+    }
+
     public void pig() {
         Rotation winning = getWinningRotation();
         if (winning != null) {
             final Rotation actual = this.processor.peekRotation(winning);
-            ctx.player().setYRot(actual.getYaw());
+            ctx.player().setYRot(MouseGCD.quantize(actual.getYaw(), MouseGCD.step(ctx)));
         }
     }
 
@@ -243,8 +374,9 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
         Rotation winning = getWinningRotation();
         if (winning != null) {
             final Rotation actual = this.processor.peekRotation(winning);
-            event.setYaw(actual.getYaw());
-            event.setPitch(actual.getPitch());
+            final float gcdStep = MouseGCD.step(ctx);
+            event.setYaw(MouseGCD.quantize(actual.getYaw(), gcdStep));
+            event.setPitch(MouseGCD.quantize(actual.getPitch(), gcdStep));
         }
     }
 
