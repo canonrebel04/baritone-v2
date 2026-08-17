@@ -19,6 +19,7 @@ package baritone.api.behavior;
 
 import baritone.api.Settings;
 import baritone.api.behavior.look.IAimProcessor;
+import baritone.api.behavior.look.ILookPriorityHub;
 import baritone.api.utils.Rotation;
 
 /**
@@ -47,4 +48,12 @@ public interface ILookBehavior extends IBehavior {
      * @see IAimProcessor#fork
      */
     IAimProcessor getAimProcessor();
+
+    /**
+     * Returns the {@link ILookPriorityHub} associated with this look behavior, responsible for arbitrating rotation
+     * requests between Baritone internals and external combat/utility mods.
+     *
+     * @return The look priority hub
+     */
+    ILookPriorityHub getPriorityHub();
 }
