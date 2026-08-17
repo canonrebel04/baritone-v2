@@ -19,6 +19,7 @@ package baritone.api;
 
 import baritone.api.behavior.ILookBehavior;
 import baritone.api.behavior.IPathingBehavior;
+import baritone.api.behavior.look.ILookPriorityHub;
 import baritone.api.cache.IWorldProvider;
 import baritone.api.command.manager.ICommandManager;
 import baritone.api.event.listener.IEventBus;
@@ -45,6 +46,14 @@ public interface IBaritone {
      * @see ILookBehavior
      */
     ILookBehavior getLookBehavior();
+
+    /**
+     * @return The {@link ILookPriorityHub} instance for arbitrating rotations
+     * @see ILookPriorityHub
+     */
+    default ILookPriorityHub getLookPriorityHub() {
+        return getLookBehavior().getPriorityHub();
+    }
 
     /**
      * @return The {@link IFollowProcess} instance

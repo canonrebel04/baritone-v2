@@ -17,6 +17,7 @@
 
 package baritone.api;
 
+import baritone.api.behavior.look.ILookPriorityHub;
 import baritone.api.utils.SettingsUtil;
 
 /**
@@ -47,5 +48,25 @@ public final class BaritoneAPI {
 
     public static Settings getSettings() {
         return BaritoneAPI.settings;
+    }
+
+    /**
+     * Returns the {@link ILookPriorityHub} for the primary Baritone instance.
+     * This provides a clean API for external mods (e.g. Meteor Client) to submit prioritized rotation requests.
+     *
+     * @return The look priority hub of the primary Baritone instance
+     */
+    public static ILookPriorityHub getLookPriorityHub() {
+        return provider.getPrimaryBaritone().getLookBehavior().getPriorityHub();
+    }
+
+    /**
+     * Returns the {@link ILookPriorityHub} for the specified {@link IBaritone} instance.
+     *
+     * @param baritone The Baritone instance
+     * @return The look priority hub of the given Baritone instance
+     */
+    public static ILookPriorityHub getLookPriorityHub(IBaritone baritone) {
+        return baritone.getLookBehavior().getPriorityHub();
     }
 }

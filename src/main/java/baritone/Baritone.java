@@ -21,6 +21,7 @@ import baritone.api.BaritoneAPI;
 import baritone.api.IBaritone;
 import baritone.api.Settings;
 import baritone.api.behavior.IBehavior;
+import baritone.api.behavior.look.ILookPriorityHub;
 import baritone.api.event.listener.IEventBus;
 import baritone.api.process.IBaritoneProcess;
 import baritone.api.process.IElytraProcess;
@@ -189,6 +190,11 @@ public class Baritone implements IBaritone {
     @Override
     public LookBehavior getLookBehavior() {
         return this.lookBehavior;
+    }
+
+    @Override
+    public ILookPriorityHub getLookPriorityHub() {
+        return this.lookBehavior.getPriorityHub();
     }
 
     @Override

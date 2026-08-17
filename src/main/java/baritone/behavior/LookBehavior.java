@@ -21,6 +21,8 @@ import baritone.Baritone;
 import baritone.api.Settings;
 import baritone.api.behavior.ILookBehavior;
 import baritone.api.behavior.look.IAimProcessor;
+import baritone.api.behavior.look.ILookPriorityHub;
+import baritone.api.behavior.look.ILookRequest;
 import baritone.api.behavior.look.ITickableAimProcessor;
 import baritone.api.event.events.*;
 import baritone.api.utils.IPlayerContext;
@@ -40,22 +42,38 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     private Target target;
 
     /**
+     * The priority hub managing rotation requests from external and internal sources.
+     */
+    private final LookPriorityHub hub;
+
+    /**
      * The rotation known to the server. Returned by {@link #getEffectiveRotation()} for use in {@link IPlayerContext}.
      */
     private Rotation serverRotation;
 
     /**
-     * The last player rotation. Used to restore the player's angle when using free look.
+     * The last player rotation. Used to restore the player's angle when using free look or silent rotations.
      *
      * @see Settings#freeLook
      */
     private Rotation prevRotation;
+
+    /**
+     * Mode applied during PRE state, used to determine restore behavior in POST.
+     */
+    private Target.Mode lastAppliedMode;
 
     private final AimProcessor processor;
 
     public LookBehavior(Baritone baritone) {
         super(baritone);
         this.processor = new AimProcessor(baritone.getPlayerContext());
+        this.hub = new LookPriorityHub();
+    }
+
+    @Override
+    public ILookPriorityHub getPriorityHub() {
+        return this.hub;
     }
 
     @Override
@@ -71,41 +89,71 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     @Override
     public void onTick(TickEvent event) {
         if (event.getType() == TickEvent.Type.IN) {
+            this.hub.onTick();
             this.processor.tick();
         }
     }
 
     @Override
     public void onPlayerUpdate(PlayerUpdateEvent event) {
-
-        if (this.target == null) {
-            return;
-        }
-
         switch (event.getState()) {
             case PRE: {
-                if (this.target.mode == Target.Mode.NONE) {
-                    // Just return for PRE, we still want to set target to null on POST
+                // Resolve active look request (highest priority between external hub requests and Baritone internal target)
+                Optional<ILookRequest> highestExternal = this.hub.getHighestPriorityRequest();
+
+                Rotation targetRotation = null;
+                Target.Mode targetMode = Target.Mode.NONE;
+                boolean blockInteract = false;
+                Boolean customSmooth = null;
+
+                if (highestExternal.isPresent() && (this.target == null || highestExternal.get().getPriority() > ILookPriorityHub.DEFAULT_BARITONE_PRIORITY)) {
+                    ILookRequest req = highestExternal.get();
+                    targetRotation = req.getRotation();
+                    if (targetRotation != null) {
+                        blockInteract = req.isBlockInteract();
+                        customSmooth = req.isSmooth();
+                        if (req.isSilent()) {
+                            targetMode = Target.Mode.SERVER;
+                        } else {
+                            targetMode = Target.Mode.resolve(ctx, blockInteract);
+                        }
+                    }
+                }
+
+                if (targetRotation == null && this.target != null) {
+                    targetRotation = this.target.rotation;
+                    targetMode = this.target.mode;
+                    blockInteract = this.target.blockInteract;
+                }
+
+                if (targetRotation == null || targetMode == Target.Mode.NONE) {
+                    this.lastAppliedMode = targetMode;
                     return;
                 }
 
-                final Rotation actual = this.processor.peekRotation(this.target.rotation);
+                this.lastAppliedMode = targetMode;
+                final Rotation actual = this.processor.peekRotation(targetRotation);
 
-                if (this.target.mode == Target.Mode.SERVER) {
+                if (targetMode == Target.Mode.SERVER) {
                     this.prevRotation = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
                     ctx.player().setYRot(actual.getYaw());
                     ctx.player().setXRot(actual.getPitch());
-                } else if (this.target.mode == Target.Mode.CLIENT) {
-                    boolean useSmooth = ctx.player().isFallFlying()
-                            ? Baritone.settings().elytraSmoothLook.value
-                            : Baritone.settings().smoothLook.value;
+                } else if (targetMode == Target.Mode.CLIENT) {
+                    boolean useSmooth;
+                    if (customSmooth != null) {
+                        useSmooth = customSmooth;
+                    } else {
+                        useSmooth = ctx.player().isFallFlying()
+                                ? Baritone.settings().elytraSmoothLook.value
+                                : Baritone.settings().smoothLook.value;
+                    }
 
                     if (useSmooth) {
                         Rotation current = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
                         Rotation delta = actual.subtract(current).normalize();
 
                         double maxTurn = Baritone.settings().maxLookTurnSpeed.value;
-                        if (this.target.blockInteract) {
+                        if (blockInteract) {
                             maxTurn = Math.max(maxTurn, 65.0);
                         }
 
@@ -125,12 +173,13 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
             case POST: {
                 // Reset the player's rotations back to their original values ONLY for silent server-side rotations
                 if (this.prevRotation != null) {
-                    if (this.target.mode == Target.Mode.SERVER) {
+                    if (this.lastAppliedMode == Target.Mode.SERVER) {
                         ctx.player().setYRot(this.prevRotation.getYaw());
                         ctx.player().setXRot(this.prevRotation.getPitch());
                     }
                     this.prevRotation = null;
                 }
+                this.lastAppliedMode = null;
                 // The target is done being used for this game tick, so it can be invalidated
                 this.target = null;
                 break;
@@ -156,11 +205,27 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     public void onWorldEvent(WorldEvent event) {
         this.serverRotation = null;
         this.target = null;
+        this.hub.clear();
+    }
+
+    private Rotation getWinningRotation() {
+        Optional<ILookRequest> highestExternal = this.hub.getHighestPriorityRequest();
+        if (highestExternal.isPresent() && (this.target == null || highestExternal.get().getPriority() > ILookPriorityHub.DEFAULT_BARITONE_PRIORITY)) {
+            Rotation rot = highestExternal.get().getRotation();
+            if (rot != null) {
+                return rot;
+            }
+        }
+        if (this.target != null) {
+            return this.target.rotation;
+        }
+        return null;
     }
 
     public void pig() {
-        if (this.target != null) {
-            final Rotation actual = this.processor.peekRotation(this.target.rotation);
+        Rotation winning = getWinningRotation();
+        if (winning != null) {
+            final Rotation actual = this.processor.peekRotation(winning);
             ctx.player().setYRot(actual.getYaw());
         }
     }
@@ -175,8 +240,9 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
     @Override
     public void onPlayerRotationMove(RotationMoveEvent event) {
-        if (this.target != null) {
-            final Rotation actual = this.processor.peekRotation(this.target.rotation);
+        Rotation winning = getWinningRotation();
+        if (winning != null) {
+            final Rotation actual = this.processor.peekRotation(winning);
             event.setYaw(actual.getYaw());
             event.setPitch(actual.getPitch());
         }
