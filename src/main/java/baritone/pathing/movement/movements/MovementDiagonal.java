@@ -285,13 +285,34 @@ public class MovementDiagonal extends Movement {
 
         int dx = dest.x - src.x;
         int dz = dest.z - src.z;
-        double midX = src.x + 0.5 + 0.5 * dx;
-        double midZ = src.z + 0.5 + 0.5 * dz;
+
+        // Corner-routing waypoint. The plain vertex midpoint (src + 0.5 + 0.5*delta) is the
+        // exact corner point where the hitbox meets the solid block, so steering into it
+        // walks the bot into the corner edge, where it stops dead and stares at the vertex.
+        // When one cutting cell is solid (edging around a corner), route through the center
+        // of the OPEN cell instead -- an L-path that hugs the block side and flows around it.
+        double midX;
+        double midZ;
+        boolean cellAOpen = MovementHelper.canWalkThrough(ctx, new BetterBlockPos(src.x, src.y, dest.z));
+        boolean cellBOpen = MovementHelper.canWalkThrough(ctx, new BetterBlockPos(dest.x, src.y, src.z));
+        if (cellAOpen && !cellBOpen) {
+            // solid cell at (dest.x, src.z): go south/north through (src.x, dest.z) first
+            midX = src.x + 0.5;
+            midZ = dest.z + 0.5;
+        } else if (cellBOpen && !cellAOpen) {
+            // solid cell at (src.x, dest.z): go east/west through (dest.x, src.z) first
+            midX = dest.x + 0.5;
+            midZ = src.z + 0.5;
+        } else {
+            // pure diagonal (both cells open) or invalid (both solid): plain vertex midpoint
+            midX = src.x + 0.5 + 0.5 * dx;
+            midZ = src.z + 0.5 + 0.5 * dz;
+        }
 
         double playerX = ctx.player().position().x;
         double playerZ = ctx.player().position().z;
 
-        // Check if the player has reached or passed the diagonal midpoint towards dest
+        // Check if the player has reached or passed the waypoint towards dest
         boolean pastMidpoint = ((playerX - midX) * dx + (playerZ - midZ) * dz) >= 0;
 
         if (pastMidpoint) {
