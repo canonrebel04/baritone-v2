@@ -53,19 +53,14 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
     private final AimProcessor processor;
 
-    private final Deque<Float> smoothYawBuffer;
-    private final Deque<Float> smoothPitchBuffer;
-
     public LookBehavior(Baritone baritone) {
         super(baritone);
         this.processor = new AimProcessor(baritone.getPlayerContext());
-        this.smoothYawBuffer = new ArrayDeque<>();
-        this.smoothPitchBuffer = new ArrayDeque<>();
     }
 
     @Override
     public void updateTarget(Rotation rotation, boolean blockInteract) {
-        this.target = new Target(rotation, Target.Mode.resolve(ctx, blockInteract));
+        this.target = new Target(rotation, Target.Mode.resolve(ctx, blockInteract), blockInteract);
     }
 
     @Override
@@ -94,34 +89,46 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
                     return;
                 }
 
-                this.prevRotation = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
                 final Rotation actual = this.processor.peekRotation(this.target.rotation);
-                ctx.player().setYRot(actual.getYaw());
-                ctx.player().setXRot(actual.getPitch());
+
+                if (this.target.mode == Target.Mode.SERVER) {
+                    this.prevRotation = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
+                    ctx.player().setYRot(actual.getYaw());
+                    ctx.player().setXRot(actual.getPitch());
+                } else if (this.target.mode == Target.Mode.CLIENT) {
+                    boolean useSmooth = ctx.player().isFallFlying()
+                            ? Baritone.settings().elytraSmoothLook.value
+                            : Baritone.settings().smoothLook.value;
+
+                    if (useSmooth) {
+                        Rotation current = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
+                        Rotation delta = actual.subtract(current).normalize();
+
+                        double maxTurn = Baritone.settings().maxLookTurnSpeed.value;
+                        if (this.target.blockInteract) {
+                            maxTurn = Math.max(maxTurn, 65.0);
+                        }
+
+                        // Human-like smooth exponential interpolation clamped to max turn speed
+                        float stepYaw = (float) Math.max(-maxTurn, Math.min(maxTurn, delta.getYaw() * 0.45f));
+                        float stepPitch = (float) Math.max(-maxTurn, Math.min(maxTurn, delta.getPitch() * 0.45f));
+
+                        ctx.player().setYRot(current.getYaw() + stepYaw);
+                        ctx.player().setXRot(current.getPitch() + stepPitch);
+                    } else {
+                        ctx.player().setYRot(actual.getYaw());
+                        ctx.player().setXRot(actual.getPitch());
+                    }
+                }
                 break;
             }
             case POST: {
-                // Reset the player's rotations back to their original values
+                // Reset the player's rotations back to their original values ONLY for silent server-side rotations
                 if (this.prevRotation != null) {
-                    this.smoothYawBuffer.addLast(this.target.rotation.getYaw());
-                    while (this.smoothYawBuffer.size() > Baritone.settings().smoothLookTicks.value) {
-                        this.smoothYawBuffer.removeFirst();
-                    }
-                    this.smoothPitchBuffer.addLast(this.target.rotation.getPitch());
-                    while (this.smoothPitchBuffer.size() > Baritone.settings().smoothLookTicks.value) {
-                        this.smoothPitchBuffer.removeFirst();
-                    }
                     if (this.target.mode == Target.Mode.SERVER) {
                         ctx.player().setYRot(this.prevRotation.getYaw());
                         ctx.player().setXRot(this.prevRotation.getPitch());
-                    } else if (ctx.player().isFallFlying() ? Baritone.settings().elytraSmoothLook.value : Baritone.settings().smoothLook.value) {
-                        ctx.player().setYRot((float) this.smoothYawBuffer.stream().mapToDouble(d -> d).average().orElse(this.prevRotation.getYaw()));
-                        if (ctx.player().isFallFlying()) {
-                            ctx.player().setXRot((float) this.smoothPitchBuffer.stream().mapToDouble(d -> d).average().orElse(this.prevRotation.getPitch()));
-                        }
                     }
-                    //ctx.player().xRotO = prevRotation.getPitch();
-                    //ctx.player().yRotO = prevRotation.getYaw();
                     this.prevRotation = null;
                 }
                 // The target is done being used for this game tick, so it can be invalidated
@@ -311,10 +318,12 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
         public final Rotation rotation;
         public final Mode mode;
+        public final boolean blockInteract;
 
-        public Target(Rotation rotation, Mode mode) {
+        public Target(Rotation rotation, Mode mode, boolean blockInteract) {
             this.rotation = rotation;
             this.mode = mode;
+            this.blockInteract = blockInteract;
         }
 
         enum Mode {

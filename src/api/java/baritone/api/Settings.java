@@ -787,14 +787,21 @@ public final class Settings {
     public final Setting<Boolean> elytraFreeLook = new Setting<>(true);
 
     /**
-     * Forces the client-sided yaw rotation to an average of the last {@link #smoothLookTicks} of server-sided rotations.
+    /**
+     * Enables continuous smooth camera rotation for all Baritone movements, pathing, mining, and building.
      */
-    public final Setting<Boolean> smoothLook = new Setting<>(false);
+    public final Setting<Boolean> smoothLook = new Setting<>(true);
 
     /**
      * Same as {@link #smoothLook} but for elytra flying.
      */
-    public final Setting<Boolean> elytraSmoothLook = new Setting<>(false);
+    public final Setting<Boolean> elytraSmoothLook = new Setting<>(true);
+
+    /**
+     * Maximum degrees the player camera can turn per tick during smooth look.
+     * Higher values turn faster, lower values look smoother and more human.
+     */
+    public final Setting<Double> maxLookTurnSpeed = new Setting<>(35.0);
 
     /**
      * The number of ticks to average across for {@link #smoothLook};
