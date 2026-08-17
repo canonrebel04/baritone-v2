@@ -31,7 +31,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -41,7 +42,35 @@ import java.util.Optional;
  */
 public class WorldProvider implements IWorldProvider {
 
-    private static final Map<Path, WorldData> worldCache = new HashMap<>();
+    /**
+     * The maximum number of worlds/servers to keep in {@link #worldCache} at once.
+     */
+    private static final int MAX_CACHED_WORLDS = 8;
+
+    /**
+     * A bounded, thread-safe LRU cache of {@link WorldData} keyed by world directory.
+     * <p>
+     * This was previously a plain unbounded {@link java.util.HashMap}, which retained every
+     * visited world/server (with all of its cached chunks and regions) in RAM for the
+     * lifetime of the process. When the cache grows past {@link #MAX_CACHED_WORLDS} entries,
+     * the least recently used {@link WorldData} is evicted and closed via
+     * {@link WorldData#onClose()}, which saves any pending changes and stops the entry's
+     * background packer/autosave threads, so eviction actually frees memory and threads
+     * rather than just dropping the reference.
+     */
+    private static final Map<Path, WorldData> worldCache = Collections.synchronizedMap(
+            new LinkedHashMap<Path, WorldData>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<Path, WorldData> eldest) {
+                    if (size() > MAX_CACHED_WORLDS) {
+                        System.out.println("Evicting " + eldest.getKey() + " from the world cache");
+                        eldest.getValue().onClose();
+                        return true;
+                    }
+                    return false;
+                }
+            }
+    );
 
     private final Baritone baritone;
     private final IPlayerContext ctx;
