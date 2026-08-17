@@ -235,6 +235,21 @@ public class MovementAscend extends Movement {
                 return false;
             }
         }
+        // also verify clearance above the destination: at the jump peak the head
+        // reaches ~src.y + 3.05, and dest.above(2) is not covered by the src check
+        // nor guaranteed walkable by movement validation, so a ceiling above the
+        // landing block would bonk the bot, kill its momentum, and drop it back
+        // into the gap
+        BetterBlockPos endUp = dest.above(2);
+        if (!MovementHelper.canWalkThrough(ctx, endUp)) {
+            return false;
+        }
+        for (int i = 0; i < 4; i++) {
+            BetterBlockPos check = endUp.relative(Direction.from2DDataValue(i));
+            if (!MovementHelper.canWalkThrough(ctx, check)) {
+                return false;
+            }
+        }
         return true;
     }
 

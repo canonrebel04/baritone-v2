@@ -18,9 +18,7 @@
 package baritone.utils.pathing;
 
 import baritone.Baritone;
-import baritone.api.utils.BetterBlockPos;
 import baritone.api.utils.IPlayerContext;
-import it.unimi.dsi.fastutil.longs.Long2DoubleOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.EnderMan;
@@ -53,6 +51,10 @@ public class Avoidance {
         this.radiusSq = radius * radius;
     }
 
+    /**
+     * Lazy distance check used during node expansion. Returns the avoidance
+     * coefficient if the position is inside this sphere, {@code 1.0} otherwise.
+     */
     public double coefficient(int x, int y, int z) {
         int xDiff = x - centerX;
         int yDiff = y - centerY;
@@ -80,18 +82,5 @@ public class Avoidance {
                     .forEach(entity -> res.add(new Avoidance(entity.blockPosition(), mobCoeff, Baritone.settings().mobAvoidanceRadius.value)));
         }
         return res;
-    }
-
-    public void applySpherical(Long2DoubleOpenHashMap map) {
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; z <= radius; z++) {
-                    if (x * x + y * y + z * z <= radius * radius) {
-                        long hash = BetterBlockPos.longHash(centerX + x, centerY + y, centerZ + z);
-                        map.put(hash, map.get(hash) * coefficient);
-                    }
-                }
-            }
-        }
     }
 }

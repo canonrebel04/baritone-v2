@@ -160,12 +160,18 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                 }
                 long hashCode = BetterBlockPos.longHash(res.x, res.y, res.z);
                 if (isFavoring) {
-                    // see issue #18
-                    actionCost *= favoring.calculate(hashCode);
+                    // see issue #18; avoidance spheres are evaluated lazily from the
+                    // candidate coordinates instead of pre-rasterized on the main thread
+                    actionCost *= favoring.calculate(res.x, res.y, res.z, hashCode);
                 }
-                PathNode neighbor = getNodeAtPosition(res.x, res.y, res.z, hashCode);
+                // peek without allocating: only construct a PathNode (which runs the goal
+                // heuristic) once we know this candidate actually improves the node
+                PathNode neighbor = peekNodeAtPosition(hashCode);
                 double tentativeCost = currentNode.cost + actionCost;
-                if (neighbor.cost - tentativeCost > minimumImprovement) {
+                if (neighbor == null || neighbor.cost - tentativeCost > minimumImprovement) {
+                    if (neighbor == null) {
+                        neighbor = getNodeAtPosition(res.x, res.y, res.z, hashCode);
+                    }
                     neighbor.previous = currentNode;
                     neighbor.cost = tentativeCost;
                     neighbor.combinedCost = tentativeCost + neighbor.estimatedCostToGoal;

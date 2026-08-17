@@ -178,6 +178,17 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
         return node;
     }
 
+    /**
+     * Returns the node already mapped to the given hashCode, or {@code null},
+     * without allocating a new {@link PathNode}. The caller should only allocate
+     * (via {@link #getNodeAtPosition}) after confirming the candidate actually
+     * improves the node, so the goal heuristic and object churn are avoided for
+     * candidates that get rejected.
+     */
+    protected PathNode peekNodeAtPosition(long hashCode) {
+        return map.get(hashCode);
+    }
+
     @Override
     public Optional<IPath> pathToMostRecentNodeConsidered() {
         return Optional.ofNullable(mostRecentConsidered).map(node -> new Path(realStart, startNode, node, 0, goal, context));
