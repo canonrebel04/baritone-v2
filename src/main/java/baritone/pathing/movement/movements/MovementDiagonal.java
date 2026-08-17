@@ -312,10 +312,21 @@ public class MovementDiagonal extends Movement {
         double playerX = ctx.player().position().x;
         double playerZ = ctx.player().position().z;
 
-        // Check if the player has reached or passed the waypoint towards dest
-        boolean pastMidpoint = ((playerX - midX) * dx + (playerZ - midZ) * dz) >= 0;
+        // For an edging wrap (one cutting cell solid), require actually reaching the
+        // open-cell center before turning toward dest. The projection check alone can
+        // fire early on a drifted approach and commit the bot to clipping the solid
+        // corner, stalling it and forcing a re-path. Pure diagonals keep the projection
+        // check -- the vertex waypoint lies directly on the line of travel.
+        boolean reachedWaypoint;
+        if (cellAOpen != cellBOpen) {
+            double ddx = playerX - midX;
+            double ddz = playerZ - midZ;
+            reachedWaypoint = ddx * ddx + ddz * ddz < 0.25;
+        } else {
+            reachedWaypoint = ((playerX - midX) * dx + (playerZ - midZ) * dz) >= 0;
+        }
 
-        if (pastMidpoint) {
+        if (reachedWaypoint) {
             MovementHelper.moveTowards(ctx, state, dest);
         } else {
             MovementHelper.moveTowards(ctx, state, new Vec3(midX, src.y, midZ));
