@@ -799,8 +799,10 @@ public final class Settings {
     public final Setting<Boolean> elytraFreeLook = new Setting<>(true);
 
     /**
-    /**
      * Enables continuous smooth camera rotation for all Baritone movements, pathing, mining, and building.
+     * Uses eased (smoothstep) interpolation — the camera accelerates out of rest and decelerates into
+     * each target — and every applied rotation is quantized to the mouse GCD (the smallest angle
+     * increment reachable at the player's current mouse sensitivity) for anti-cheat compatibility.
      */
     public final Setting<Boolean> smoothLook = new Setting<>(true);
 
@@ -810,8 +812,9 @@ public final class Settings {
     public final Setting<Boolean> elytraSmoothLook = new Setting<>(true);
 
     /**
-     * Maximum degrees the player camera can turn per tick during smooth look.
-     * Higher values turn faster, lower values look smoother and more human.
+     * Maximum degrees the player camera can turn per tick during smooth look. This is the peak turn
+     * rate of the eased animation (reached mid-turn); the camera accelerates toward it from rest and
+     * decelerates into the target. Higher values turn faster, lower values look smoother and more human.
      */
     public final Setting<Double> maxLookTurnSpeed = new Setting<>(35.0);
 

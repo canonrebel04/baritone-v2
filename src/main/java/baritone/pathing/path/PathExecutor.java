@@ -32,6 +32,7 @@ import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.movements.*;
 import baritone.utils.BlockStateInterface;
+import baritone.utils.MouseGCD;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.util.Tuple;
@@ -282,11 +283,14 @@ public class PathExecutor implements IPathExecutor, Helper {
                                     && MovementHelper.canWalkThrough(bsiTemp, overshootPos.getX(), overshootPos.getY() + 1, overshootPos.getZ())
                                     && MovementHelper.canWalkOn(bsiTemp, overshootPos.getX(), overshootPos.getY() - 1, overshootPos.getZ())) {
                                 overshootTicksRemaining = new java.util.Random().nextInt(3) + 2;
-                                overshootRotation = RotationUtils.calcRotationFromVec3d(
-                                    ctx.playerHead(),
-                                    VecUtils.getBlockPosCenter(overshootPos),
-                                    ctx.playerRotations()
-                                );
+                                // GCD-quantize the overshoot rotation so the deltas fed to the look
+                                // behavior (and hence the server) are always multiples of the mouse
+                                // GCD — anti-cheats flag non-GCD rotation deltas.
+                                overshootRotation = MouseGCD.quantize(RotationUtils.calcRotationFromVec3d(
+                                        ctx.playerHead(),
+                                        VecUtils.getBlockPosCenter(overshootPos),
+                                        ctx.playerRotations()
+                                ), MouseGCD.step(ctx));
                                 
                                 behavior.baritone.getLookBehavior().updateTarget(overshootRotation, true);
                                 behavior.baritone.getInputOverrideHandler().clearAllKeys();
