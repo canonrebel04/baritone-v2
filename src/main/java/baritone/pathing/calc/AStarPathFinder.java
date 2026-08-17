@@ -100,10 +100,12 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                 logDebug("Took " + (System.currentTimeMillis() - startTime) + "ms, " + numMovementsConsidered + " movements considered");
                 return Optional.of(new Path(realStart, startNode, currentNode, numNodes, goal, calcContext));
             }
+            int currentNodeChunkX = currentNode.x >> 4;
+            int currentNodeChunkZ = currentNode.z >> 4;
             for (Moves moves : allMoves) {
                 int newX = currentNode.x + moves.xOffset;
                 int newZ = currentNode.z + moves.zOffset;
-                if ((newX >> 4 != currentNode.x >> 4 || newZ >> 4 != currentNode.z >> 4) && !calcContext.isLoaded(newX, newZ)) {
+                if ((newX >> 4 != currentNodeChunkX || newZ >> 4 != currentNodeChunkZ) && !calcContext.isLoaded(newX, newZ)) {
                     // only need to check if the destination is a loaded chunk if it's in a different chunk than the start of the movement
                     if (!moves.dynamicXZ) { // only increment the counter if the movement would have gone out of bounds guaranteed
                         numEmptyChunk++;
