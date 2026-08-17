@@ -546,8 +546,10 @@ public final class Settings {
 
     /**
      * How far are you allowed to fall onto solid ground (without a water bucket)?
-     * 3 won't deal any damage. But if you just want to get down the mountain quickly and you have
-     * Feather Falling IV, you might set it a bit higher, like 4 or 5.
+     * 3 won't deal any damage. The player's SAFE_FALL_DISTANCE attribute (increased by the
+     * Feather Falling enchantment) is honored automatically, so this setting acts as a lower
+     * bound; you might still want to raise it if you're comfortable falling further than the
+     * enchantment allows.
      */
     public final Setting<Integer> maxFallHeightNoWater = new Setting<>(3);
 
