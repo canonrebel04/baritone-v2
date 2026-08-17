@@ -38,6 +38,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 public class MovementDiagonal extends Movement {
 
@@ -278,7 +279,23 @@ public class MovementDiagonal extends Movement {
             state.setInput(Input.SPRINT, true);
         }
         state.setInput(Input.SNEAK, Baritone.settings().allowWalkOnMagmaBlocks.value && MovementHelper.steppingOnBlocks(ctx).stream().anyMatch(block -> ctx.world().getBlockState(block).is(Blocks.MAGMA_BLOCK)));
-        MovementHelper.moveTowards(ctx, state, dest);
+
+        int dx = dest.x - src.x;
+        int dz = dest.z - src.z;
+        double midX = src.x + 0.5 + 0.5 * dx;
+        double midZ = src.z + 0.5 + 0.5 * dz;
+
+        double playerX = ctx.player().position().x;
+        double playerZ = ctx.player().position().z;
+
+        // Check if the player has reached or passed the diagonal midpoint towards dest
+        boolean pastMidpoint = ((playerX - midX) * dx + (playerZ - midZ) * dz) >= 0;
+
+        if (pastMidpoint) {
+            MovementHelper.moveTowards(ctx, state, dest);
+        } else {
+            MovementHelper.moveTowards(ctx, state, new Vec3(midX, src.y, midZ));
+        }
         return state;
     }
 
