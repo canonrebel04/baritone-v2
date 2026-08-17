@@ -136,8 +136,21 @@ public class CalculationContext {
         this.allowDiagonalDescend = Baritone.settings().allowDiagonalDescend.value;
         this.allowDiagonalAscend = Baritone.settings().allowDiagonalAscend.value;
         this.allowDownward = Baritone.settings().allowDownward.value;
+        // The player's actual safe fall distance. Vanilla base is 3.0 and each Feather Falling
+        // level adds to the SAFE_FALL_DISTANCE attribute (e.g. Feather Falling IV -> 8.0), so
+        // falls up to this distance deal no damage. Baritone previously assumed a fixed safe
+        // fall limit of 3 blocks and ignored the attribute entirely; now the real value is used
+        // and the movement validation/cost treats falls up to it as safe. Defaults to the
+        // vanilla base of 3.0 if the attribute is somehow absent, keeping normal players
+        // (and default pathfinding) behavior unchanged.
+        double safeFallDistance = 3.0;
+        AttributeInstance safeFallAttribute = player.getAttribute(Attributes.SAFE_FALL_DISTANCE);
+        if (safeFallAttribute != null) {
+            safeFallDistance = safeFallAttribute.getValue();
+        }
         this.minFallHeight = 3; // Minimum fall height used by MovementFall
-        this.maxFallHeightNoWater = Baritone.settings().maxFallHeightNoWater.value;
+        // the user setting remains a lower bound; the actual safe fall distance can only raise it
+        this.maxFallHeightNoWater = Math.max(Baritone.settings().maxFallHeightNoWater.value, (int) safeFallDistance);
         this.maxFallHeightBucket = Baritone.settings().maxFallHeightBucket.value;
         float waterSpeedMultiplier = 1.0f;
         OUTER: for (EquipmentSlot slot : EquipmentSlot.values()) {
