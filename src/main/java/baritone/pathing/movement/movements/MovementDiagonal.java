@@ -201,7 +201,7 @@ public class MovementDiagonal extends Movement {
                     || (!BTop && BMid && BLow)) { // head bonk B
                 return;
             }
-            res.cost = multiplier * SQRT_2 + JUMP_ONE_BLOCK_COST;
+            res.cost = multiplier * SQRT_2 + (context.canStepUp ? 0 : JUMP_ONE_BLOCK_COST); // P2-13: with auto-step, a 1-block diagonal step-up costs a plain walk
             res.x = destX;
             res.z = destZ;
             res.y = y + 1;
@@ -272,7 +272,10 @@ public class MovementDiagonal extends Movement {
         } else if (!playerInValidPosition() && !(MovementHelper.isLiquid(ctx, src) && getValidPositions().contains(ctx.playerFeet().above()))) {
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
-        if (dest.y > src.y && ctx.player().position().y < src.y + 0.1 && ctx.player().horizontalCollision) {
+        if (dest.y > src.y && ctx.player().position().y < src.y + 0.1 && ctx.player().horizontalCollision
+                && !(MovementHelper.canStepUp(ctx) && ctx.player().onGround())) {
+            // P2-13: with STEP_HEIGHT >= 1.0 and the player grounded, auto-step carries the
+            // player up the 1-block step, so the bump-jump is not needed
             state.setInput(Input.JUMP, true);
         }
         if (sprint()) {

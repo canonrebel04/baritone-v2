@@ -174,6 +174,16 @@ public final class Settings {
     public final Setting<Boolean> assumeStep = new Setting<>(false);
 
     /**
+     * Respect the player's actual STEP_HEIGHT attribute (e.g. from armor modifiers or potion
+     * effects) when executing 1-block step-ups. If the attribute value is >= 1.0, a 1-block
+     * step-up is executed as a plain walk (auto-step, no jump input) and ascend costs are not
+     * penalized as a jump.
+     * <p>
+     * Disable to always jump on step-ups regardless of the attribute.
+     */
+    public final Setting<Boolean> honorStepHeight = new Setting<>(true);
+
+    /**
      * Assume safe walk functionality; don't sneak on a backplace traverse.
      * <p>
      * Warning: if you do something janky like sneak-backplace from an ender chest, if this is true
