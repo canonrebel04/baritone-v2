@@ -48,6 +48,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.Fireworks;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.AirBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkSource;
@@ -132,7 +133,11 @@ public final class ElytraBehavior implements Helper {
         this.solverExecutor = Executors.newSingleThreadExecutor();
         this.nextTickBoostCounter = new int[2];
 
-        this.context = new NetherPathfinderContext(Baritone.settings().elytraNetherSeed.value);
+        this.context = new NetherPathfinderContext(
+                Baritone.settings().elytraNetherSeed.value,
+                ctx.world() != null ? ctx.world().dimension() : Level.NETHER,
+                128
+        );
         this.boi = new BlockStateOctreeInterface(context);
     }
 
