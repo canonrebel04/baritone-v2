@@ -312,25 +312,22 @@ public class MovementDiagonal extends Movement {
         double playerX = ctx.player().position().x;
         double playerZ = ctx.player().position().z;
 
-        // For an edging wrap (one cutting cell solid), the bot must reach the open-cell
-        // CENTER before turning toward dest — but a radius check around the center can
-        // oscillate on drifted approaches (bot overshoots one axis, then the other,
-        // stalling around the waypoint). Use a projection-based check instead: the turn
-        // is allowed once the player has crossed the waypoint LINE along the movement
-        // axis (i.e. is past the corner in the axis it is traveling), which is exactly
-        // the L-path point. Pure diagonals keep the plain projection check — the vertex
-        // waypoint lies directly on the line of travel.
+        // For an edging wrap (one cutting cell solid), the turn toward dest must fire
+        // only AFTER the player has crossed the waypoint's coordinate on the axis it
+        // travels FIRST (the L-path: leg 1 along the open cell, leg 2 toward dest).
+        // A projection onto the travel direction fires too early on drifted approaches
+        // (bot still south of the waypoint but drifting east) and jams it into the
+        // corner edge, where it sits facing the vertex. Pure diagonals keep the plain
+        // projection check — the vertex waypoint lies directly on the line of travel.
         boolean reachedWaypoint;
-        if (cellAOpen != cellBOpen) {
-            double ddx = playerX - midX;
-            double ddz = playerZ - midZ;
-            // Axis of travel: the axis where src and dest differ AND the waypoint offset
-            // is along it. Cross the waypoint line = projection of (player - waypoint)
-            // onto the travel direction is >= 0, AND the player is within 1.2 blocks of
-            // the waypoint line (so it doesn't trigger from the wrong side of the corner).
-            double proj = ddx * (dest.x - src.x) + ddz * (dest.z - src.z);
-            double offLine = Math.abs(ddx * (dest.z - src.z) - ddz * (dest.x - src.x));
-            reachedWaypoint = proj >= 0 && offLine < 1.2;
+        if (cellAOpen && !cellBOpen) {
+            // solid at (dest.x, src.z): L-path travels along Z first (src.z -> dest.z)
+            // through the open cell at (src.x, dest.z), then along X to dest.
+            reachedWaypoint = playerZ >= midZ - 0.2;
+        } else if (cellBOpen && !cellAOpen) {
+            // solid at (src.x, dest.z): L-path travels along X first (src.x -> dest.x)
+            // through the open cell at (dest.x, src.z), then along Z to dest.
+            reachedWaypoint = playerX >= midX - 0.2;
         } else {
             reachedWaypoint = ((playerX - midX) * dx + (playerZ - midZ) * dz) >= 0;
         }
