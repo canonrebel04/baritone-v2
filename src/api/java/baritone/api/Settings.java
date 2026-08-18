@@ -1553,6 +1553,19 @@ public final class Settings {
     public final Setting<Boolean> elytraPredictTerrain = new Setting<>(false);
 
     /**
+     * If true, allows the elytra pathfinder to route through tight spaces (gaps smaller
+     * than 4 blocks). Default false = require at least 4 blocks of clearance on path
+     * segments (safer at speed).
+     */
+    public final Setting<Boolean> elytraAllowTightSpaces = new Setting<>(false);
+
+    /**
+     * If true, runs the native pathfinder's refine pass after each A* segment to smooth
+     * the node string. Slightly more expensive per pathfind; cleaner waypoints.
+     */
+    public final Setting<Boolean> elytraRefinePath = new Setting<>(false);
+
+    /**
      * Automatically swap the current elytra with a new one when the durability gets too low
      */
     public final Setting<Boolean> elytraAutoSwap = new Setting<>(true);

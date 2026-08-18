@@ -323,8 +323,21 @@ public final class ElytraBehavior implements Helper {
             }
             final BetterBlockPos rangeStart = path.get(rangeStartIncl);
             if (!ElytraBehavior.this.passable(rangeStart.x, rangeStart.y, rangeStart.z, false)) {
-                // we're in a wall
-                return; // previous iterations of this function SHOULD have fixed this by now :rage_cat:
+                // We're in a wall (setback, entity push, or clipped terrain). Find the nearest
+                // passable node ahead of us on the path and re-path from there instead of
+                // stalling until the 100-tick no-progress recalc kicks in.
+                for (int i = rangeStartIncl + 1; i < rangeEndExcl; i++) {
+                    final BetterBlockPos node = path.get(i);
+                    if (ElytraBehavior.this.passable(node.x, node.y, node.z, false)) {
+                        logVerbose("In a wall at path node " + rangeStartIncl + ", re-pathing from passable node " + i);
+                        this.pathRecalcSegment(OptionalInt.of(i));
+                        return;
+                    }
+                }
+                // No passable node within the loaded range — re-path to the destination from the player.
+                logVerbose("In a wall with no passable nodes in range, re-pathing to destination");
+                this.pathToDestination();
+                return;
             }
 
             if (ElytraBehavior.this.process.state != ElytraProcess.State.LANDING && this.ticksNearUnchanged > 100) {
@@ -391,26 +404,38 @@ public final class ElytraBehavior implements Helper {
 
             int index = this.playerNear;
             final BetterBlockPos pos = ctx.playerFeet();
-            for (int i = index; i >= Math.max(index - 1000, 0); i -= 10) {
-                if (path.get(i).distanceSq(pos) < path.get(index).distanceSq(pos)) {
-                    index = i; // intentional: this changes the bound of the loop
-                }
-            }
-            for (int i = index; i < Math.min(index + 1000, path.size()); i += 10) {
-                if (path.get(i).distanceSq(pos) < path.get(index).distanceSq(pos)) {
-                    index = i; // intentional: this changes the bound of the loop
-                }
-            }
+
+            // Fine scan: the player moves a few nodes/tick while flying, so the ±50 stride-1
+            // scan tracks normal flight cheaply. Only if it finds NO improvement do we fall
+            // back to the expensive ±1000 stride-10 coarse scan (teleport, big setback,
+            // path replacement) — this keeps the per-tick cost near-zero during normal flight.
+            boolean fineImproved = false;
             for (int i = index; i >= Math.max(index - 50, 0); i--) {
                 if (path.get(i).distanceSq(pos) < path.get(index).distanceSq(pos)) {
                     index = i; // intentional: this changes the bound of the loop
+                    fineImproved = true;
                 }
             }
             for (int i = index; i < Math.min(index + 50, path.size()); i++) {
                 if (path.get(i).distanceSq(pos) < path.get(index).distanceSq(pos)) {
                     index = i; // intentional: this changes the bound of the loop
+                    fineImproved = true;
                 }
             }
+
+            if (!fineImproved) {
+                for (int i = index; i >= Math.max(index - 1000, 0); i -= 10) {
+                    if (path.get(i).distanceSq(pos) < path.get(index).distanceSq(pos)) {
+                        index = i; // intentional: this changes the bound of the loop
+                    }
+                }
+                for (int i = index; i < Math.min(index + 1000, path.size()); i += 10) {
+                    if (path.get(i).distanceSq(pos) < path.get(index).distanceSq(pos)) {
+                        index = i; // intentional: this changes the bound of the loop
+                    }
+                }
+            }
+
             this.playerNear = index;
         }
 
@@ -587,6 +612,16 @@ public final class ElytraBehavior implements Helper {
             return;
         }
 
+        // Setback hold (anticheat safety): while the server is correcting our position
+        // (ClientboundPlayerPositionPacket = rubberband), do NOT steer or firework — fly
+        // through the correction on current trajectory so the client resyncs first.
+        // Same pattern as the Meteor v2.4.10 desync hold. Fireworks are additionally
+        // gated by elytraFireworkSetbackUseDelay in tickUseFireworks.
+        if (this.remainingSetBackTicks > 0) {
+            logVerbose("setback hold: " + this.remainingSetBackTicks);
+            return;
+        }
+
         trySwapElytra();
 
         if (ctx.player().horizontalCollision) {
@@ -755,9 +790,21 @@ public final class ElytraBehavior implements Helper {
         ).lengthSqr();
 
         final double elytraFireworkSpeed = Baritone.settings().elytraFireworkSpeed.value;
+
+        // Principled firework decision (replaces the old fixed ±5-block heuristics):
+        // boost when we can't coast to the target column within the simulation horizon
+        // at our current speed, or we're below the target and speed is dropping.
+        // Distance we can cover at current speed within elytraSimulationTicks:
+        final double coastDistance = Math.sqrt(currentSpeed) * Baritone.settings().elytraSimulationTicks.value;
+        final double horizontalDist = Math.sqrt(
+                (goingTo.x + 0.5 - ctx.player().getX()) * (goingTo.x + 0.5 - ctx.player().getX())
+                        + (goingTo.z + 0.5 - ctx.player().getZ()) * (goingTo.z + 0.5 - ctx.player().getZ())
+        );
+        final boolean cannotReachTarget = horizontalDist > coastDistance || ctx.player().position().y < goingTo.y - 5;
+
         if (this.remainingFireworkTicks <= 0 && (forceUseFirework || (!isBoosted
                 && useOnDescend
-                && (ctx.player().position().y < goingTo.y - 5 || start.distanceTo(new Vec3(goingTo.x + 0.5, ctx.player().position().y, goingTo.z + 0.5)) > 5) // UGH!!!!!!!
+                && cannotReachTarget
                 && currentSpeed < elytraFireworkSpeed * elytraFireworkSpeed))
         ) {
             // Prioritize boosting fireworks over regular ones
@@ -1080,8 +1127,13 @@ public final class ElytraBehavior implements Helper {
             }
         }
 
-        // Standard test, assume (not) boosted for entire duration
-        final int ticks = desperate ? 3 : context.boost.isBoosted() ? Math.max(5, context.boost.getGuaranteedBoostTicks()) : Baritone.settings().elytraSimulationTicks.value;
+        // Standard test, assume (not) boosted for entire duration.
+        // Adaptive lookahead: scale simulation ticks with current speed so fast flight
+        // predicts further ahead (fewer "no pitch solution" stalls at high speed), capped
+        // to bound the per-candidate cost. Base = elytraSimulationTicks (20).
+        final int speedTicks = (int) Math.ceil(context.motion.length() * 10);
+        final int baseTicks = Math.max(Baritone.settings().elytraSimulationTicks.value, Math.min(speedTicks, 40));
+        final int ticks = desperate ? 3 : context.boost.isBoosted() ? Math.max(5, context.boost.getGuaranteedBoostTicks()) : baseTicks;
         tests.add(new IntTriple(ticks, context.boost.isBoosted() ? ticks : 0, 0));
 
         final Optional<PitchResult> result = tests.stream()

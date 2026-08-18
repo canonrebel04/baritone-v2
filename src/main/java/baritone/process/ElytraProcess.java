@@ -143,6 +143,9 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             final BetterBlockPos last = this.behavior.pathManager.path.getLast();
             if (last != null && (ctx.player().position().distanceToSqr(last.getCenter()) < (48 * 48) || safetyLanding) && (!goingToLandingSpot || (safetyLanding && this.landingSpot == null))) {
                 logDirect("Path complete, picking a nearby safe landing spot...");
+                // Emergency landings (low durability/fireworks) need a taller air column to
+                // flare safely; normal landings use the shorter column.
+                this.landingColumnHeight = safetyLanding ? LONG_LANDING_COLUMN_HEIGHT : SHORT_LANDING_COLUMN_HEIGHT;
                 BetterBlockPos landingSpot = findSafeLandingSpot(ctx.playerFeet());
                 // if this fails we will just keep orbiting the last node until we run out of rockets or the user intervenes
                 if (landingSpot != null) {
@@ -182,7 +185,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                 Rotation rotation = RotationUtils.calcRotationFromVec3d(from, to, ctx.playerRotations());
                 baritone.getLookBehavior().updateTarget(new Rotation(rotation.getYaw(), 0), false); // this will be overwritten, probably, by behavior tick
 
-                if (ctx.player().position().y < endPos.y - LANDING_COLUMN_HEIGHT) {
+                if (ctx.player().position().y < endPos.y - landingColumnHeight) {
                     logDirect("bad landing spot, trying again...");
                     landingSpotIsBad(endPos);
                 }
@@ -569,7 +572,9 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         return null; // void
     }
 
-    private static final int LANDING_COLUMN_HEIGHT = 15;
+    private static final int SHORT_LANDING_COLUMN_HEIGHT = 15;
+    private static final int LONG_LANDING_COLUMN_HEIGHT = 39;
+    private int landingColumnHeight = SHORT_LANDING_COLUMN_HEIGHT;
     private Set<BetterBlockPos> badLandingSpots = new HashSet<>();
 
     private BetterBlockPos findSafeLandingSpot(BetterBlockPos start) {
@@ -582,8 +587,8 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             BetterBlockPos pos = queue.poll();
             if (ctx.world().isLoaded(pos) && isInBounds(pos) && ctx.world().getBlockState(pos).getBlock() == Blocks.AIR) {
                 BetterBlockPos actualLandingSpot = checkLandingSpot(pos, checkedPositions);
-                if (actualLandingSpot != null && isColumnAir(actualLandingSpot, LANDING_COLUMN_HEIGHT) && hasAirBubble(actualLandingSpot.above(LANDING_COLUMN_HEIGHT)) && !badLandingSpots.contains(actualLandingSpot.above(LANDING_COLUMN_HEIGHT))) {
-                    return actualLandingSpot.above(LANDING_COLUMN_HEIGHT);
+                if (actualLandingSpot != null && isColumnAir(actualLandingSpot, landingColumnHeight) && hasAirBubble(actualLandingSpot.above(landingColumnHeight)) && !badLandingSpots.contains(actualLandingSpot.above(landingColumnHeight))) {
+                    return actualLandingSpot.above(landingColumnHeight);
                 }
                 if (visited.add(pos.north())) queue.add(pos.north());
                 if (visited.add(pos.east())) queue.add(pos.east());

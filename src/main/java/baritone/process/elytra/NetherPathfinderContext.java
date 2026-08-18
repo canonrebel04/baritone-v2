@@ -135,8 +135,8 @@ public final class NetherPathfinderContext {
                     this.context,
                     src.getX(), src.getY(), src.getZ(),
                     dst.getX(), dst.getY(), dst.getZ(),
-                    true,
-                    false,
+                    !Baritone.settings().elytraAllowTightSpaces.value, // atLeastX4: require >=4 block clearance unless tight spaces allowed
+                    Baritone.settings().elytraRefinePath.value, // refine pass smooths the node string
                     10000,
                     !generate,
                     // Cost per node traversed through a chunk the native lib hasn't observed —
