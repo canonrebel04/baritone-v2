@@ -38,10 +38,17 @@ import sun.misc.Unsafe;
 
 import java.lang.ref.SoftReference;
 import java.lang.reflect.Field;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.TreeSet;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * @author Brady
@@ -49,9 +56,6 @@ import java.util.concurrent.TimeUnit;
 public final class NetherPathfinderContext {
 
     private static final BlockState AIR_BLOCK_STATE = Blocks.AIR.defaultBlockState();
-    // This lock must be held while there are active pointers to chunks in java,
-    // but we just hold it for the entire tick so we don't have to think much about it.
-    public final Object cullingLock = new Object();
 
     // Bulk-fill fully-solid octree sections in one call instead of 4096 setBlock calls.
     private static final int SECTION_SIZE = 16 * 16 * 16;
@@ -72,7 +76,39 @@ public final class NetherPathfinderContext {
     private final long seed;
     private final int dimension;
     private final int maxHeight;
-    private final ExecutorService executor;
+
+    // --- Phase 2 threading (plan item 28) ---
+    // The native lib does NO internal synchronization: reads (raytrace, passable, octree
+    // lookups, non-generating pathfinds) must hold the read lock; mutations (chunk packing,
+    // block updates, culling, seed-generation pathfinds) must hold the write lock.
+    public final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
+
+    // writeExecutor: mutations only (packing, block updates, culling, generating pathfinds).
+    // packExecutor: chunk packing with nearest-first priority + bounded queue (plan item 9).
+    // readExecutor: non-generating pathfinds (read-only, never blocks on a pack flood).
+    private final ExecutorService writeExecutor;
+    private final ExecutorService packExecutor;
+    private final ExecutorService readExecutor;
+
+    // --- Bounded, prioritized pack queue (plan item 9) ---
+    // repackChunks floods 81x81 chunks; a FIFO would pack far-away chunks before the flight
+    // corridor. Sort by distance to the player (updated each tick), drop the farthest when
+    // over the cap so memory stays flat on long flights.
+    private static final int MAX_PENDING_PACKS = 4096;
+    private final TreeSet<PackTask> pendingPacks = new TreeSet<>(Comparator.comparingInt(PackTask::distance));
+    private final Map<Long, PackTask> pendingByKey = new HashMap<>();
+    private volatile BlockPos playerPosForPacking = new BlockPos(0, 0, 0);
+
+    // --- Deterministic segment cache (plan item 19) ---
+    // Bounded LRU keyed by (src, dst, generate, atLeastX4, refine). Re-plans after a
+    // setback/recalc return the SAME path (stable flight) and re-#elytra is instant.
+    private static final int PATH_CACHE_MAX = 64;
+    private final LinkedHashMap<PathKey, PathSegment> pathCache = new LinkedHashMap<>(PATH_CACHE_MAX, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<PathKey, PathSegment> eldest) {
+            return size() > PATH_CACHE_MAX;
+        }
+    };
 
     public NetherPathfinderContext(long seed, ResourceKey<Level> dimensionKey, int maxHeight) {
         this.dimension = dimensionKey == Level.NETHER ? NetherPathfinder.DIMENSION_NETHER
@@ -82,7 +118,45 @@ public final class NetherPathfinderContext {
         // baritoneCacheDir = null (no disk cache yet), allocator = false (keep new/delete for safety)
         this.context = NetherPathfinder.newContext(seed, null, this.dimension, this.maxHeight, false);
         this.seed = seed;
-        this.executor = Executors.newSingleThreadExecutor();
+        this.writeExecutor = Executors.newSingleThreadExecutor();
+        this.packExecutor = Executors.newSingleThreadExecutor();
+        this.readExecutor = Executors.newSingleThreadExecutor();
+        // Pack thread: drain the priority queue continuously, packing nearest-first.
+        this.packExecutor.execute(this::drainPackQueue);
+    }
+
+    /** Called by ElytraBehavior each tick so pack priority tracks the player. */
+    public void updatePlayerPosForPacking(BlockPos feet) {
+        this.playerPosForPacking = feet;
+    }
+
+    private void drainPackQueue() {
+        while (!Thread.currentThread().isInterrupted()) {
+            final PackTask task;
+            synchronized (pendingPacks) {
+                task = pendingPacks.pollFirst();
+                if (task != null) pendingByKey.remove(task.key);
+            }
+            if (task == null) {
+                try {
+                    Thread.sleep(1); // idle; wait for more packs
+                } catch (InterruptedException e) {
+                    return;
+                }
+                continue;
+            }
+            this.rwLock.writeLock().lock();
+            try {
+                final LevelChunk chunk = task.ref.get();
+                if (chunk != null) {
+                    long ptr = NetherPathfinder.allocateAndInsertChunk(this.context, task.chunkX, task.chunkZ);
+                    writeChunkData(chunk, ptr);
+                    NetherPathfinder.setChunkState(this.context, task.chunkX, task.chunkZ, true);
+                }
+            } finally {
+                this.rwLock.writeLock().unlock();
+            }
+        }
     }
 
     public boolean hasChunk(ChunkPos pos) {
@@ -90,64 +164,117 @@ public final class NetherPathfinderContext {
     }
 
     public void queueCacheCulling(int chunkX, int chunkZ, int maxDistanceBlocks, BlockStateOctreeInterface boi) {
-        this.executor.execute(() -> {
-            synchronized (this.cullingLock) {
+        this.writeExecutor.execute(() -> {
+            this.rwLock.writeLock().lock();
+            try {
                 boi.chunkPtr = 0L;
                 NetherPathfinder.cullFarChunks(this.context, chunkX, chunkZ, maxDistanceBlocks);
+            } finally {
+                this.rwLock.writeLock().unlock();
             }
         });
     }
 
+    /**
+     * Queues a chunk for packing with nearest-first priority. Bounded: when the pending
+     * queue exceeds {@link #MAX_PENDING_PACKS}, the farthest pending chunk is dropped —
+     * it will be re-queued by chunk events when the player approaches it.
+     */
     public void queueForPacking(final LevelChunk chunkIn) {
-        final SoftReference<LevelChunk> ref = new SoftReference<>(chunkIn);
-        this.executor.execute(() -> {
-            // TODO: Prioritize packing recent chunks and/or ones that the path goes through,
-            //       and prune the oldest chunks per chunkPackerQueueMaxSize
-            final LevelChunk chunk = ref.get();
-            if (chunk != null) {
-                long ptr = NetherPathfinder.allocateAndInsertChunk(this.context, chunk.getPos().x(), chunk.getPos().z());
-                writeChunkData(chunk, ptr);
-                NetherPathfinder.setChunkState(this.context, chunk.getPos().x(), chunk.getPos().z(), true);
+        final int chunkX = chunkIn.getPos().x();
+        final int chunkZ = chunkIn.getPos().z();
+        final long key = ((long) chunkX << 32) | (chunkZ & 0xFFFFFFFFL);
+
+        synchronized (pendingPacks) {
+            if (pendingByKey.containsKey(key)) return; // already queued
+            final BlockPos feet = this.playerPosForPacking;
+            final int dist = (chunkX * 16 - feet.getX()) * (chunkX * 16 - feet.getX())
+                    + (chunkZ * 16 - feet.getZ()) * (chunkZ * 16 - feet.getZ());
+            final PackTask task = new PackTask(key, chunkX, chunkZ, dist, new SoftReference<>(chunkIn));
+            pendingPacks.add(task);
+            pendingByKey.put(key, task);
+
+            while (pendingPacks.size() > MAX_PENDING_PACKS) {
+                final PackTask farthest = pendingPacks.pollLast();
+                if (farthest == null) break;
+                pendingByKey.remove(farthest.key);
             }
-        });
+        }
     }
 
     public void queueBlockUpdate(BlockChangeEvent event) {
-        this.executor.execute(() -> {
-            ChunkPos chunkPos = event.getChunkPos();
-            long ptr = NetherPathfinder.getChunk(this.context, chunkPos.x(), chunkPos.z());
-            if (ptr == 0) return; // this shouldn't ever happen
-            event.getBlocks().forEach(pair -> {
-                BlockPos pos = pair.first();
-                if (pos.getY() < 0 || pos.getY() >= this.maxHeight) return;
-                boolean isSolid = pair.second() != AIR_BLOCK_STATE;
-                Octree.setBlock(ptr, pos.getX() & 15, pos.getY(), pos.getZ() & 15, isSolid);
-            });
+        this.writeExecutor.execute(() -> {
+            this.rwLock.writeLock().lock();
+            try {
+                ChunkPos chunkPos = event.getChunkPos();
+                long ptr = NetherPathfinder.getChunk(this.context, chunkPos.x(), chunkPos.z());
+                if (ptr == 0) return; // this shouldn't ever happen
+                event.getBlocks().forEach(pair -> {
+                    BlockPos pos = pair.first();
+                    if (pos.getY() < 0 || pos.getY() >= this.maxHeight) return;
+                    boolean isSolid = pair.second() != AIR_BLOCK_STATE;
+                    Octree.setBlock(ptr, pos.getX() & 15, pos.getY(), pos.getZ() & 15, isSolid);
+                });
+            } finally {
+                this.rwLock.writeLock().unlock();
+            }
         });
     }
 
     public CompletableFuture<PathSegment> pathFindAsync(final BlockPos src, final BlockPos dst) {
-        return CompletableFuture.supplyAsync(() -> {
-            // Only generate terrain from the seed in the nether — the native generator is a
-            // nether world-gen port; other dimensions must treat unloaded chunks as air.
-            final boolean generate = Baritone.settings().elytraPredictTerrain.value && this.dimension == NetherPathfinder.DIMENSION_NETHER;
-            final PathSegment segment = NetherPathfinder.pathFind(
-                    this.context,
-                    src.getX(), src.getY(), src.getZ(),
-                    dst.getX(), dst.getY(), dst.getZ(),
-                    !Baritone.settings().elytraAllowTightSpaces.value, // atLeastX4: require >=4 block clearance unless tight spaces allowed
-                    Baritone.settings().elytraRefinePath.value, // refine pass smooths the node string
-                    10000,
-                    !generate,
-                    // Cost per node traversed through a chunk the native lib hasn't observed —
-                    // makes A* prefer known/loaded routes over blind leaps into unloaded terrain.
-                    8.0
-            );
-            if (segment == null) {
-                throw new PathCalculationException("Path calculation failed");
+        // Only generate terrain from the seed in the nether — the native generator is a
+        // nether world-gen port; other dimensions must treat unloaded chunks as air.
+        final boolean generate = Baritone.settings().elytraPredictTerrain.value && this.dimension == NetherPathfinder.DIMENSION_NETHER;
+        final boolean atLeastX4 = !Baritone.settings().elytraAllowTightSpaces.value;
+        final boolean refine = Baritone.settings().elytraRefinePath.value;
+
+        // Deterministic segment cache: identical (src, dst, settings) returns the cached path.
+        final PathKey key = new PathKey(src, dst, generate, atLeastX4, refine);
+        synchronized (this.pathCache) {
+            final PathSegment cached = this.pathCache.get(key);
+            if (cached != null) {
+                return CompletableFuture.completedFuture(cached);
             }
-            return segment;
-        }, this.executor);
+        }
+
+        final ExecutorService exec = generate ? this.writeExecutor : this.readExecutor;
+        return CompletableFuture.supplyAsync(() -> {
+            // Generating pathfinds mutate the chunk cache (seed terrain) -> write lock;
+            // non-generating pathfinds only read -> read lock.
+            if (generate) this.rwLock.writeLock().lock(); else this.rwLock.readLock().lock();
+            try {
+                final PathSegment segment = NetherPathfinder.pathFind(
+                        this.context,
+                        src.getX(), src.getY(), src.getZ(),
+                        dst.getX(), dst.getY(), dst.getZ(),
+                        atLeastX4, // require >=4 block clearance unless tight spaces allowed
+                        refine, // refine pass smooths the node string
+                        10000,
+                        !generate,
+                        // Cost per node traversed through a chunk the native lib hasn't observed —
+                        // makes A* prefer known/loaded routes over blind leaps into unloaded terrain.
+                        8.0
+                );
+                if (segment == null) {
+                    throw new PathCalculationException("Path calculation failed");
+                }
+                synchronized (this.pathCache) {
+                    this.pathCache.put(key, segment);
+                }
+                return segment;
+            } finally {
+                if (generate) this.rwLock.writeLock().unlock(); else this.rwLock.readLock().unlock();
+            }
+        }, exec);
+    }
+
+    /** Read lock helper for external readers (flight solver). */
+    public void acquireReadLock() {
+        this.rwLock.readLock().lock();
+    }
+
+    public void releaseReadLock() {
+        this.rwLock.readLock().unlock();
     }
 
     /**
@@ -202,16 +329,67 @@ public final class NetherPathfinderContext {
 
     public void destroy() {
         this.cancel();
-        // Ignore anything that was queued up, just shutdown the executor
-        this.executor.shutdownNow();
+        // Ignore anything that was queued up, just shutdown the executors
+        this.writeExecutor.shutdownNow();
+        this.readExecutor.shutdownNow();
+        this.packExecutor.shutdownNow();
 
         try {
-            while (!this.executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
+            while (!this.writeExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
+            while (!this.readExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
+            while (!this.packExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
         NetherPathfinder.freeContext(this.context);
+    }
+
+    /** Chunk-pack queue entry, ordered by distance from the player (nearest first). */
+    private static final class PackTask {
+        final long key;      // ChunkPos.asLong
+        final int chunkX, chunkZ;
+        final int distance;  // squared distance from player block pos
+        final SoftReference<LevelChunk> ref;
+
+        PackTask(long key, int chunkX, int chunkZ, int distance, SoftReference<LevelChunk> ref) {
+            this.key = key;
+            this.chunkX = chunkX;
+            this.chunkZ = chunkZ;
+            this.distance = distance;
+            this.ref = ref;
+        }
+
+        int distance() {
+            return this.distance;
+        }
+    }
+
+    /** Path-cache key: source/dest block positions + the pathing settings that affect the result. */
+    private static final class PathKey {
+        final int sx, sy, sz, dx, dy, dz;
+        final boolean generate, atLeastX4, refine;
+
+        PathKey(BlockPos src, BlockPos dst, boolean generate, boolean atLeastX4, boolean refine) {
+            this.sx = src.getX(); this.sy = src.getY(); this.sz = src.getZ();
+            this.dx = dst.getX(); this.dy = dst.getY(); this.dz = dst.getZ();
+            this.generate = generate; this.atLeastX4 = atLeastX4; this.refine = refine;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof PathKey)) return false;
+            PathKey k = (PathKey) o;
+            return sx == k.sx && sy == k.sy && sz == k.sz
+                    && dx == k.dx && dy == k.dy && dz == k.dz
+                    && generate == k.generate && atLeastX4 == k.atLeastX4 && refine == k.refine;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(sx, sy, sz, dx, dy, dz, generate, atLeastX4, refine);
+        }
     }
 
     public long getSeed() {

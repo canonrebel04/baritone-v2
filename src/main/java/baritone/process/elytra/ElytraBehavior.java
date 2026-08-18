@@ -115,7 +115,52 @@ public final class ElytraBehavior implements Helper {
     private Solution pendingSolution;
     private boolean solveNextTick;
 
+    /**
+     * Small pool for parallel pitch-candidate simulation (plan item 29). Sized to the
+     * available cores, capped at 4 — the pitch loop is the dominant solver cost and the
+     * candidates are independent. Only used on the octree path (never with bsi).
+     */
+    private final ExecutorService pitchPool;
+    private static final int PITCH_POOL_SIZE = Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors()));
+
     private long timeLastCacheCull = 0L;
+
+    /**
+     * Per-tick clearView result cache (plan item 30): relaxation passes re-test identical
+     * rays (e.g. relaxation 0's exact node == relaxation 1's interp=1.0 point), so cache
+     * exact-match results to skip redundant native raytraces. Cleared at the start of each
+     * tick, after the previous solve's workers have finished. Exact double equality only —
+     * no quantization, so no false positives.
+     */
+    private final java.util.concurrent.ConcurrentHashMap<ClearViewKey, Boolean> clearViewCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private record ClearViewKey(double sx, double sy, double sz, double dx, double dy, double dz, boolean ignoreLava) {}
+
+    /** Exact-match cache of {@link #clearView} results, valid for the current tick. */
+    private boolean cachedClearView(Vec3 start, Vec3 dest, boolean ignoreLava) {
+        final ClearViewKey key = new ClearViewKey(start.x, start.y, start.z, dest.x, dest.y, dest.z, ignoreLava);
+        final Boolean cached = this.clearViewCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        final boolean clear;
+        if (!ignoreLava) {
+            // if start == dest then the cpp raytracer dies
+            clear = start.equals(dest) || this.context.raytrace(start, dest);
+        } else {
+            clear = ctx.world().clip(new ClipContext(start, dest, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, ctx.player())).getType() == HitResult.Type.MISS;
+        }
+        this.clearViewCache.put(key, clear);
+        return clear;
+    }
+
+    public boolean clearView(Vec3 start, Vec3 dest, boolean ignoreLava) {
+        final boolean clear = this.cachedClearView(start, dest, ignoreLava);
+        if (Baritone.settings().elytraRenderRaytraces.value) {
+            (clear ? this.clearLines : this.blockedLines).add(new Pair<>(start, dest));
+        }
+        return clear;
+    }
 
     // auto swap
     private int invTickCountdown = 0;
@@ -131,6 +176,7 @@ public final class ElytraBehavior implements Helper {
         this.destination = new BetterBlockPos(destination);
         this.appendDestination = appendDestination;
         this.solverExecutor = Executors.newSingleThreadExecutor();
+        this.pitchPool = Executors.newFixedThreadPool(PITCH_POOL_SIZE);
         this.nextTickBoostCounter = new int[2];
 
         this.context = new NetherPathfinderContext(
@@ -321,6 +367,19 @@ public final class ElytraBehavior implements Helper {
                 // not loaded yet?
                 return;
             }
+
+            // Lazy pack-on-demand (plan item 10): ensure the chunks for the immediately
+            // upcoming path nodes are queued for packing, even if the 81x81 repack sweep
+            // is still draining — the flight corridor must be in the native octree.
+            for (int i = rangeStartIncl; i < Math.min(rangeStartIncl + 8, rangeEndExcl); i++) {
+                final ChunkPos cp = ChunkPos.containing(path.get(i));
+                if (!context.hasChunk(cp)) {
+                    final LevelChunk chunk = ctx.world().getChunkSource().getChunk(cp.x(), cp.z(), false);
+                    if (chunk != null && !chunk.isEmpty()) {
+                        context.queueForPacking(chunk);
+                    }
+                }
+            }
             final BetterBlockPos rangeStart = path.get(rangeStartIncl);
             if (!ElytraBehavior.this.passable(rangeStart.x, rangeStart.y, rangeStart.z, false)) {
                 // We're in a wall (setback, entity push, or clipped terrain). Find the nearest
@@ -509,8 +568,10 @@ public final class ElytraBehavior implements Helper {
             this.solver.cancel(true);
         }
         this.solverExecutor.shutdown();
+        this.pitchPool.shutdownNow();
         try {
             while (!this.solverExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
+            while (!this.pitchPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -542,8 +603,14 @@ public final class ElytraBehavior implements Helper {
     }
 
     public void onTick() {
-        synchronized (this.context.cullingLock) {
+        // Read lock: onTick0 reads the native octree via boi/passable/raytrace — the pack
+        // thread (write lock) must not free/realloc chunks while we hold raw pointers.
+        this.context.acquireReadLock();
+        try {
+            this.context.updatePlayerPosForPacking(ctx.playerFeet());
             this.onTick0();
+        } finally {
+            this.context.releaseReadLock();
         }
         final long now = System.currentTimeMillis();
         if ((now - this.timeLastCacheCull) / 1000 > Baritone.settings().elytraTimeBetweenCacheCullSecs.value) {
@@ -564,6 +631,10 @@ public final class ElytraBehavior implements Helper {
                 this.solver = null;
             }
         }
+
+        // Previous solve's workers have finished (solver.get() above) — reset the per-tick
+        // clearView cache so this tick's rays are computed fresh.
+        this.clearViewCache.clear();
 
         tickInventoryTransactions();
 
@@ -637,7 +708,14 @@ public final class ElytraBehavior implements Helper {
         // If there's no previously calculated solution to use, or the context used at the end of last tick doesn't match this tick
         final Solution solution;
         if (this.pendingSolution == null || !this.pendingSolution.context.equals(solverContext)) {
-            solution = this.solveAngles(solverContext);
+            // Read lock: synchronous solve reads the native octree — must not run while the
+            // pack thread (write lock) is mutating chunks.
+            this.context.acquireReadLock();
+            try {
+                solution = this.solveAngles(solverContext);
+            } finally {
+                this.context.releaseReadLock();
+            }
         } else {
             solution = this.pendingSolution;
         }
@@ -681,7 +759,16 @@ public final class ElytraBehavior implements Helper {
             this.pathManager.updatePlayerNear();
 
             final SolverContext context = this.new SolverContext(true);
-            this.solver = this.solverExecutor.submit(() -> this.solveAngles(context));
+            this.solver = this.solverExecutor.submit(() -> {
+                // Read lock: solveAngles reads the native octree (raytrace/passable) — must
+                // not run concurrently with chunk packing/culling (write lock).
+                ElytraBehavior.this.context.acquireReadLock();
+                try {
+                    return this.solveAngles(context);
+                } finally {
+                    ElytraBehavior.this.context.releaseReadLock();
+                }
+            });
             this.solveNextTick = false;
         }
     }
@@ -1055,21 +1142,6 @@ public final class ElytraBehavior implements Helper {
         return this.context.raytrace(8, src, dst, NetherPathfinderContext.Visibility.ALL);
     }
 
-    public boolean clearView(Vec3 start, Vec3 dest, boolean ignoreLava) {
-        final boolean clear;
-        if (!ignoreLava) {
-            // if start == dest then the cpp raytracer dies
-            clear = start.equals(dest) || this.context.raytrace(start, dest);
-        } else {
-            clear = ctx.world().clip(new ClipContext(start, dest, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, ctx.player())).getType() == HitResult.Type.MISS;
-        }
-
-        if (Baritone.settings().elytraRenderRaytraces.value) {
-            (clear ? this.clearLines : this.blockedLines).add(new Pair<>(start, dest));
-        }
-        return clear;
-    }
-
     private static FloatArrayList pitchesToSolveFor(final float goodPitch, final boolean desperate) {
         final float minPitch = desperate ? -90 : Math.max(goodPitch - Baritone.settings().elytraPitchRange.value, -89);
         final float maxPitch = desperate ? 90 : Math.min(goodPitch + Baritone.settings().elytraPitchRange.value, 89);
@@ -1108,7 +1180,7 @@ public final class ElytraBehavior implements Helper {
         final FloatArrayList pitches = pitchesToSolveFor(goodPitch, desperate);
 
         final IntTriFunction<PitchResult> solve = (ticks, ticksBoosted, ticksBoostDelay) ->
-                this.solvePitch(context, goal, relaxation, pitches.iterator(), ticks, ticksBoosted, ticksBoostDelay);
+                this.solvePitch(context, goal, relaxation, pitches, ticks, ticksBoosted, ticksBoostDelay);
 
         final List<IntTriple> tests = new ArrayList<>();
 
@@ -1164,7 +1236,7 @@ public final class ElytraBehavior implements Helper {
     }
 
     private PitchResult solvePitch(final SolverContext context, final Vec3 goal, final int relaxation,
-                                   final FloatIterator pitches, final int ticks, final int ticksBoosted,
+                                   final FloatArrayList pitches, final int ticks, final int ticksBoosted,
                                    final int ticksBoostDelay) {
         // we are at a certain velocity, but we have a target velocity
         // what pitch would get us closest to our target velocity?
@@ -1175,27 +1247,74 @@ public final class ElytraBehavior implements Helper {
 
         final Deque<PitchResult> bestResults = new ArrayDeque<>();
 
-        while (pitches.hasNext()) {
-            final float pitch = pitches.nextFloat();
-            final List<Vec3> displacement = this.simulate(
-                    context,
-                    goalDelta,
-                    pitch,
-                    ticks,
-                    ticksBoosted,
-                    ticksBoostDelay
-            );
-            if (displacement == null) {
-                continue;
+        // Parallel pitch simulation (plan item 29): candidate pitches are independent, so
+        // simulate() can run across a small pool when the octree path is used. The bsi
+        // (BlockStateInterface) path is only hit when ignoreLava (in lava) and is NOT
+        // thread-safe, so that case stays serial. Workers acquire the context read lock
+        // themselves since they are different threads from the caller.
+        final boolean canParallel = !context.ignoreLava && pitchPool != null;
+        if (canParallel && pitches.size() > 8) {
+            final List<PitchResult> results = new java.util.concurrent.CopyOnWriteArrayList<>();
+            final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(pitches.size());
+            for (int i = 0; i < pitches.size(); i++) {
+                final int idx = i;
+                pitchPool.submit(() -> {
+                    try {
+                        final float pitch = pitches.getFloat(idx);
+                        ElytraBehavior.this.context.acquireReadLock();
+                        try {
+                            final List<Vec3> displacement = this.simulate(context, goalDelta, pitch, ticks, ticksBoosted, ticksBoostDelay);
+                            if (displacement != null) {
+                                final Vec3 last = displacement.get(displacement.size() - 1);
+                                double goodness = goalDirection.dot(last.normalize());
+                                if (landingMode) goodness = -goalDelta.subtract(last).length();
+                                results.add(idx, new PitchResult(pitch, goodness, displacement));
+                            }
+                        } finally {
+                            ElytraBehavior.this.context.releaseReadLock();
+                        }
+                    } finally {
+                        latch.countDown();
+                    }
+                });
             }
-            final Vec3 last = displacement.get(displacement.size() - 1);
-            double goodness = goalDirection.dot(last.normalize());
-            if (landingMode) {
-                goodness = -goalDelta.subtract(last).length();
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
             }
-            final PitchResult bestSoFar = bestResults.peek();
-            if (bestSoFar == null || goodness > bestSoFar.dot) {
-                bestResults.push(new PitchResult(pitch, goodness, displacement));
+            // Deterministic reduction in original pitch order (first-best wins, like the serial loop)
+            for (final PitchResult result : results) {
+                final PitchResult bestSoFar = bestResults.peek();
+                if (bestSoFar == null || result.dot > bestSoFar.dot) {
+                    bestResults.push(result);
+                }
+            }
+        } else {
+            final FloatIterator pitchIt = pitches.iterator();
+            while (pitchIt.hasNext()) {
+                final float pitch = pitchIt.nextFloat();
+                final List<Vec3> displacement = this.simulate(
+                        context,
+                        goalDelta,
+                        pitch,
+                        ticks,
+                        ticksBoosted,
+                        ticksBoostDelay
+                );
+                if (displacement == null) {
+                    continue;
+                }
+                final Vec3 last = displacement.get(displacement.size() - 1);
+                double goodness = goalDirection.dot(last.normalize());
+                if (landingMode) {
+                    goodness = -goalDelta.subtract(last).length();
+                }
+                final PitchResult bestSoFar = bestResults.peek();
+                if (bestSoFar == null || goodness > bestSoFar.dot) {
+                    bestResults.push(new PitchResult(pitch, goodness, displacement));
+                }
             }
         }
 

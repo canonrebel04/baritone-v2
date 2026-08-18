@@ -47,7 +47,11 @@ public final class BlockStateOctreeInterface {
         if (this.chunkPtr == 0 | ((chunkX ^ this.prevChunkX) | (chunkZ ^ this.prevChunkZ)) != 0) {
             this.prevChunkX = chunkX;
             this.prevChunkZ = chunkZ;
-            this.chunkPtr = NetherPathfinder.allocateAndInsertChunk(this.contextPtr, chunkX, chunkZ);
+            // Read-only lookup: returns the existing chunk, or a default chunk with the given
+            // solidity if missing (solid=false = air, matching the old getOrCreateChunk empty
+            // chunk). Unlike allocateAndInsertChunk this does NOT mutate the native cache, so
+            // it is safe to call under the context read lock while culling (write lock) runs.
+            this.chunkPtr = NetherPathfinder.getChunkOrDefault(this.contextPtr, chunkX, chunkZ, false);
         }
         return Octree.getBlock(this.chunkPtr, x & 0xF, y & 0x7F, z & 0xF);
     }
