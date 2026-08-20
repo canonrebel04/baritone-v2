@@ -29,3 +29,6 @@
 ## 2026-06-05 - PathNode.hashCode needs Long.hashCode() and BetterBlockPos.longHash()
 **Learning:** Naive polynomial hashes (`31 * result + coord`) for 3D block coordinates cause severe hash collisions for spatially local coordinates. This causes a massive performance degradation in algorithms like A* that process millions of spatially contiguous blocks and store them in hash maps/sets (e.g. `PathNode`).
 **Action:** Replace `PathNode.hashCode()`'s naive polynomial math with `Long.hashCode(BetterBlockPos.longHash(x, y, z))`. This combines zero-collision perfect packed 64-bit coordinate hashing (from `BetterBlockPos`) with `Long.hashCode` mixing to prevent truncation.
+## 2026-09-01 - Hoist Inner Loop Invariants
+**Learning:** In highly repetitive loops like A* adjacent node evaluations, invariant calculations like bitshifts for the base node's coordinates (e.g. `currentNode.x >> 4`) should be extracted outside the loop. This significantly cuts down on redundant CPU instructions during millions of iterations.
+**Action:** Hoist invariant calculations outside innermost loops.
