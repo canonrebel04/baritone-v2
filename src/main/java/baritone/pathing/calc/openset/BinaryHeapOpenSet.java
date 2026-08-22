@@ -62,14 +62,15 @@ public final class BinaryHeapOpenSet implements IOpenSet {
             array = Arrays.copyOf(array, array.length << 1);
         }
         size++;
-        value.heapPosition = size;
-        array[size] = value;
-        update(value);
+        siftUp(size, value);
     }
 
     @Override
     public final void update(PathNode val) {
-        int index = val.heapPosition;
+        siftUp(val.heapPosition, val);
+    }
+
+    private void siftUp(int index, PathNode val) {
         int parentInd = index >>> 1;
         double cost = val.combinedCost;
         PathNode parentNode = array[parentInd];
@@ -96,16 +97,19 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         }
         PathNode result = array[1];
         PathNode val = array[size];
-        array[1] = val;
-        val.heapPosition = 1;
         array[size] = null;
         size--;
         result.heapPosition = -1;
-        if (size < 2) {
+        if (size == 0) {
             return result;
         }
         int index = 1;
         int smallerChild = 2;
+        if (smallerChild > size) {
+            array[1] = val;
+            val.heapPosition = 1;
+            return result;
+        }
         double cost = val.combinedCost;
         do {
             PathNode smallerChildNode = array[smallerChild];

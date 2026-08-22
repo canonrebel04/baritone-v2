@@ -29,3 +29,7 @@
 ## 2026-06-05 - PathNode.hashCode needs Long.hashCode() and BetterBlockPos.longHash()
 **Learning:** Naive polynomial hashes (`31 * result + coord`) for 3D block coordinates cause severe hash collisions for spatially local coordinates. This causes a massive performance degradation in algorithms like A* that process millions of spatially contiguous blocks and store them in hash maps/sets (e.g. `PathNode`).
 **Action:** Replace `PathNode.hashCode()`'s naive polynomial math with `Long.hashCode(BetterBlockPos.longHash(x, y, z))`. This combines zero-collision perfect packed 64-bit coordinate hashing (from `BetterBlockPos`) with `Long.hashCode` mixing to prevent truncation.
+
+## 2026-08-08 - True Priority Queue Half-Exchange
+**Learning:** The previous half-exchange pattern in BinaryHeapOpenSet was partially defeated by redundant initialization stores. In `insert`, storing the value at the end of the array before calling `update` performs 2 useless writes if a sift-up occurs. Similarly, in `removeLowest`, placing the leaf node at the root before starting the sift-down performs 2 useless writes. Eliminating these pre-loop assignments completes the half-exchange pattern, minimizing memory operations.
+**Action:** When implementing a half-exchange optimization in a priority queue, ensure that pre-loop assignments (like storing to the leaf or root) are deferred until the final target index is found, avoiding redundant memory writes.
