@@ -29,3 +29,7 @@
 ## 2026-06-05 - PathNode.hashCode needs Long.hashCode() and BetterBlockPos.longHash()
 **Learning:** Naive polynomial hashes (`31 * result + coord`) for 3D block coordinates cause severe hash collisions for spatially local coordinates. This causes a massive performance degradation in algorithms like A* that process millions of spatially contiguous blocks and store them in hash maps/sets (e.g. `PathNode`).
 **Action:** Replace `PathNode.hashCode()`'s naive polynomial math with `Long.hashCode(BetterBlockPos.longHash(x, y, z))`. This combines zero-collision perfect packed 64-bit coordinate hashing (from `BetterBlockPos`) with `Long.hashCode` mixing to prevent truncation.
+
+## 2026-08-08 - Priority Queue Half-Exchange
+**Learning:** In AStarPathFinder, the BinaryHeapOpenSet priority queue sift-up and sift-down operations (insert, removeLowest) can be optimized using a half-exchange pattern. By deferring the array assignment and heap position update until the end of the loop, memory stores are minimized, providing a performance boost during the millions of map lookups.
+**Action:** Replaced full swaps in insert and removeLowest with half-exchanges.

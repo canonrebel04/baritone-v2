@@ -62,9 +62,23 @@ public final class BinaryHeapOpenSet implements IOpenSet {
             array = Arrays.copyOf(array, array.length << 1);
         }
         size++;
-        value.heapPosition = size;
-        array[size] = value;
-        update(value);
+
+        int index = size;
+        int parentInd = index >>> 1;
+        double cost = value.combinedCost;
+
+        while (index > 1) {
+            PathNode parentNode = array[parentInd];
+            if (parentNode.combinedCost <= cost) {
+                break;
+            }
+            array[index] = parentNode;
+            parentNode.heapPosition = index;
+            index = parentInd;
+            parentInd = index >>> 1;
+        }
+        array[index] = value;
+        value.heapPosition = index;
     }
 
     @Override
@@ -96,36 +110,40 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         }
         PathNode result = array[1];
         PathNode val = array[size];
-        array[1] = val;
-        val.heapPosition = 1;
+
         array[size] = null;
         size--;
         result.heapPosition = -1;
-        if (size < 2) {
+
+        if (size < 1) {
             return result;
         }
+
         int index = 1;
         int smallerChild = 2;
         double cost = val.combinedCost;
-        do {
-            PathNode smallerChildNode = array[smallerChild];
-            double smallerChildCost = smallerChildNode.combinedCost;
-            if (smallerChild < size) {
-                PathNode rightChildNode = array[smallerChild + 1];
-                double rightChildCost = rightChildNode.combinedCost;
-                if (smallerChildCost > rightChildCost) {
-                    smallerChild++;
-                    smallerChildCost = rightChildCost;
-                    smallerChildNode = rightChildNode;
+
+        if (size >= 2) {
+            do {
+                PathNode smallerChildNode = array[smallerChild];
+                double smallerChildCost = smallerChildNode.combinedCost;
+                if (smallerChild < size) {
+                    PathNode rightChildNode = array[smallerChild + 1];
+                    double rightChildCost = rightChildNode.combinedCost;
+                    if (smallerChildCost > rightChildCost) {
+                        smallerChild++;
+                        smallerChildCost = rightChildCost;
+                        smallerChildNode = rightChildNode;
+                    }
                 }
-            }
-            if (cost <= smallerChildCost) {
-                break;
-            }
-            array[index] = smallerChildNode;
-            smallerChildNode.heapPosition = index;
-            index = smallerChild;
-        } while ((smallerChild <<= 1) <= size);
+                if (cost <= smallerChildCost) {
+                    break;
+                }
+                array[index] = smallerChildNode;
+                smallerChildNode.heapPosition = index;
+                index = smallerChild;
+            } while ((smallerChild <<= 1) <= size);
+        }
         array[index] = val;
         val.heapPosition = index;
         return result;
