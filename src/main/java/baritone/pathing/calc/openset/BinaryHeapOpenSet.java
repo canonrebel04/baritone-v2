@@ -96,12 +96,15 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         }
         PathNode result = array[1];
         PathNode val = array[size];
-        array[1] = val;
-        val.heapPosition = 1;
+        // Optimization: Defer array assignment until sift-down completes to minimize memory writes (half-exchange pattern)
         array[size] = null;
         size--;
         result.heapPosition = -1;
         if (size < 2) {
+            if (size == 1) {
+                array[1] = val;
+                val.heapPosition = 1;
+            }
             return result;
         }
         int index = 1;
