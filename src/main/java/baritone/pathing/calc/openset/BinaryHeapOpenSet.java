@@ -63,7 +63,9 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         }
         size++;
         value.heapPosition = size;
-        array[size] = value;
+        // Bolt: Half-exchange optimization. We defer assigning array[size] = value
+        // because update(value) will find the final position and write it there,
+        // avoiding a redundant memory write.
         update(value);
     }
 
@@ -80,6 +82,7 @@ public final class BinaryHeapOpenSet implements IOpenSet {
             parentInd = index >>> 1;
             parentNode = array[parentInd];
         }
+        // Bolt: Final write of the half-exchange pattern.
         array[index] = val;
         val.heapPosition = index;
     }
@@ -96,12 +99,17 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         }
         PathNode result = array[1];
         PathNode val = array[size];
-        array[1] = val;
-        val.heapPosition = 1;
+        // Bolt: Half-exchange optimization. Instead of placing the last element at the root
+        // (array[1] = val) before sifting down, we leave a "hole" at index 1 and only
+        // write `val` once its final position is found at the end of the loop.
         array[size] = null;
         size--;
         result.heapPosition = -1;
         if (size < 2) {
+            if (size == 1) {
+                array[1] = val;
+                val.heapPosition = 1;
+            }
             return result;
         }
         int index = 1;
@@ -126,6 +134,7 @@ public final class BinaryHeapOpenSet implements IOpenSet {
             smallerChildNode.heapPosition = index;
             index = smallerChild;
         } while ((smallerChild <<= 1) <= size);
+        // Bolt: Final write of the half-exchange pattern.
         array[index] = val;
         val.heapPosition = index;
         return result;
