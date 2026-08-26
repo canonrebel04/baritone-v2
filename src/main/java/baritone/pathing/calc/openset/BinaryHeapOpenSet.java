@@ -63,7 +63,7 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         }
         size++;
         value.heapPosition = size;
-        array[size] = value;
+        // Optimized: Defer array[size] = value; update will place it at the correct index (half-exchange)
         update(value);
     }
 
@@ -96,12 +96,14 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         }
         PathNode result = array[1];
         PathNode val = array[size];
-        array[1] = val;
-        val.heapPosition = 1;
         array[size] = null;
         size--;
         result.heapPosition = -1;
         if (size < 2) {
+            if (size == 1) {
+                array[1] = val;
+                val.heapPosition = 1;
+            }
             return result;
         }
         int index = 1;
