@@ -1622,11 +1622,6 @@ public final class Settings {
     public final Setting<Boolean> elytraCustomAllocator = new Setting<>(true);
 
     /**
-     * Allow the pathfinder to attempt flight in tighter spaces, useful in caves but can be dangerous.
-     */
-    public final Setting<Boolean> elytraAllowTightSpaces = new Setting<>(false);
-
-    /**
      * Allow the pathfinder to fly above y 128 in the nether.
      */
     public final Setting<Boolean> elytraAllowAboveRoof = new Setting<>(false);

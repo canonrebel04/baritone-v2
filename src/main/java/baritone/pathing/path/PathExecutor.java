@@ -359,7 +359,7 @@ public class PathExecutor implements IPathExecutor, Helper {
         if (path == null || path.movements().isEmpty()) {
             return false;
         }
-        return closestPathPos(path).getA() > leniency;
+        return closestPathPos(path).first() > leniency;
     }
 
     private boolean shouldPause() {
