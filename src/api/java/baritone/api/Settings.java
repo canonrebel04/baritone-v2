@@ -1618,6 +1618,18 @@ public final class Settings {
     public final Setting<Boolean> elytraTripResume = new Setting<>(true);
 
     /**
+     * Aerial survey (elytra roadmap item 5): the altitude (Y level) flown by the
+     * {@code .frontier survey} elytra circuit over the frontier ring
+     */
+    public final Setting<Integer> elytraSurveyAltitude = new Setting<>(100);
+
+    /**
+     * Aerial survey (elytra roadmap item 5): whether {@code .frontier survey} is allowed to
+     * issue elytra flight at all. When false, the survey subcommand is a no-op
+     */
+    public final Setting<Boolean> elytraSurveyEnabled = new Setting<>(true);
+
+    /**
      * Prefer ice highways when elytra path-finding: nodes whose floor (the blocks up to
      * 4 below the flight node) is packed or blue ice are discounted by
      * {@link #elytraHighwayCostMultiplier} / {@link #elytraBlueIceCostMultiplier},

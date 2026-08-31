@@ -260,6 +260,15 @@ public final class CachedWorld implements ICachedWorld, Helper {
         return new ArrayList<>(this.cachedRegions.values());
     }
 
+    /**
+     * @return the number of regions currently held in memory. Used as a coarse "how much
+     * new world did we discover" metric (e.g. by the aerial survey circuit), since a region
+     * is only created once one of its chunks has been packed.
+     */
+    public final synchronized int getRegionCount() {
+        return this.cachedRegions.size();
+    }
+
     @Override
     public final void reloadAllFromDisk() {
         long start = System.nanoTime() / 1000000L;

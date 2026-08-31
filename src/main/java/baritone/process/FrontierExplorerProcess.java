@@ -78,6 +78,46 @@ public final class FrontierExplorerProcess extends BaritoneProcessHelper {
         return f == null ? null : new GoalXZ(f.x() << 4 | 8, f.z() << 4 | 8);
     }
 
+    /**
+     * Runs a single frontier scan immediately (on the calling thread — commands execute on the
+     * game thread) and returns the resulting frontier set, also refreshing the renderer
+     * snapshot. Used by {@code .frontier survey} when no scan has run yet this session.
+     */
+    public List<long[]> scanFrontiers() {
+        pickFrontier();
+        return lastFrontiers;
+    }
+
+    /**
+     * Aerial survey (elytra roadmap item 5): centroid chunk plus Chebyshev bounding radius of
+     * the last frontier set, as {@code {centroidChunkX, centroidChunkZ, radiusChunks}}, or
+     * {@code null} if no frontier data exists.
+     */
+    public int[] frontierSurveyCenter() {
+        List<long[]> frontiers = lastFrontiers;
+        if (frontiers.isEmpty()) {
+            return null;
+        }
+        long sumX = 0;
+        long sumZ = 0;
+        int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
+        int minZ = Integer.MAX_VALUE, maxZ = Integer.MIN_VALUE;
+        for (long[] f : frontiers) {
+            sumX += f[0];
+            sumZ += f[1];
+            minX = Math.min(minX, (int) f[0]);
+            maxX = Math.max(maxX, (int) f[0]);
+            minZ = Math.min(minZ, (int) f[1]);
+            maxZ = Math.max(maxZ, (int) f[1]);
+        }
+        int centroidX = (int) (sumX / frontiers.size());
+        int centroidZ = (int) (sumZ / frontiers.size());
+        int radius = Math.max(
+                Math.max(Math.abs(maxX - centroidX), Math.abs(centroidX - minX)),
+                Math.max(Math.abs(maxZ - centroidZ), Math.abs(centroidZ - minZ)));
+        return new int[]{centroidX, centroidZ, radius};
+    }
+
     private int missionCenterX;
     private int missionCenterZ;
     private int missionRadius = -1; // -1 = unbounded

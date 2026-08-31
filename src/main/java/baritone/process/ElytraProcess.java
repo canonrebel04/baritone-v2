@@ -95,6 +95,15 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     private int tripLegIndex = -1;
     private boolean tripResumeAttempted;
 
+    /**
+     * Aerial survey state (elytra roadmap item 5). {@code surveyAltitudeY} is non-null while a
+     * survey circuit is in flight: legs are then flown at that fixed Y instead of the default
+     * Y=64 (see {@link #pathTo(Goal)}). {@code tripCompletionCallback} fires exactly once when
+     * the final leg's landing completes; it is cleared (without firing) if the trip is cancelled.
+     */
+    private Integer surveyAltitudeY;
+    private Runnable tripCompletionCallback;
+
     // firework economy (roadmap item 6)
     private long lastBurnCheckMs;
     private int burnWarnedLeg = Integer.MIN_VALUE;
@@ -290,6 +299,12 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             this.tripLegIndex = -1;
             this.clearTripState();
             this.onLostControl();
+            Runnable circuitCallback = this.tripCompletionCallback;
+            this.tripCompletionCallback = null;
+            this.surveyAltitudeY = null;
+            if (circuitCallback != null) {
+                circuitCallback.run();
+            }
             return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
         }
 
@@ -476,7 +491,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             GoalXZ goal = (GoalXZ) iGoal;
             x = goal.getX();
             // ElytraBehavior will automatically change the destination height depending on if we're above or below the roof
-            y = 64;
+            y = this.surveyAltitudeY != null ? this.surveyAltitudeY : 64;
             z = goal.getZ();
         } else if (iGoal instanceof GoalBlock) {
             GoalBlock goal = (GoalBlock) iGoal;
@@ -493,6 +508,25 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     @Override
     public void startTrip(List<GoalXZ> legs) {
         this.startTrip(legs, 0);
+    }
+
+    /**
+     * Aerial survey (elytra roadmap item 5): start a circuit trip whose legs are flown at a
+     * fixed altitude ({@code altitudeY}) instead of the default Y=64, and invoke
+     * {@code onCircuitComplete} exactly once when the final leg's landing finishes. Cancelled
+     * trips do not fire the callback.
+     *
+     * @param legs             the circuit waypoints, in order (at least 2)
+     * @param altitudeY        the Y level to fly the legs at
+     * @param onCircuitComplete invoked once on final-leg completion (game thread)
+     */
+    public void startSurveyTrip(List<GoalXZ> legs, int altitudeY, Runnable onCircuitComplete) {
+        if (legs == null || legs.size() < 2) {
+            throw new IllegalArgumentException("A survey circuit requires at least two waypoints");
+        }
+        this.surveyAltitudeY = altitudeY;
+        this.tripCompletionCallback = onCircuitComplete;
+        this.startTrip(legs);
     }
 
     private void startTrip(List<GoalXZ> legs, int startIndex) {
@@ -516,6 +550,8 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         }
         this.tripLegs = null;
         this.tripLegIndex = -1;
+        this.tripCompletionCallback = null;
+        this.surveyAltitudeY = null;
         this.clearTripState();
         logDirect("Trip cancelled");
     }
