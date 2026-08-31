@@ -40,8 +40,11 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.FireworkRocketEntity;
+import net.minecraft.world.entity.projectile.hurtingprojectile.AbstractHurtingProjectile;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -113,6 +116,15 @@ public final class ElytraBehavior implements Helper {
 
     private boolean deployedFireworkLastTick;
     private final int[] nextTickBoostCounter;
+
+    /**
+     * Threat evasion state (see elytraThreatAware in Settings)
+     */
+    private int threatScanCounter;
+    private int threatDodgeTicks;
+    private Vec3 threatDodgeVec;
+    private boolean threatPresent;
+    private float threatYawAway;
 
     private BlockStateInterface bsi;
     public final BetterBlockPos destination;
@@ -647,6 +659,12 @@ public final class ElytraBehavior implements Helper {
 
         tickInventoryTransactions();
 
+        // Threat scan (hostile fireball-type projectiles / hostile players), throttled by elytraThreatScanInterval
+        if (Baritone.settings().elytraThreatAware.value && --this.threatScanCounter <= 0) {
+            this.threatScanCounter = Baritone.settings().elytraThreatScanInterval.value;
+            this.scanForThreats();
+        }
+
         // Certified mojang employee incident
         if (this.remainingFireworkTicks > 0) {
             this.remainingFireworkTicks--;
@@ -744,7 +762,8 @@ public final class ElytraBehavior implements Helper {
             return;
         }
 
-        baritone.getLookBehavior().updateTarget(solution.rotation, false);
+        final Rotation rotation = this.applyThreatBias(solution.rotation);
+        baritone.getLookBehavior().updateTarget(rotation, false);
 
         if (!solution.solvedPitch) {
             logVerbose("no pitch solution, probably gonna crash in a few ticks LOL!!!");
@@ -871,6 +890,89 @@ public final class ElytraBehavior implements Helper {
         return solution;
     }
 
+    /**
+     * Scans ctx.entitiesStream() for threats within {@code elytraThreatRadius} of the player.
+     * <p>
+     * Fireball-type projectiles (anything extending {@link AbstractHurtingProjectile}: fireballs,
+     * small fireballs, dragon fireballs, wither skulls, wind charges) are extrapolated 3 ticks along
+     * their velocity — if the extrapolated position lands within 4 blocks of the player the impact is
+     * imminent and a lateral dodge (perpendicular to the projectile's velocity, signed away from the
+     * projectile) is armed for 10 ticks. Hostile players within 12 blocks set a "present" threat that
+     * biases the aim away from them (yaw away, pitch up 10&deg;) without a dodge.
+     */
+    private void scanForThreats() {
+        final Vec3 playerPos = ctx.player().position();
+        final double radius = Baritone.settings().elytraThreatRadius.value;
+        final double radiusSqr = radius * radius;
+        boolean present = false;
+        float yawAway = this.threatYawAway;
+        final List<Entity> entities = ctx.entitiesStream().toList();
+        for (final Entity entity : entities) {
+            if (entity == ctx.player()) {
+                continue;
+            }
+            final double distSqr = entity.distanceToSqr(playerPos);
+            if (entity instanceof AbstractHurtingProjectile) {
+                if (distSqr > radiusSqr) {
+                    continue;
+                }
+                final Vec3 extrapolated = entity.position().add(entity.getDeltaMovement().scale(3));
+                if (extrapolated.distanceToSqr(playerPos) > 4 * 4) {
+                    continue;
+                }
+                final Vec3 vel = entity.getDeltaMovement();
+                final double horizVel = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+                if (horizVel < 1e-4) {
+                    continue; // no lateral component to dodge against
+                }
+                Vec3 lateral = new Vec3(-vel.z, 0, vel.x).scale(1.0 / horizVel);
+                // sign the dodge away from the projectile, along the player-to-fireball line
+                final Vec3 away = new Vec3(playerPos.x - entity.getX(), 0, playerPos.z - entity.getZ()).normalize();
+                if (lateral.dot(away) < 0) {
+                    lateral = lateral.scale(-1);
+                }
+                if (this.threatDodgeTicks <= 0) {
+                    this.threatDodgeTicks = 10;
+                    this.threatDodgeVec = lateral.scale(8);
+                    logVerbose(String.format("threat dodge started: fireball impact imminent, dodging (%.1f, %.1f, %.1f)",
+                            this.threatDodgeVec.x, this.threatDodgeVec.y, this.threatDodgeVec.z));
+                }
+            } else if (entity instanceof Player) {
+                if (distSqr <= 12 * 12) {
+                    present = true;
+                    yawAway = (float) (Math.toDegrees(Math.atan2(playerPos.z - entity.getZ(), playerPos.x - entity.getX())) - 90.0);
+                }
+            }
+        }
+        this.threatPresent = present;
+        this.threatYawAway = yawAway;
+    }
+
+    /**
+     * Applies threat evasion bias to the solved rotation, after the normal solveAngles path.
+     * While {@code threatDodgeTicks > 0} the aim is redirected toward {@code playerPos + dodgeVec};
+     * while a hostile player is present, pitch is biased up 10&deg; and yaw steered away from them.
+     */
+    private Rotation applyThreatBias(final Rotation rotation) {
+        if (this.threatDodgeTicks > 0 && this.threatDodgeVec != null) {
+            this.threatDodgeTicks--;
+            if (this.threatDodgeTicks == 0) {
+                logVerbose("threat dodge ended");
+            }
+            final Vec3 delta = ctx.player().position().add(this.threatDodgeVec).subtract(ctx.player().getEyePosition());
+            final double horizontal = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
+            final float yaw = (float) (Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90.0);
+            final float pitch = (float) -Math.toDegrees(Math.atan2(delta.y, horizontal));
+            return new Rotation(yaw, pitch);
+        }
+        if (this.threatPresent) {
+            final float dyaw = Mth.wrapDegrees(this.threatYawAway - rotation.getYaw());
+            final float bias = Math.abs(dyaw) > 5.0f ? 15.0f * Math.signum(dyaw) : 0.0f;
+            return new Rotation(rotation.getYaw() + bias, rotation.getPitch() + 10.0f);
+        }
+        return rotation;
+    }
+
     private void tickUseFireworks(final Vec3 start, final Vec3 goingTo, final boolean isBoosted, final boolean forceUseFirework) {
         if (this.remainingSetBackTicks > 0) {
             logDebug("waiting for elytraFireworkSetbackUseDelay: " + this.remainingSetBackTicks);
@@ -878,6 +980,14 @@ public final class ElytraBehavior implements Helper {
         }
         if (this.landingMode) {
             return;
+        }
+        // Threat dodge: don't boost if the boost would carry us back toward the threat
+        if (this.threatDodgeTicks > 0 && this.threatDodgeVec != null) {
+            final Vec3 dodgeDir = this.threatDodgeVec.normalize();
+            if (ctx.player().getDeltaMovement().dot(dodgeDir) < 0) {
+                logVerbose("threat dodge: suppressing firework boost (trajectory opposes dodge)");
+                return;
+            }
         }
         final boolean useOnDescend = !Baritone.settings().elytraConserveFireworks.value || ctx.player().position().y < goingTo.y + 5;
         final double currentSpeed = new Vec3(

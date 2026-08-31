@@ -1670,6 +1670,21 @@ public final class Settings {
     public final Setting<Integer> elytraLongDistanceThreshold = new Setting<>(500);
 
     /**
+     * Whether elytra flight should scan for and evade threats (hostile fireball-type projectiles and hostile players)
+     */
+    public final Setting<Boolean> elytraThreatAware = new Setting<>(true);
+
+    /**
+     * How many ticks between threat scans while elytra flying (see {@link #elytraThreatAware})
+     */
+    public final Setting<Integer> elytraThreatScanInterval = new Setting<>(4);
+
+    /**
+     * Radius (in blocks) around the player in which fireball-type projectiles are scanned for imminent impacts (see {@link #elytraThreatAware})
+     */
+    public final Setting<Double> elytraThreatRadius = new Setting<>(24.0);
+
+    /**
      * Sneak when magma blocks are under feet
      */
     public final Setting<Boolean> allowWalkOnMagmaBlocks = new Setting<>(false);
