@@ -18,6 +18,7 @@
 package baritone.api.process;
 
 import baritone.api.pathing.goals.Goal;
+import baritone.api.pathing.goals.GoalXZ;
 import baritone.api.utils.BetterBlockPos;
 import net.minecraft.core.BlockPos;
 
@@ -40,6 +41,29 @@ public interface IElytraProcess extends IBaritoneProcess {
     void pathTo(BlockPos destination);
 
     void pathTo(Goal destination);
+
+    /**
+     * Starts a multi-leg trip. The process will fly each leg in order, landing and taking off
+     * again between legs, until every leg is complete.
+     *
+     * @param legs The legs to fly, in order. Must contain at least 2 legs
+     * @throws IllegalArgumentException If fewer than 2 legs are provided
+     */
+    default void startTrip(List<GoalXZ> legs) {
+        throw new UnsupportedOperationException("Trips are not supported by this elytra process");
+    }
+
+    /**
+     * Cancels the current multi-leg trip, if any, and clears its persisted progress
+     */
+    default void cancelTrip() {}
+
+    /**
+     * @return {@code true} if a multi-leg trip is currently in progress
+     */
+    default boolean isTripActive() {
+        return false;
+    }
 
     /**
      * Resets the state of the process but will maintain the same destination and will try to keep flying

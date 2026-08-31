@@ -19,6 +19,8 @@ package baritone.process;
 
 import baritone.Baritone;
 import baritone.api.IBaritone;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import baritone.api.event.events.*;
 import baritone.api.event.events.type.EventState;
 import baritone.api.event.listener.AbstractGameEventListener;
@@ -64,6 +66,8 @@ import net.minecraft.world.phys.Vec3;
 import java.util.*;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static baritone.api.pathing.movement.ActionCosts.COST_INF;
 
@@ -80,6 +84,18 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     private boolean allowAboveBuildLimit;
     private boolean allowAboveRoof;
     private final Semaphore npfSema = new Semaphore(1);
+
+    /**
+     * Multi-leg trip state (roadmap item 3). {@code tripLegs} is non-null while a trip is in
+     * progress; {@code tripLegIndex} points at the leg currently being flown. Progress is
+     * persisted to {@code <dimension>-elytra-trip.json} in the baritone world folder so an
+     * interrupted trip can be resumed.
+     */
+    private List<GoalXZ> tripLegs;
+    private int tripLegIndex = -1;
+    private boolean tripResumeAttempted;
+
+    private static final Gson TRIP_GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private static final int SHORT_LANDING_COLUMN_HEIGHT = 15;
     private static final int LONG_LANDING_COLUMN_HEIGHT = 39;
@@ -203,10 +219,11 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             }
 
             if (last != null && last.distToCenterSqr(ctx.player().position()) < 1) {
-                if (Baritone.settings().notificationOnPathComplete.value && !reachedGoal) {
+                // only treat this as the real arrival when it's not a mid-trip leg about to be followed by another
+                if (Baritone.settings().notificationOnPathComplete.value && !reachedGoal && isFinalTripLeg()) {
                     logNotification("Pathing complete", false);
                 }
-                if (Baritone.settings().disconnectOnArrival.value && !reachedGoal) {
+                if (Baritone.settings().disconnectOnArrival.value && !reachedGoal && isFinalTripLeg()) {
                     // don't be active when the user logs back in
                     this.onLostControl();
                     if (ctx.world() instanceof ClientLevel clientLevel) {
@@ -257,8 +274,16 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                 baritone.getInputOverrideHandler().setInputForceState(Input.SNEAK, true);
                 return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
             }
-            logDirect("Done :)");
             baritone.getInputOverrideHandler().clearAllKeys();
+            if (this.tripLegs != null && !isFinalTripLeg()) {
+                // multi-leg trip: continue straight to the next leg without tearing the process down
+                this.advanceTripLeg();
+                return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+            }
+            logDirect("Done :)");
+            this.tripLegs = null;
+            this.tripLegIndex = -1;
+            this.clearTripState();
             this.onLostControl();
             return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
         }
@@ -456,6 +481,116 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         this.pathTo((new BlockPos(x, y, z)));
     }
 
+    @Override
+    public void startTrip(List<GoalXZ> legs) {
+        this.startTrip(legs, 0);
+    }
+
+    private void startTrip(List<GoalXZ> legs, int startIndex) {
+        if (legs == null || legs.size() < 2) {
+            throw new IllegalArgumentException("A trip requires at least two legs");
+        }
+        if (startIndex < 0 || startIndex >= legs.size()) {
+            throw new IllegalArgumentException("Trip leg index out of bounds: " + startIndex);
+        }
+        this.tripLegs = new ArrayList<>(legs);
+        this.tripLegIndex = startIndex;
+        this.saveTripState();
+        logDirect((startIndex > 0 ? "Resuming trip" : "Starting trip") + " with " + legs.size() + " legs, flying leg " + (startIndex + 1) + "/" + legs.size());
+        this.pathTo(this.tripLegs.get(this.tripLegIndex));
+    }
+
+    @Override
+    public void cancelTrip() {
+        if (this.tripLegs == null) {
+            return;
+        }
+        this.tripLegs = null;
+        this.tripLegIndex = -1;
+        this.clearTripState();
+        logDirect("Trip cancelled");
+    }
+
+    @Override
+    public boolean isTripActive() {
+        return this.tripLegs != null;
+    }
+
+    /**
+     * @return {@code true} if the leg currently being flown is the last one of an active trip
+     * (or no trip is active, in which case normal single-goal behavior applies)
+     */
+    private boolean isFinalTripLeg() {
+        return this.tripLegs == null || this.tripLegIndex >= this.tripLegs.size() - 1;
+    }
+
+    /**
+     * Advances to the next leg of an active trip once the current leg's landing is complete.
+     * The pathfinder context is kept alive across legs ({@code pathTo0} only re-creates the
+     * behavior, not the npf context), so there is no full process shutdown between legs.
+     */
+    private void advanceTripLeg() {
+        this.tripLegIndex++;
+        this.saveTripState();
+        logDirect("leg " + (this.tripLegIndex + 1) + "/" + this.tripLegs.size() + " complete, continuing");
+        try {
+            this.pathTo(this.tripLegs.get(this.tripLegIndex));
+        } catch (IllegalArgumentException e) {
+            logDirect("Failed to continue trip: " + e.getMessage(), ChatFormatting.RED);
+            this.cancelTrip();
+        }
+    }
+
+    private Path tripFile() {
+        return baritone.getWorldProvider().getCurrentWorld().directory
+                .resolve(ctx.world().dimension().identifier().getPath() + "-elytra-trip.json");
+    }
+
+    private void saveTripState() {
+        try {
+            Path file = this.tripFile();
+            Files.createDirectories(file.getParent());
+            SavedTrip saved = new SavedTrip();
+            saved.currentLeg = this.tripLegIndex;
+            saved.legs = this.tripLegs.stream().map(leg -> new int[]{leg.getX(), leg.getZ()}).toArray(int[][]::new);
+            Files.writeString(file, TRIP_GSON.toJson(saved));
+        } catch (Exception e) {
+            logDirect("Failed to save elytra trip state: " + e.getMessage(), ChatFormatting.RED);
+        }
+    }
+
+    private void clearTripState() {
+        try {
+            Files.deleteIfExists(this.tripFile());
+        } catch (Exception e) {
+            logDirect("Failed to clear elytra trip state: " + e.getMessage(), ChatFormatting.RED);
+        }
+    }
+
+    /**
+     * @return The persisted trip, or {@code null} if there is none (or it is malformed/too small)
+     */
+    private SavedTrip loadTripState() {
+        try {
+            Path file = this.tripFile();
+            if (!Files.exists(file)) {
+                return null;
+            }
+            SavedTrip saved = TRIP_GSON.fromJson(Files.readString(file), SavedTrip.class);
+            if (saved == null || saved.legs == null || saved.legs.length < 2) {
+                return null;
+            }
+            return saved;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static final class SavedTrip {
+        int[][] legs;
+        int currentLeg;
+    }
+
     private boolean isSupportedPos(BlockPos pos) {
         final boolean isNether = ctx.world().dimension() == Level.NETHER;
         final int minY = ctx.world().dimensionType().minY();
@@ -529,6 +664,50 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         if (event.getWorld() != null && event.getState() == EventState.POST) {
             // Exiting the world, just destroy
             destroyBehaviorAsync();
+            // allow trip resume to be attempted again when joining the next world
+            this.tripResumeAttempted = false;
+        }
+    }
+
+    /**
+     * Auto-resume hook for multi-leg trips: if {@code elytraTripResume} is enabled and a
+     * persisted trip exists for this dimension (e.g. the client crashed or the server
+     * restarted mid-trip), continue the trip at the saved leg once a world is joined.
+     */
+    @Override
+    public void onTick(TickEvent event) {
+        if (event.getState() != EventState.POST
+                || this.behavior != null
+                || this.tripLegs != null
+                || this.tripResumeAttempted) {
+            return;
+        }
+        if (!Baritone.settings().elytraTripResume.value
+                || ctx.player() == null
+                || ctx.world() == null
+                || ctx.player().isFallFlying()) {
+            return;
+        }
+        // only attempt once per world join, regardless of outcome
+        this.tripResumeAttempted = true;
+        SavedTrip saved = this.loadTripState();
+        if (saved == null) {
+            return;
+        }
+        if (saved.currentLeg < 0 || saved.currentLeg >= saved.legs.length) {
+            // completed or corrupt trip file, nothing to resume
+            this.clearTripState();
+            return;
+        }
+        List<GoalXZ> legs = new ArrayList<>();
+        for (int[] leg : saved.legs) {
+            legs.add(new GoalXZ(leg[0], leg[1]));
+        }
+        try {
+            this.startTrip(legs, saved.currentLeg);
+        } catch (IllegalArgumentException e) {
+            logDirect("Failed to resume elytra trip: " + e.getMessage(), ChatFormatting.RED);
+            this.cancelTrip();
         }
     }
 

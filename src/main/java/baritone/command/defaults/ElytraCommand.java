@@ -25,6 +25,8 @@ import baritone.api.command.exception.CommandException;
 import baritone.api.command.exception.CommandInvalidStateException;
 import baritone.api.command.helpers.TabCompleteHelper;
 import baritone.api.pathing.goals.Goal;
+import baritone.api.pathing.goals.GoalBlock;
+import baritone.api.pathing.goals.GoalXZ;
 import baritone.api.process.ICustomGoalProcess;
 import baritone.api.process.IElytraProcess;
 import net.minecraft.ChatFormatting;
@@ -35,6 +37,7 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.level.Level;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
@@ -96,8 +99,64 @@ public class ElytraCommand extends Command {
                 logDirect("Queued all loaded chunks for repacking");
                 break;
             }
+            case "trip": {
+                final List<GoalXZ> legs = new ArrayList<>();
+                try {
+                    while (args.hasAny()) {
+                        final int x = Integer.parseInt(args.getString());
+                        if (!args.hasAny()) {
+                            throw new CommandInvalidStateException("Trip legs are coordinate pairs: <x1> <z1> <x2> <z2> [...]");
+                        }
+                        final int z = Integer.parseInt(args.getString());
+                        legs.add(new GoalXZ(x, z));
+                    }
+                } catch (NumberFormatException e) {
+                    throw new CommandInvalidStateException("Invalid coordinate: " + e.getMessage());
+                }
+                if (legs.size() < 2) {
+                    throw new CommandInvalidStateException("A trip requires at least two coordinate pairs (4 numbers), got " + legs.size());
+                }
+                try {
+                    elytra.startTrip(legs);
+                } catch (IllegalArgumentException ex) {
+                    throw new CommandInvalidStateException(ex.getMessage());
+                }
+                break;
+            }
+            case "cancel": {
+                if (!elytra.isTripActive()) {
+                    logDirect("No active trip");
+                } else {
+                    elytra.cancelTrip();
+                }
+                break;
+            }
             default: {
-                throw new CommandInvalidStateException("Invalid action");
+                // .elytra <x> <z> [y]
+                final Goal goal;
+                try {
+                    final int x = Integer.parseInt(action);
+                    if (!args.hasAny()) {
+                        throw new CommandInvalidStateException("Expected <z> (and optionally <y>) after <x>");
+                    }
+                    final int z = Integer.parseInt(args.getString());
+                    if (args.hasAny()) {
+                        goal = new GoalBlock(x, Integer.parseInt(args.getString()), z);
+                    } else {
+                        goal = new GoalXZ(x, z);
+                    }
+                    if (args.hasAny()) {
+                        throw new CommandInvalidStateException("Too many arguments. Usage: elytra <x> <z> [y]");
+                    }
+                } catch (NumberFormatException e) {
+                    throw new CommandInvalidStateException("Invalid action");
+                }
+                try {
+                    elytra.pathTo(goal);
+                } catch (IllegalArgumentException ex) {
+                    throw new CommandInvalidStateException(ex.getMessage());
+                }
+                break;
             }
         }
     }
@@ -195,7 +254,7 @@ public class ElytraCommand extends Command {
     public Stream<String> tabComplete(String label, IArgConsumer args) throws CommandException {
         TabCompleteHelper helper = new TabCompleteHelper();
         if (args.hasExactlyOne()) {
-            helper.append("reset", "repack", "supported");
+            helper.append("reset", "repack", "supported", "trip", "cancel");
         }
         return helper.filterPrefix(args.getString()).stream();
     }
@@ -212,6 +271,9 @@ public class ElytraCommand extends Command {
                 "",
                 "Usage:",
                 "> elytra - fly to the current goal",
+                "> elytra <x> <z> [y] - fly to the specified coordinates",
+                "> elytra trip <x1> <z1> <x2> <z2> [...] - fly a multi-leg trip: land at each waypoint, then continue to the next leg automatically",
+                "> elytra cancel - cancel the current trip and clear its saved progress",
                 "> elytra reset - Resets the state of the process, but will try to keep flying to the same goal.",
                 "> elytra repack - Queues all of the chunks in render distance to be given to the native library.",
                 "> elytra supported - Tells you if baritone ships a native library that is compatible with your PC."

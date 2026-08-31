@@ -1612,6 +1612,12 @@ public final class Settings {
     public final Setting<Boolean> elytraTermsAccepted = new Setting<>(false);
 
     /**
+     * Automatically resume an interrupted multi-leg elytra trip (see {@code .elytra trip}) at the correct leg
+     * after a server restart or client crash
+     */
+    public final Setting<Boolean> elytraTripResume = new Setting<>(true);
+
+    /**
      * Prefer ice highways when elytra path-finding: nodes whose floor (the blocks up to
      * 4 below the flight node) is packed or blue ice are discounted by
      * {@link #elytraHighwayCostMultiplier} / {@link #elytraBlueIceCostMultiplier},
