@@ -29,3 +29,7 @@
 ## 2026-06-05 - PathNode.hashCode needs Long.hashCode() and BetterBlockPos.longHash()
 **Learning:** Naive polynomial hashes (`31 * result + coord`) for 3D block coordinates cause severe hash collisions for spatially local coordinates. This causes a massive performance degradation in algorithms like A* that process millions of spatially contiguous blocks and store them in hash maps/sets (e.g. `PathNode`).
 **Action:** Replace `PathNode.hashCode()`'s naive polynomial math with `Long.hashCode(BetterBlockPos.longHash(x, y, z))`. This combines zero-collision perfect packed 64-bit coordinate hashing (from `BetterBlockPos`) with `Long.hashCode` mixing to prevent truncation.
+
+## 2025-05-21 - AStar Inner Loop Redundant Bitshifts
+**Learning:** In voxel graph A* implementations, node coordinates are evaluated against multiple adjacent movements (e.g. 24 moves in Baritone). Recalculating the base node's chunk coordinates (`node.x >> 4`) inside the movement loop is a codebase-specific anti-pattern that wastes millions of bitshifts per pathing segment.
+**Action:** Hoist base node invariant coordinate calculations (like chunk X/Z bitshifts) outside the adjacent movement loop to save CPU cycles.
