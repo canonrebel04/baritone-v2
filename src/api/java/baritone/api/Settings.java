@@ -1685,6 +1685,25 @@ public final class Settings {
     public final Setting<Double> elytraThreatRadius = new Setting<>(24.0);
 
     /**
+     * Estimated blocks of travel per firework rocket, used by the elytra firework economy
+     * budgeting (see {@link #elytraRequireFireworkBudget})
+     */
+    public final Setting<Double> elytraBlocksPerFirework = new Setting<>(55.0);
+
+    /**
+     * Safety factor multiplied into the estimated elytra firework need before comparing
+     * against the inventory count (see {@link #elytraBlocksPerFirework})
+     */
+    public final Setting<Double> elytraFireworkSafetyFactor = new Setting<>(1.5);
+
+    /**
+     * Refuse elytra takeoff when the inventory doesn't hold enough fireworks to cover the
+     * estimated trip need (see {@link #elytraBlocksPerFirework}). When off, a warning is
+     * logged instead and the existing mid-flight emergency-land logic still applies.
+     */
+    public final Setting<Boolean> elytraRequireFireworkBudget = new Setting<>(false);
+
+    /**
      * Sneak when magma blocks are under feet
      */
     public final Setting<Boolean> allowWalkOnMagmaBlocks = new Setting<>(false);

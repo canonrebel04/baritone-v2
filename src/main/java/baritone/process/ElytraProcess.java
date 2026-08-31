@@ -95,6 +95,10 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     private int tripLegIndex = -1;
     private boolean tripResumeAttempted;
 
+    // firework economy (roadmap item 6)
+    private long lastBurnCheckMs;
+    private int burnWarnedLeg = Integer.MIN_VALUE;
+
     private static final Gson TRIP_GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private static final int SHORT_LANDING_COLUMN_HEIGHT = 15;
@@ -257,6 +261,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         }
 
         if (ctx.player().isFallFlying()) {
+            checkFireworkBurn();
             behavior.landingMode = this.state == State.LANDING;
             this.goal = null;
             baritone.getInputOverrideHandler().clearAllKeys();
@@ -295,6 +300,10 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         }
 
         if (this.state == State.LOCATE_JUMP) {
+            if (!checkFireworkBudget()) {
+                onLostControl();
+                return new PathingCommand(null, PathingCommandType.CANCEL_AND_SET_GOAL);
+            }
             if (shouldLandForSafety()) {
                 logDirect("Not taking off, because elytra durability or fireworks are so low that I would immediately emergency land anyway.");
                 onLostControl();
@@ -626,6 +635,96 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             return true;
         }
         return false;
+    }
+
+    // =====================================================
+    // Firework economy (roadmap item 6)
+    // =====================================================
+
+    /**
+     * @return the count of firework rockets in the player's inventory
+     */
+    private int countFireworks() {
+        NonNullList<ItemStack> inv = ctx.player().getInventory().getNonEquipmentItems();
+        int qty = 0;
+        for (int i = 0; i < 36; i++) {
+            if (ElytraBehavior.isFireworks(inv.get(i))) {
+                qty += inv.get(i).getCount();
+            }
+        }
+        return qty;
+    }
+
+    /**
+     * Estimates the firework need for the remaining trip: the sum of straight-line distances
+     * of all remaining legs (first leg measured from the player's current position, which
+     * already accounts for distance flown), or the straight-line distance to the current
+     * single goal, divided by {@code elytraBlocksPerFirework} and multiplied by
+     * {@code elytraFireworkSafetyFactor}.
+     */
+    private double estimateFireworkNeed(BetterBlockPos from) {
+        final double blocksPerFirework = Math.max(1.0, Baritone.settings().elytraBlocksPerFirework.value);
+        double distance = 0;
+        if (this.tripLegs != null && !this.tripLegs.isEmpty()) {
+            int x = from.x;
+            int z = from.z;
+            for (int i = Math.max(0, this.tripLegIndex); i < this.tripLegs.size(); i++) {
+                GoalXZ leg = this.tripLegs.get(i);
+                distance += Math.hypot(leg.getX() - x, leg.getZ() - z);
+                x = leg.getX();
+                z = leg.getZ();
+            }
+        } else {
+            BlockPos dest = this.currentDestination();
+            if (dest != null) {
+                distance = Math.hypot(dest.getX() - from.x, dest.getZ() - from.z);
+            }
+        }
+        return distance / blocksPerFirework * Baritone.settings().elytraFireworkSafetyFactor.value;
+    }
+
+    /**
+     * Takeoff-time firework budget check (roadmap item 6). Warns when the inventory doesn't
+     * cover the estimated need and, if {@code elytraRequireFireworkBudget} is set, refuses
+     * takeoff entirely. Also (re)initializes the mid-flight burn-warning state.
+     *
+     * @return {@code false} if takeoff is refused under the budget gate
+     */
+    private boolean checkFireworkBudget() {
+        this.lastBurnCheckMs = System.currentTimeMillis();
+        this.burnWarnedLeg = Integer.MIN_VALUE;
+        final double need = estimateFireworkNeed(ctx.playerFeet());
+        final int have = countFireworks();
+        if (have >= need) {
+            return true;
+        }
+        logDirect(String.format("firework budget: need ~%d, have %d — trip may require mid-flight resupply", (int) Math.ceil(need), have));
+        if (Baritone.settings().elytraRequireFireworkBudget.value) {
+            logDirect("Refusing takeoff: inventory is under the firework budget and elytraRequireFireworkBudget is enabled.", ChatFormatting.RED);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Mid-flight firework burn check (roadmap item 6). Every 30 seconds, compares remaining
+     * rockets against the projected need for the rest of the trip (see
+     * {@link #estimateFireworkNeed}); warns once per leg when the remaining supply is below
+     * 1.2x the projected need.
+     */
+    private void checkFireworkBurn() {
+        final long now = System.currentTimeMillis();
+        if (now - this.lastBurnCheckMs < 30_000 || this.burnWarnedLeg == this.tripLegIndex) {
+            return;
+        }
+        this.lastBurnCheckMs = now;
+        final double need = estimateFireworkNeed(ctx.playerFeet());
+        final int have = countFireworks();
+        if (have >= need * 1.2) {
+            return;
+        }
+        this.burnWarnedLeg = this.tripLegIndex;
+        logDirect(String.format("firework burn: ~%d still needed, %d remaining — consider resupply", (int) Math.ceil(need), have), ChatFormatting.YELLOW);
     }
 
     @Override
