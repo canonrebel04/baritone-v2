@@ -1697,6 +1697,26 @@ public final class Settings {
     public final Setting<Double> elytraThreatRadius = new Setting<>(24.0);
 
     /**
+     * Coordinate elytra takeoffs with other fleet bots through the agent message bus
+     * (elytra roadmap item 4). On takeoff intent a {@code takeoff} note is posted to the
+     * bus and recent notes from other bots are checked for lane conflicts; a conflicting
+     * lane holds the takeoff (retried every 30s, at most 3 holds) before taking off anyway.
+     * All bus interaction is asynchronous and fail-open
+     */
+    public final Setting<Boolean> elytraFleetCoordination = new Setting<>(false);
+
+    /**
+     * HTTP endpoint of the agent message bus used by {@link #elytraFleetCoordination}
+     */
+    public final Setting<String> elytraFleetBusUrl = new Setting<>("http://127.0.0.1:3877");
+
+    /**
+     * Minimum XZ separation in blocks between our takeoff&harr;destination lane and another
+     * bot's recent takeoff lane before {@link #elytraFleetCoordination} holds the takeoff
+     */
+    public final Setting<Double> elytraFleetLaneSeparation = new Setting<>(24.0);
+
+    /**
      * Estimated blocks of travel per firework rocket, used by the elytra firework economy
      * budgeting (see {@link #elytraRequireFireworkBudget})
      */

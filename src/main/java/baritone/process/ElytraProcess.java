@@ -96,6 +96,13 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     private boolean tripResumeAttempted;
 
     /**
+     * Fleet takeoff coordination (elytra roadmap item 4); lazily created on the first
+     * flight when {@code elytraFleetCoordination} is enabled. All bus interaction runs on
+     * the coordination's own daemon thread and is fail-open.
+     */
+    private FleetTakeoffCoordination fleetCoordination;
+
+    /**
      * Aerial survey state (elytra roadmap item 5). {@code surveyAltitudeY} is non-null while a
      * survey circuit is in flight: legs are then flown at that fixed Y instead of the default
      * Y=64 (see {@link #pathTo(Goal)}). {@code tripCompletionCallback} fires exactly once when
@@ -129,6 +136,9 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         this.landingSearchState = null;
         this.reachedGoal = false;
         this.goal = null;
+        if (this.fleetCoordination != null) {
+            this.fleetCoordination.cancelFlight();
+        }
         destroyBehaviorAsync();
         if (destroyNpf) {
             destroyNpfContextAsync();
@@ -295,6 +305,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                 return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
             }
             logDirect("Done :)");
+            notifyFleetLanded();
             this.tripLegs = null;
             this.tripLegIndex = -1;
             this.clearTripState();
@@ -306,6 +317,22 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                 circuitCallback.run();
             }
             return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+        }
+
+        // fleet takeoff coordination (elytra roadmap item 4): surface bus messages and hold
+        // the takeoff while another bot's lane conflicts with ours (fail-open after 3 holds)
+        if (this.fleetCoordination != null) {
+            final String fleetLog = this.fleetCoordination.consumeLogMessage();
+            if (fleetLog != null) {
+                logDirect(fleetLog, ChatFormatting.YELLOW);
+            }
+            if (this.fleetCoordination.shouldHold()
+                    && !ctx.player().isFallFlying()
+                    && ctx.player().fallDistance <= 1.0f
+                    && (this.state == State.FLYING || this.state == State.START_FLYING
+                        || this.state == State.LOCATE_JUMP || this.state == State.GET_TO_JUMP)) {
+                return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+            }
         }
 
         if (this.state == State.FLYING || this.state == State.START_FLYING) {
@@ -475,11 +502,83 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         this.allowAboveBuildLimit = Baritone.settings().elytraAllowAboveBuildLimit.value;
         this.allowAboveRoof = Baritone.settings().elytraAllowAboveRoof.value;
         this.behavior = new ElytraBehavior(this.baritone, this, getNpfContext(), destination, appendDestination);
+        notifyFleetTakeoff(destination);
 
         if (ctx.world() != null) {
             this.repackChunks();
         }
         this.behavior.pathTo();
+    }
+
+    /**
+     * Fleet takeoff coordination (elytra roadmap item 4). Lazily constructed so the process
+     * is unchanged when {@code elytraFleetCoordination} is disabled, and the bus URL / lane
+     * separation settings are picked up on the first flight after a change.
+     */
+    private FleetTakeoffCoordination fleet() {
+        if (!Baritone.settings().elytraFleetCoordination.value) {
+            if (this.fleetCoordination != null) {
+                this.fleetCoordination.cancelFlight();
+                this.fleetCoordination = null;
+            }
+            return null;
+        }
+        if (this.fleetCoordination == null) {
+            this.fleetCoordination = new FleetTakeoffCoordination(
+                    Baritone.settings().elytraFleetBusUrl.value,
+                    Baritone.settings().elytraFleetLaneSeparation.value,
+                    () -> {
+                        try {
+                            if (ctx.player() != null) {
+                                String name = ctx.player().getScoreboardName();
+                                if (name != null && !name.isEmpty()) {
+                                    return name;
+                                }
+                            }
+                        } catch (Throwable ignored) {
+                        }
+                        return null;
+                    });
+        }
+        return this.fleetCoordination;
+    }
+
+    /**
+     * Posts a {@code takeoff} note for the new flight segment and starts the bus lane-conflict
+     * check. Best-effort: never blocks and never prevents a takeoff.
+     */
+    private void notifyFleetTakeoff(BlockPos destination) {
+        try {
+            FleetTakeoffCoordination fleet = fleet();
+            if (fleet == null || ctx.world() == null || ctx.player() == null) {
+                return;
+            }
+            String dim = ctx.world().dimension().identifier().getPath();
+            BetterBlockPos from = ctx.playerFeet();
+            double fromX = from.getX() + 0.5;
+            double fromZ = from.getZ() + 0.5;
+            double toX = destination.getX() + 0.5;
+            double toZ = destination.getZ() + 0.5;
+            double heading = Math.toDegrees(Math.atan2(toZ - fromZ, toX - fromX));
+            if (heading < 0) {
+                heading += 360.0;
+            }
+            fleet.onTakeoffIntent(dim, fromX, fromZ, toX, toZ, heading);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Posts a {@code landed} note for the completed trip and clears any active hold. */
+    private void notifyFleetLanded() {
+        try {
+            FleetTakeoffCoordination fleet = this.fleetCoordination;
+            if (fleet == null || ctx.world() == null) {
+                return;
+            }
+            fleet.onLanded(ctx.world().dimension().identifier().getPath());
+            fleet.cancelFlight();
+        } catch (Throwable ignored) {
+        }
     }
 
     @Override
