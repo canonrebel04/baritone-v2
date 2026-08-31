@@ -71,6 +71,13 @@ public final class FrontierExplorerProcess extends BaritoneProcessHelper {
     private final Set<Long> failedFrontiers = new HashSet<>();
     private long lastPickTick = Long.MIN_VALUE;
     private Frontier currentGoal;
+
+    /** Read-only snapshot of the current frontier goal for renderers. */
+    public Goal currentGoalSnapshot() {
+        Frontier f = this.currentGoal;
+        return f == null ? null : new GoalXZ(f.x() << 4 | 8, f.z() << 4 | 8);
+    }
+
     private int missionCenterX;
     private int missionCenterZ;
     private int missionRadius = -1; // -1 = unbounded
@@ -116,7 +123,18 @@ public final class FrontierExplorerProcess extends BaritoneProcessHelper {
     @Override
     public double priority() {
         if (!active) return -1;
-        return 2.0; // above default processes, below emergency
+        // Must be BELOW CustomGoalProcess (Meteor CombatBrain / follow / goto all use it).
+        // Exploration is a background mission: any explicit combat/navigation goal wins.
+        return -0.5;
+    }
+
+    /**
+     * Temporary process: yields control to any non-temporary process that wants it
+     * (CombatBrain engagement, user commands), resuming automatically when they're done.
+     */
+    @Override
+    public boolean isTemporary() {
+        return true;
     }
 
     @Override
@@ -174,6 +192,13 @@ public final class FrontierExplorerProcess extends BaritoneProcessHelper {
         return new GoalXZ(f.x() << 4 | 8, f.z() << 4 | 8);
     }
 
+    /** Last computed frontier set for the renderer: {chunkX, chunkZ, caveExposed(0/1)}. */
+    private volatile List<long[]> lastFrontiers = List.of();
+
+    public List<long[]> getFrontiersForRender() {
+        return lastFrontiers;
+    }
+
     /**
      * Scans the boundary ring of the cached world for the highest-value frontier chunk.
      */
@@ -187,6 +212,7 @@ public final class FrontierExplorerProcess extends BaritoneProcessHelper {
         int centerChunkZ = missionRadius >= 0 ? missionCenterZ : playerChunkZ;
 
         Frontier best = null;
+        List<long[]> allFrontiers = new ArrayList<>();
         int ring = 1;
         int maxRing = missionRadius >= 0 ? missionRadius : 64; // unbounded: search 64 chunks out
 
@@ -220,6 +246,10 @@ public final class FrontierExplorerProcess extends BaritoneProcessHelper {
                 double gain = caveNeighbor ? Math.min(1.0, caveExposure / CAVE_EXPOSURE_SATURATION) * 100.0 : 1.0;
                 double score = gain / dist;
 
+                if (caveNeighbor || ring <= 2) {
+                    allFrontiers.add(new long[]{cx, cz, caveNeighbor ? 1 : 0});
+                }
+
                 if (best == null || score > best.score()) {
                     best = new Frontier(cx, cz, score, caveNeighbor);
                 }
@@ -228,6 +258,7 @@ public final class FrontierExplorerProcess extends BaritoneProcessHelper {
             if (best == null) ring++;
         }
 
+        this.lastFrontiers = allFrontiers;
         return best;
     }
 

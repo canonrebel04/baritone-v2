@@ -727,6 +727,12 @@ public final class Settings {
     public final Setting<Boolean> renderPath = new Setting<>(true);
 
     /**
+     * Renders the frontier exploration map slice (cave-exposed / plain / goal chunk markers
+     * at y=80) while the FrontierExplorer process is active.
+     */
+    public final Setting<Boolean> renderFrontierMap = new Setting<>(true);
+
+    /**
      * Render the path as a line instead of a frickin thingy
      */
     public final Setting<Boolean> renderPathAsLine = new Setting<>(false);

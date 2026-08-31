@@ -35,8 +35,11 @@ import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.path.PathExecutor;
 import baritone.utils.PathRenderer;
+import baritone.utils.FrontierMapRenderer;
 import baritone.utils.PathingCommandContext;
+import baritone.cache.CachedWorld;
 import baritone.utils.pathing.Favoring;
+import baritone.api.BaritoneAPI;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -594,5 +597,15 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
     @Override
     public void onRenderPass(RenderEvent event) {
         PathRenderer.render(event, this);
+
+        // Frontier map slice (ExynAI-style growing-map view)
+        if (BaritoneAPI.getSettings().renderFrontierMap.value) {
+            var proc = baritone.frontierExplorerProcess;
+            if (proc.isActive()) {
+                Goal goal = proc.currentGoalSnapshot();
+                FrontierMapRenderer.render(event, (CachedWorld) baritone.getWorldProvider().getCurrentWorld().getCachedWorld(),
+                        proc.getFrontiersForRender(), goal, 80);
+            }
+        }
     }
 }
