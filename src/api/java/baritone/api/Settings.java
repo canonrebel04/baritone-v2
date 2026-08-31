@@ -819,7 +819,9 @@ public final class Settings {
     public final Setting<Double> maxLookTurnSpeed = new Setting<>(35.0);
 
     /**
-     * The number of ticks to average across for {@link #smoothLook};
+     * The number of ticks forming the time constant of the smooth-look chase
+     * ({@code smoothLook}); higher values give smoother but lazier camera motion
+     * (the critically-damped spring's tau is this value divided by 3). Default 5.
      */
     public final Setting<Integer> smoothLookTicks = new Setting<>(5);
 

@@ -67,25 +67,21 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     private final AimProcessor processor;
 
     /**
-     * State for the eased (smoothstep) rotation animation. See {@link #smoothRotation}.
+     * State for the continuous quantized-space rotation chase. See {@link #smoothRotation}.
+     *
+     * <p>Design (replaces the old restart-on-target-change smoothstep animation):
+     * the camera is modeled as a critically-damped spring chasing a live target, integrated in
+     * GCD-step units. Both the position and the velocity are tracked in integer multiples of the
+     * mouse-GCD angle step, so every written angle is exactly on the path (no per-frame
+     * re-quantization drift → no staircase jitter), and target movements re-target the SAME
+     * spring (velocity continuity — no restarts → no velocity discontinuities).
      */
-    private Rotation smoothStart;
-    private Rotation smoothEnd;
-    private int smoothTicks;
-    private int smoothTotalTicks;
-    private boolean smoothActive;
+    private QuantizedChase chase;
 
     /**
-     * If the arbitration target moves by less than this (degrees) between ticks, the eased
-     * animation keeps running instead of restarting (Baritone re-submits near-identical targets
-     * every tick, e.g. with {@code randomLooking} jitter).
-     */
-    private static final double SMOOTH_TARGET_EPSILON = 0.5;
-
-    /**
-     * If the player's actual camera is more than this (degrees) away from where the eased animation
-     * thinks it should be, the animation is restarted from the real camera position (free look
-     * toggles, external mods, ...).
+     * If the player's actual camera is more than this (degrees) away from where the chase thinks
+     * it should be, the chase is reset from the real camera position (free look toggles, external
+     * mods, ...).
      */
     private static final double SMOOTH_RESYNC_EPSILON = 5.0;
 
@@ -156,7 +152,7 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
                 if (targetRotation == null || targetMode == Target.Mode.NONE) {
                     this.lastAppliedMode = targetMode;
-                    this.smoothActive = false;
+                    this.chase = null;
                     return;
                 }
 
@@ -189,11 +185,11 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
                             maxTurn = Math.max(maxTurn, 65.0);
                         }
 
-                        // Eased (smoothstep) interpolation: the camera accelerates out of rest,
-                        // cruises at its peak turn rate mid-turn, then decelerates into the target.
-                        // The tick budget is derived from maxLookTurnSpeed so the peak eased velocity
-                        // never exceeds it, and the final angle is GCD-quantized.
-                        Rotation smoothed = this.smoothRotation(current, actual, (float) maxTurn);
+                        // Continuous quantized-space chase: critically-damped spring toward a live
+                        // target, integrated in GCD-step units — applied camera positions always
+                        // lie on the path, and re-targets preserve velocity (no restarts, no jitter).
+                        Rotation smoothed = this.smoothRotation(current, actual, (float) maxTurn,
+                                Baritone.settings().smoothLookTicks.value);
                         ctx.player().setYRot(MouseGCD.quantize(smoothed.getYaw(), gcdStep));
                         ctx.player().setXRot(MouseGCD.quantize(smoothed.getPitch(), gcdStep));
                     } else {
@@ -256,92 +252,126 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     }
 
     /**
-     * Advances the eased smoothing animation by one tick and returns the next rotation to apply.
+     * Advances the continuous quantized-space chase by one tick and returns the next rotation to
+     * apply.
      *
-     * <p>The animation interpolates from the rotation at which it started to the arbitration winner
-     * using classic smoothstep ({@code 3t^2 - 2t^3}), which has zero velocity at both endpoints: the
-     * camera accelerates out of rest, reaches its peak turn rate at the midpoint, and decelerates
-     * into the target — instead of the old linear clamping which moved at a constant rate or an
-     * exponential that never settled.
+     * <p>The camera is modeled as a critically-damped spring chasing a live target. Unlike the
+     * previous restart-on-target-change smoothstep animation, target movements simply move the
+     * spring's set point — position and velocity are continuous across re-targets, which is why
+     * the motion no longer jitters when pathing re-submits slightly different targets every tick.
      *
-     * <p>The tick budget is chosen so the peak eased velocity equals {@code maxTurn} (smoothstep's
-     * peak velocity is {@code 1.5 * distance / duration}), keeping peak turn speed capped at
-     * {@code maxLookTurnSpeed}. The animation continues as long as the arbitration target stays
-     * within {@link #SMOOTH_TARGET_EPSILON} degrees of the animation's end (Baritone re-submits
-     * near-identical targets every tick), and restarts from the player's real camera position
-     * whenever the target genuinely changes or the camera was displaced externally by more than
-     * {@link #SMOOTH_RESYNC_EPSILON} degrees (free look toggles, other mods, ...).
+     * <p>All integration happens in GCD-step units (integer multiples of the smallest rotation
+     * increment reachable at the player's mouse sensitivity). Every angle this method returns is
+     * therefore exactly a GCD multiple — quantization is the coordinate system, not a post-hoc
+     * rounding step — which removes the staircase drift the old per-frame quantization caused.
      *
-     * @param current  The player's current rotation
-     * @param target   The rotation the arbitration winner wants
-     * @param maxTurn  Peak allowed turn rate in degrees per tick
-     * @return The next rotation on the eased path (not yet GCD-quantized)
+     * <p>Peak turn rate stays capped at {@code maxTurn} degrees per tick by clamping the spring's
+     * velocity.
+     *
+     * @param current        The player's current rotation (already GCD-quantized)
+     * @param target         The rotation the arbitration winner wants
+     * @param maxTurn        Peak allowed turn rate in degrees per tick
+     * @param smoothingTicks The {@code smoothLookTicks} setting — the spring time-constant in
+     *                       ticks; higher = smoother but lazier
+     * @return The next rotation on the chase path (already GCD-quantized)
      */
-    private Rotation smoothRotation(Rotation current, Rotation target, float maxTurn) {
-        final double distance = rotationDistance(current, target);
+    private Rotation smoothRotation(Rotation current, Rotation target, float maxTurn, int smoothingTicks) {
+        final float gcdStep = MouseGCD.step(ctx);
 
-        if (distance < 1e-4) { // already (effectively) at the target
-            this.smoothActive = false;
-            return target;
+        // External camera displacement (free look toggles, other mods): reset the chase from
+        // where the camera actually is instead of fighting it.
+        if (this.chase != null
+                && rotationDistance(this.chase.positionRotation(gcdStep), current) > SMOOTH_RESYNC_EPSILON) {
+            this.chase = null;
         }
 
-        final boolean sameTarget = this.smoothActive
-                && Math.abs(this.smoothEnd.getYaw() - target.getYaw()) < SMOOTH_TARGET_EPSILON
-                && Math.abs(this.smoothEnd.getPitch() - target.getPitch()) < SMOOTH_TARGET_EPSILON;
-
-        if (!sameTarget) {
-            this.beginSmooth(current, target, maxTurn);
+        if (this.chase == null) {
+            this.chase = new QuantizedChase(current, target, gcdStep, maxTurn, smoothingTicks);
+        } else {
+            this.chase.retarget(target, gcdStep, maxTurn, smoothingTicks);
         }
 
-        Rotation smoothed = this.easedPosition(
-                Math.min(1.0, (double) (this.smoothTicks + 1) / this.smoothTotalTicks));
-
-        // The player's camera was moved externally (free look toggle, another mod, ...): resync the
-        // animation from where the camera actually is instead of fighting it.
-        if (rotationDistance(smoothed, current) > SMOOTH_RESYNC_EPSILON) {
-            this.beginSmooth(current, target, maxTurn);
-            smoothed = this.easedPosition(Math.min(1.0, 1.0 / this.smoothTotalTicks));
-        }
-
-        this.smoothTicks++;
-        if ((double) this.smoothTicks / this.smoothTotalTicks >= 1.0) {
-            this.smoothActive = false;
-        }
-        return smoothed;
+        return this.chase.step(gcdStep, maxTurn);
     }
 
     /**
-     * Starts a new eased animation from {@code from} toward {@code to}, budgeting the tick count so
-     * that smoothstep's peak velocity ({@code 1.5 * distance / ticks}) equals {@code maxTurn}.
+     * Critically-damped spring chasing a live rotation target, integrated in GCD-step units.
+     *
+     * <p>State: position {@code pos} and velocity {@code vel} per axis (yaw/pitch), both in
+     * GCD steps. Each {@link #step} integrates the spring for one tick:
+     * <pre>
+     *     acc = (target - pos) / tau^2 - 2 * vel / tau     (critically damped, tau = time constant)
+     *     vel = clamp(vel + acc, maxVel)                   (peak turn-rate cap)
+     *     pos = pos + vel
+     * </pre>
+     * The integration is semi-implicit Euler, which is stable for the tau values used here.
+     * Settling: when |target - pos| &lt; 1 step and |vel| &lt; 1 step, the chase snaps to the
+     * target and deactivates.
      */
-    private void beginSmooth(Rotation from, Rotation to, float maxTurn) {
-        this.smoothStart = from;
-        this.smoothEnd = to;
-        final double distance = rotationDistance(from, to);
-        final int ticks = (int) Math.ceil(1.5 * distance / Math.max(maxTurn, 0.01));
-        this.smoothTotalTicks = Math.max(2, ticks);
-        this.smoothTicks = 0;
-        this.smoothActive = true;
-    }
+    private static final class QuantizedChase {
+        private double yawPos, yawVel, pitchPos, pitchVel; // in GCD steps
+        private double yawTarget, pitchTarget;             // in GCD steps
+        private final double tau;                          // time constant in ticks
 
-    /**
-     * Lerps {@code start -> end} by the smoothstep-eased progress {@code t} (wrap-safe for yaw).
-     */
-    private Rotation easedPosition(double t) {
-        final double eased = smoothstep(t);
-        final Rotation offset = this.smoothEnd.subtract(this.smoothStart).normalize();
-        return new Rotation(
-                this.smoothStart.getYaw() + (float) (offset.getYaw() * eased),
-                this.smoothStart.getPitch() + (float) (offset.getPitch() * eased)
-        ).clamp();
-    }
+        QuantizedChase(Rotation current, Rotation target, float gcdStep, float maxTurn, int smoothingTicks) {
+            this.tau = Math.max(1.0, smoothingTicks / 3.0); // 5 ticks -> tau ~1.67: responsive but eased
+            this.yawPos = current.getYaw() / gcdStep;
+            this.pitchPos = current.getPitch() / gcdStep;
+            this.yawTarget = target.getYaw() / gcdStep;
+            this.pitchTarget = target.getPitch() / gcdStep;
+            this.yawVel = 0;
+            this.pitchVel = 0;
+        }
 
-    /**
-     * Classic smoothstep ({@code 3t^2 - 2t^3}): zero first derivative at {@code t = 0} and
-     * {@code t = 1}, peak velocity at {@code t = 0.5}.
-     */
-    private static double smoothstep(double t) {
-        return t * t * (3.0 - 2.0 * t);
+        /** Moves the set point; the spring state (position + velocity) is preserved. */
+        void retarget(Rotation target, float gcdStep, float maxTurn, int smoothingTicks) {
+            this.yawTarget = target.getYaw() / gcdStep;
+            this.pitchTarget = target.getPitch() / gcdStep;
+        }
+
+        /** Integrates one tick and returns the new position as a (quantized) rotation. */
+        Rotation step(float gcdStep, float maxTurn) {
+            final double maxVel = maxTurn / gcdStep; // per-tick velocity cap in GCD steps
+
+            yawVel = stepAxis(yawPos, yawVel, yawTarget, tau, maxVel);
+            // Quantize POSITION to the step grid each tick (the coordinate system), while velocity
+            // stays continuous — this is the anti-jitter core: the applied camera always sits
+            // exactly on the grid, and the continuous velocity means no staircase drift.
+            yawPos = Math.round(yawPos + yawVel);
+            pitchVel = stepAxis(pitchPos, pitchVel, pitchTarget, tau, maxVel);
+            pitchPos = Math.round(pitchPos + pitchVel);
+
+            // Snap-and-stop when effectively at the target (sub-step distance, sub-step velocity)
+            if (Math.abs(yawTarget - yawPos) < 0.5 && Math.abs(yawVel) < 0.5
+                    && Math.abs(pitchTarget - pitchPos) < 0.5 && Math.abs(pitchVel) < 0.5) {
+                yawPos = yawTarget;
+                pitchPos = pitchTarget;
+                yawVel = 0;
+                pitchVel = 0;
+            }
+
+            return new Rotation(
+                    (float) (yawPos * gcdStep),
+                    (float) (pitchPos * gcdStep)
+            );
+        }
+
+        /** The position as a rotation — used for external-displacement detection. */
+        Rotation positionRotation(float gcdStep) {
+            return new Rotation((float) (yawPos * gcdStep), (float) (pitchPos * gcdStep));
+        }
+
+        /**
+         * One semi-implicit Euler step of a critically-damped spring on one axis.
+         * acc = (target - pos)/tau² − 2·vel/tau; vel += acc; |vel| clamped to maxVel.
+         */
+        private static double stepAxis(double pos, double vel, double target, double tau, double maxVel) {
+            final double acc = (target - pos) / (tau * tau) - 2.0 * vel / tau;
+            double newVel = vel + acc;
+            if (newVel > maxVel) newVel = maxVel;
+            if (newVel < -maxVel) newVel = -maxVel;
+            return newVel;
+        }
     }
 
     /**
