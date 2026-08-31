@@ -32,3 +32,7 @@
 ## 2026-06-05 - Hoisting invariant calculations in AStarPathFinder innermost loop
 **Learning:** In AStarPathFinder, node coordinates are evaluated against multiple adjacent movements. Hoisting invariant calculations like `currentNode.x >> 4` and `currentNode.z >> 4` for the base node outside the adjacent movement loop is a critical optimization in AStarPathFinder, running millions of times.
 **Action:** Replaced recalculations of `currentNode.x >> 4` with precalculated `currentNodeXChunk` inside the main node loop to save instructions in the adjacent movement check.
+
+## 2025-05-21 - Remove redundant HashMap.get in A* innermost loop
+**Learning:** In AStarPathFinder.calculate0, after peeking a node from the map to check if it exists, calling getNodeAtPosition when the node is missing performs a redundant map.get() call. In the innermost loop of an A* pathfinder processing millions of nodes, this wastes CPU cycles.
+**Action:** Replaced the fallback getNodeAtPosition with a new createNodeAtPosition method that directly constructs and inserts the node into the map without a second lookup.

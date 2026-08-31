@@ -179,6 +179,16 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
     }
 
     /**
+     * Directly creates and maps a new node without checking if it exists.
+     * Only call this when it is known that the node does not exist.
+     */
+    protected PathNode createNodeAtPosition(int x, int y, int z, long hashCode) {
+        PathNode node = new PathNode(x, y, z, goal);
+        map.put(hashCode, node);
+        return node;
+    }
+
+    /**
      * Returns the node already mapped to the given hashCode, or {@code null},
      * without allocating a new {@link PathNode}. The caller should only allocate
      * (via {@link #getNodeAtPosition}) after confirming the candidate actually
