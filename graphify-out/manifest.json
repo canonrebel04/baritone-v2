@@ -1,1877 +1,2012 @@
 {
   "build.gradle": {
-    "mtime": 1786702166.3350964,
-    "ast_hash": "c3ea01bdcf658913399a6e67a7ce367f",
-    "semantic_hash": "c3ea01bdcf658913399a6e67a7ce367f"
+    "mtime": 1788201608.923647,
+    "ast_hash": "e9cd21b4b313cab91b63d4e1fbdc96ee",
+    "semantic_hash": ""
   },
   "buildSrc/build.gradle": {
-    "mtime": 1786702166.3350964,
-    "ast_hash": "9e38c0b8647efd6c4d86b7259cf2e582",
-    "semantic_hash": "9e38c0b8647efd6c4d86b7259cf2e582"
+    "mtime": 1779351514.9841166,
+    "ast_hash": "d8916ae57ac7f576eb19ab6a904bc6d7",
+    "semantic_hash": ""
   },
   "buildSrc/src/main/java/baritone/gradle/task/BaritoneGradleTask.java": {
-    "mtime": 1786702166.3366108,
-    "ast_hash": "3c9af6df60bc4b5dd238b6a6b9b07c3e",
-    "semantic_hash": "3c9af6df60bc4b5dd238b6a6b9b07c3e"
+    "mtime": 1781390148.6969442,
+    "ast_hash": "05936f0b00250fccf30cd43a7990cfc5",
+    "semantic_hash": ""
   },
   "buildSrc/src/main/java/baritone/gradle/task/CreateDistTask.java": {
-    "mtime": 1786702166.3366108,
-    "ast_hash": "a16ee8973f1aa4aa23653e22f7a97156",
-    "semantic_hash": "a16ee8973f1aa4aa23653e22f7a97156"
+    "mtime": 1781390148.6969442,
+    "ast_hash": "59e8ceb661337b3eeb9678abae7bf1e8",
+    "semantic_hash": ""
   },
   "buildSrc/src/main/java/baritone/gradle/task/ProguardTask.java": {
-    "mtime": 1786702166.3366108,
-    "ast_hash": "30d1953e328e94aac10f71d5957dc2e3",
-    "semantic_hash": "30d1953e328e94aac10f71d5957dc2e3"
+    "mtime": 1781390308.6076765,
+    "ast_hash": "2493a46e97e1f5b249c6963466bd3a7c",
+    "semantic_hash": ""
   },
   "buildSrc/src/main/java/baritone/gradle/util/Determinizer.java": {
-    "mtime": 1786702166.3381329,
-    "ast_hash": "608804299597a0f61e1bd36acb44bbb5",
-    "semantic_hash": "608804299597a0f61e1bd36acb44bbb5"
+    "mtime": 1781390148.6969442,
+    "ast_hash": "c2a0305472096e0f1940787d795e05d3",
+    "semantic_hash": ""
   },
   "fabric/build.gradle": {
-    "mtime": 1786702166.3381329,
-    "ast_hash": "23a82b559c8ff0a2f493cd33585af8f8",
-    "semantic_hash": "23a82b559c8ff0a2f493cd33585af8f8"
+    "mtime": 1779351514.9842534,
+    "ast_hash": "1fe4f7d143c900c2b0ec4b25a32c18e8",
+    "semantic_hash": ""
   },
   "fabric/src/main/java/baritone/launch/FabricMixinPlugin.java": {
-    "mtime": 1786702166.3392608,
-    "ast_hash": "9d76bdeda9beee0474fb496e33fbed0d",
-    "semantic_hash": "9d76bdeda9beee0474fb496e33fbed0d"
+    "mtime": 1779351514.9844577,
+    "ast_hash": "c7a2f54be6ebd9734602e07b29e89907",
+    "semantic_hash": ""
   },
   "forge/build.gradle": {
-    "mtime": 1786702166.340274,
-    "ast_hash": "350792f6dfc1c8347aab9c35b9075df6",
-    "semantic_hash": "350792f6dfc1c8347aab9c35b9075df6"
+    "mtime": 1779351514.9844577,
+    "ast_hash": "990db90f0ed5a26444e635fa29757821",
+    "semantic_hash": ""
   },
   "forge/src/main/java/baritone/launch/BaritoneForgeModXD.java": {
-    "mtime": 1786702166.341784,
-    "ast_hash": "7e5048ace56350c9892d7f62a5729349",
-    "semantic_hash": "7e5048ace56350c9892d7f62a5729349"
+    "mtime": 1779351514.9845908,
+    "ast_hash": "6c830859748e5f3e39ecfebb668f8380",
+    "semantic_hash": ""
   },
   "gradlew": {
-    "mtime": 1786702166.343293,
-    "ast_hash": "1675b3c7bbf29e4a84187279ce4c50c6",
-    "semantic_hash": "1675b3c7bbf29e4a84187279ce4c50c6"
+    "mtime": 1779351514.984893,
+    "ast_hash": "f193a55f6b00b6ee0b527341e8e88a8a",
+    "semantic_hash": ""
   },
   "neoforge/build.gradle": {
-    "mtime": 1786702166.344809,
-    "ast_hash": "c5c18fb26ccbaba18187e12b8ac08e84",
-    "semantic_hash": "c5c18fb26ccbaba18187e12b8ac08e84"
+    "mtime": 1779351514.984893,
+    "ast_hash": "5a7f835eed7c3cfff7e8f2863e4dd3c6",
+    "semantic_hash": ""
   },
   "neoforge/src/main/java/baritone/launch/BaritoneForgeModXD.java": {
-    "mtime": 1786702166.3463206,
-    "ast_hash": "52d8c6d538dac2310d5f01413dac61d4",
-    "semantic_hash": "52d8c6d538dac2310d5f01413dac61d4"
+    "mtime": 1779351514.9850302,
+    "ast_hash": "e346440bb0fa676926b633e6862ac334",
+    "semantic_hash": ""
   },
   "settings.gradle": {
-    "mtime": 1786702166.3473341,
-    "ast_hash": "82dec90d4f2fc30010de542894cfb357",
-    "semantic_hash": "82dec90d4f2fc30010de542894cfb357"
+    "mtime": 1779351514.985092,
+    "ast_hash": "4ec89c17e9e9d5c25bed058cc6762f50",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/BaritoneAPI.java": {
-    "mtime": 1786702166.3488488,
-    "ast_hash": "0585b31987625c537ebc8d34cf9df992",
-    "semantic_hash": "0585b31987625c537ebc8d34cf9df992"
+    "mtime": 1788201608.9416473,
+    "ast_hash": "2a79ebd7126afb101c7b61fd7141ceef",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/IBaritone.java": {
-    "mtime": 1786702166.3488488,
-    "ast_hash": "62e8ec960568a87b09b5cbd1f9579ac1",
-    "semantic_hash": "62e8ec960568a87b09b5cbd1f9579ac1"
+    "mtime": 1788201608.9416473,
+    "ast_hash": "8c547adc3a2f84f0b6731de5edb0bd10",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/IBaritoneProvider.java": {
-    "mtime": 1786702166.3488488,
-    "ast_hash": "5f796a3deef15526c71754783d62c93c",
-    "semantic_hash": "5f796a3deef15526c71754783d62c93c"
+    "mtime": 1779351514.9852746,
+    "ast_hash": "f1f436dc7ca3a3b03746e10f12ba78e8",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/Settings.java": {
-    "mtime": 1786702166.3503594,
-    "ast_hash": "a591e223afd25487495ab9f811b1ded5",
-    "semantic_hash": "a591e223afd25487495ab9f811b1ded5"
+    "mtime": 1788201608.9426472,
+    "ast_hash": "7b3e2390770482dbda60fe18e56678c1",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/behavior/IBehavior.java": {
-    "mtime": 1786702166.3503594,
-    "ast_hash": "3c4f606b08c8aece4f297042f3d13489",
-    "semantic_hash": "3c4f606b08c8aece4f297042f3d13489"
+    "mtime": 1779351514.9852746,
+    "ast_hash": "7d8fb818b77932690200c94f9ea6e149",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/behavior/ILookBehavior.java": {
-    "mtime": 1786702166.3503594,
-    "ast_hash": "225d17c0351849b3d33ff646f495115d",
-    "semantic_hash": "225d17c0351849b3d33ff646f495115d"
+    "mtime": 1788201608.9426472,
+    "ast_hash": "75c7a6f0b1d288189c971bf53da32b1a",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/behavior/IPathingBehavior.java": {
-    "mtime": 1786702166.3503594,
-    "ast_hash": "1da48fa22f5b4028d028f333ed0b8719",
-    "semantic_hash": "1da48fa22f5b4028d028f333ed0b8719"
+    "mtime": 1779351514.9855406,
+    "ast_hash": "e2b8e236fe5dee5ba5bf922a3c94e19b",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/behavior/look/IAimProcessor.java": {
-    "mtime": 1786702166.351763,
-    "ast_hash": "e670e59da30b085e18f23e444a65d5ae",
-    "semantic_hash": "e670e59da30b085e18f23e444a65d5ae"
+    "mtime": 1779351514.9855406,
+    "ast_hash": "443e68122416389a868727b02bccddec",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/behavior/look/ITickableAimProcessor.java": {
-    "mtime": 1786702166.351763,
-    "ast_hash": "20fe5cc7855ec6bf521a3f3cc3f00a81",
-    "semantic_hash": "20fe5cc7855ec6bf521a3f3cc3f00a81"
+    "mtime": 1779351514.9856226,
+    "ast_hash": "c8c263b89dcf062c2c5e4e160cc6de9c",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/cache/IBlockTypeAccess.java": {
-    "mtime": 1786702166.351763,
-    "ast_hash": "68d1b283a0ef5d38f8587f3f080af3b7",
-    "semantic_hash": "68d1b283a0ef5d38f8587f3f080af3b7"
+    "mtime": 1779351514.9856226,
+    "ast_hash": "99ef8030807305d98121e2c42acc4b1e",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/cache/ICachedRegion.java": {
-    "mtime": 1786702166.351763,
-    "ast_hash": "89fd0c7e48fa2cff4e362e6a4d2f5d92",
-    "semantic_hash": "89fd0c7e48fa2cff4e362e6a4d2f5d92"
+    "mtime": 1779351514.9856982,
+    "ast_hash": "9ed72b12e1f3e92350de868077edbacf",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/cache/ICachedWorld.java": {
-    "mtime": 1786702166.3532894,
-    "ast_hash": "8ce7b03d24186316901c1ed64f93df63",
-    "semantic_hash": "8ce7b03d24186316901c1ed64f93df63"
+    "mtime": 1779351514.9856982,
+    "ast_hash": "6a259ed13130df65d9780de9f5970731",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/cache/IWaypoint.java": {
-    "mtime": 1786702166.3532894,
-    "ast_hash": "722ca6d9c56a22525d75ae39223ba921",
-    "semantic_hash": "722ca6d9c56a22525d75ae39223ba921"
+    "mtime": 1779351514.9856982,
+    "ast_hash": "4300ff7c2529d7a15dd7fe8f4c60acdb",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/cache/IWaypointCollection.java": {
-    "mtime": 1786702166.3532894,
-    "ast_hash": "8310051289fe1f1ee959568b82799f1a",
-    "semantic_hash": "8310051289fe1f1ee959568b82799f1a"
+    "mtime": 1779351514.9856982,
+    "ast_hash": "671c69a6ad6e89ee5493a05b8854db17",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/cache/IWorldData.java": {
-    "mtime": 1786702166.3532894,
-    "ast_hash": "d24f288ead75f79f4702e94e18260636",
-    "semantic_hash": "d24f288ead75f79f4702e94e18260636"
+    "mtime": 1779351514.9856982,
+    "ast_hash": "cb49726c1a999185b82142b9d60149b6",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/cache/IWorldProvider.java": {
-    "mtime": 1786702166.3532894,
-    "ast_hash": "d56a1e9672dbc84fab7c37c1ee57e7b1",
-    "semantic_hash": "d56a1e9672dbc84fab7c37c1ee57e7b1"
+    "mtime": 1779351514.9856982,
+    "ast_hash": "197cf758e146a2f7c8bb4f01b5427c5f",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/cache/IWorldScanner.java": {
-    "mtime": 1786702166.354801,
-    "ast_hash": "ecc92ce994c1b1afa08d2036b219d1e6",
-    "semantic_hash": "ecc92ce994c1b1afa08d2036b219d1e6"
+    "mtime": 1779351514.9856982,
+    "ast_hash": "ad7c726e71fe2b3973fa6c85e736e02c",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/cache/Waypoint.java": {
-    "mtime": 1786702166.354801,
-    "ast_hash": "4ad9ff5bd751ac4a732d782b5a929424",
-    "semantic_hash": "4ad9ff5bd751ac4a732d782b5a929424"
+    "mtime": 1779351514.9856982,
+    "ast_hash": "8bc322d2b302e91379b3b768482256f4",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/Command.java": {
-    "mtime": 1786702166.354801,
-    "ast_hash": "b9e71073b40cf16788d44d699fe337f3",
-    "semantic_hash": "b9e71073b40cf16788d44d699fe337f3"
+    "mtime": 1779351514.9856982,
+    "ast_hash": "39bfa53cc1868a87b11a88ea9faf8bf3",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/IBaritoneChatControl.java": {
-    "mtime": 1786702166.354801,
-    "ast_hash": "da14370e7b2378c9c1f1034c166fb432",
-    "semantic_hash": "da14370e7b2378c9c1f1034c166fb432"
+    "mtime": 1779351514.98596,
+    "ast_hash": "ac02e822cf0f1d5c6a09a4e478acfca5",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/ICommand.java": {
-    "mtime": 1786702166.3563118,
-    "ast_hash": "d70deefe3daff1a49c3e51ded106d8e5",
-    "semantic_hash": "d70deefe3daff1a49c3e51ded106d8e5"
+    "mtime": 1779351514.98596,
+    "ast_hash": "07b25fd36330e97266f9f3c247c3bea6",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/ICommandSystem.java": {
-    "mtime": 1786702166.3563118,
-    "ast_hash": "c861e6146674977545ae977a69d9a3b6",
-    "semantic_hash": "c861e6146674977545ae977a69d9a3b6"
+    "mtime": 1779351514.98596,
+    "ast_hash": "138b22c3c475c33ab6013c80cbfc5333",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/argparser/IArgParser.java": {
-    "mtime": 1786702166.3563118,
-    "ast_hash": "6b0d01aaef6724cdbaae8f01d8a05f62",
-    "semantic_hash": "6b0d01aaef6724cdbaae8f01d8a05f62"
+    "mtime": 1779351514.98596,
+    "ast_hash": "d773f621f059042af1395b818c013127",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/argparser/IArgParserManager.java": {
-    "mtime": 1786702166.3563118,
-    "ast_hash": "488136c19b8c7a093a4a11609d851f42",
-    "semantic_hash": "488136c19b8c7a093a4a11609d851f42"
+    "mtime": 1779351514.9861684,
+    "ast_hash": "c63961a1f836502b19fbe1242711f0b8",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/argument/IArgConsumer.java": {
-    "mtime": 1786702166.357824,
-    "ast_hash": "5dbad128d2e40a2a3700436cca468bc4",
-    "semantic_hash": "5dbad128d2e40a2a3700436cca468bc4"
+    "mtime": 1779351514.9861684,
+    "ast_hash": "e0174cb2d727c34721ebede51c0701ce",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/argument/ICommandArgument.java": {
-    "mtime": 1786702166.357824,
-    "ast_hash": "fb687ba5bfa2d3a703fc6ff7bf3b2c1b",
-    "semantic_hash": "fb687ba5bfa2d3a703fc6ff7bf3b2c1b"
+    "mtime": 1779351514.9862518,
+    "ast_hash": "59a5dc258e05c87b4ec19cd4831c2cdb",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/BlockById.java": {
-    "mtime": 1786702166.357824,
-    "ast_hash": "bd01967c1be61f55f1e3e1316f7c967a",
-    "semantic_hash": "bd01967c1be61f55f1e3e1316f7c967a"
+    "mtime": 1779351514.9862518,
+    "ast_hash": "2dc1d3cdc0c187a418e36bed70d78efb",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/EntityClassById.java": {
-    "mtime": 1786702166.357824,
-    "ast_hash": "4751255f09a52b9f317f5b077f8a3288",
-    "semantic_hash": "4751255f09a52b9f317f5b077f8a3288"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "7e7382fe493d8b03376a454a42254509",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/ForAxis.java": {
-    "mtime": 1786702166.35934,
-    "ast_hash": "79a9cbbd193095d1d821116b93da0963",
-    "semantic_hash": "79a9cbbd193095d1d821116b93da0963"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "293ba8a8b639ef6d310157c75713ceff",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/ForBlockOptionalMeta.java": {
-    "mtime": 1786702166.35934,
-    "ast_hash": "128ad30953dde1c22f11c17df6749fd8",
-    "semantic_hash": "128ad30953dde1c22f11c17df6749fd8"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "5debd69203c0a1cb090a689e16453d22",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/ForDirection.java": {
-    "mtime": 1786702166.35934,
-    "ast_hash": "ead290a4a4cfd605d55077393df6fef4",
-    "semantic_hash": "ead290a4a4cfd605d55077393df6fef4"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "eeb9ba1ac5de096c471c7fcb86227557",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/ForWaypoints.java": {
-    "mtime": 1786702166.3603508,
-    "ast_hash": "0619a5aa5c56fa68c42d7f829b5e9b8c",
-    "semantic_hash": "0619a5aa5c56fa68c42d7f829b5e9b8c"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "3b2fbc68e3df70b02d1dd7c728708497",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/IDatatype.java": {
-    "mtime": 1786702166.3603508,
-    "ast_hash": "419f7b8e2304507880578786e310bf86",
-    "semantic_hash": "419f7b8e2304507880578786e310bf86"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "edf1bcd0cb9e4b58f15faac4c4f9908d",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/IDatatypeContext.java": {
-    "mtime": 1786702166.3603508,
-    "ast_hash": "95244b243ed64c9e600a630043fdcb69",
-    "semantic_hash": "95244b243ed64c9e600a630043fdcb69"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "77e9c7a94b5fbfb68ba9fd83cf395f66",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/IDatatypeFor.java": {
-    "mtime": 1786702166.3603508,
-    "ast_hash": "78384c044d3665b2e7708e3d12c9e508",
-    "semantic_hash": "78384c044d3665b2e7708e3d12c9e508"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "d3e44477a06dea9db2f00cbe82db638a",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/IDatatypePost.java": {
-    "mtime": 1786702166.3613946,
-    "ast_hash": "e865aafecead5ed677d2cb942eb76564",
-    "semantic_hash": "e865aafecead5ed677d2cb942eb76564"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "15f42fe290f093b9b7bd71aa3be270d3",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/IDatatypePostFunction.java": {
-    "mtime": 1786702166.3613946,
-    "ast_hash": "ab2379bf2431e3c5e28aaa21c4d354df",
-    "semantic_hash": "ab2379bf2431e3c5e28aaa21c4d354df"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "614c02cc0c1d7f1d7f04fd75d010ed3f",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/ItemById.java": {
-    "mtime": 1786702166.3613946,
-    "ast_hash": "101267473f53c94b8f59149542db82f5",
-    "semantic_hash": "101267473f53c94b8f59149542db82f5"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "c7fddd5a9ae5e681c9450a319789e584",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/NearbyPlayer.java": {
-    "mtime": 1786702166.3613946,
-    "ast_hash": "9df774b0bf1f48764d702857d8b0ca98",
-    "semantic_hash": "9df774b0bf1f48764d702857d8b0ca98"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "3869d6b2363a19f0cacf99d7af6edc7b",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/RelativeBlockPos.java": {
-    "mtime": 1786702166.3613946,
-    "ast_hash": "8955fc13245de1b1484cb286c28225b1",
-    "semantic_hash": "8955fc13245de1b1484cb286c28225b1"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "84857ced190fe4c71b50b1c7ac9ce4bc",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/RelativeCoordinate.java": {
-    "mtime": 1786702166.3613946,
-    "ast_hash": "36a3b370b9e83afa13ab08af4420698a",
-    "semantic_hash": "36a3b370b9e83afa13ab08af4420698a"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "6997512a6b7a0a87febdd72a9eb26bb8",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/RelativeFile.java": {
-    "mtime": 1786702166.3629045,
-    "ast_hash": "4663cf6cc204d5d74bc9b7e1992d78f0",
-    "semantic_hash": "4663cf6cc204d5d74bc9b7e1992d78f0"
+    "mtime": 1781390308.6076765,
+    "ast_hash": "a2836c5ef09fdc502cdefd02b2f42854",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/RelativeGoal.java": {
-    "mtime": 1786702166.3629045,
-    "ast_hash": "9f650b359ed2ed472c814700c85f7381",
-    "semantic_hash": "9f650b359ed2ed472c814700c85f7381"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "055d1cd52b30c0604eeac7d2d4e7c1cf",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/RelativeGoalBlock.java": {
-    "mtime": 1786702166.3629045,
-    "ast_hash": "0861a98cf33e9e290baa16f90cb3dbc4",
-    "semantic_hash": "0861a98cf33e9e290baa16f90cb3dbc4"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "0d5fd8c360beaffcbfe5eba553577cee",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/RelativeGoalXZ.java": {
-    "mtime": 1786702166.3629045,
-    "ast_hash": "7bc3a7214a05fe3af79c3716ff49b458",
-    "semantic_hash": "7bc3a7214a05fe3af79c3716ff49b458"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "65890e6163aa5a629c75352db06616b2",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/datatypes/RelativeGoalYLevel.java": {
-    "mtime": 1786702166.3629045,
-    "ast_hash": "fc8ce4e752a5540b3ba372c3260b295a",
-    "semantic_hash": "fc8ce4e752a5540b3ba372c3260b295a"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "5b54055268ceb83a197e4bb45001cd00",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/exception/CommandErrorMessageException.java": {
-    "mtime": 1786702166.364259,
-    "ast_hash": "d6579268e13706c2fcee3142c7904f82",
-    "semantic_hash": "d6579268e13706c2fcee3142c7904f82"
+    "mtime": 1779351514.9863133,
+    "ast_hash": "0c2ec52226e9a11914ca41f98afa6ca4",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/exception/CommandException.java": {
-    "mtime": 1786702166.364259,
-    "ast_hash": "89e86f0f60ca6fb5fa0725e4a1a00c96",
-    "semantic_hash": "89e86f0f60ca6fb5fa0725e4a1a00c96"
+    "mtime": 1779351514.9867847,
+    "ast_hash": "5070f9232f860ee8522ed341676cba6e",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/exception/CommandInvalidArgumentException.java": {
-    "mtime": 1786702166.364259,
-    "ast_hash": "51904cf111bade6219ac12fef3d4c9a9",
-    "semantic_hash": "51904cf111bade6219ac12fef3d4c9a9"
+    "mtime": 1779351514.9867847,
+    "ast_hash": "607f134b169daa14bf35596fa737c369",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/exception/CommandInvalidStateException.java": {
-    "mtime": 1786702166.3652728,
-    "ast_hash": "d5bfe92f758dd824c264f5b3a669a524",
-    "semantic_hash": "d5bfe92f758dd824c264f5b3a669a524"
+    "mtime": 1779351514.9867847,
+    "ast_hash": "82e08400df97813ac8e8698ade19794b",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/exception/CommandInvalidTypeException.java": {
-    "mtime": 1786702166.3652728,
-    "ast_hash": "329bcb53654d6fbd2ced5dedb49fed8a",
-    "semantic_hash": "329bcb53654d6fbd2ced5dedb49fed8a"
+    "mtime": 1779351514.9867847,
+    "ast_hash": "f48469059427ee97227e44c99a74e6ec",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/exception/CommandNoParserForTypeException.java": {
-    "mtime": 1786702166.3652728,
-    "ast_hash": "f52f2bf316fb1ced7cceb969254be0ae",
-    "semantic_hash": "f52f2bf316fb1ced7cceb969254be0ae"
+    "mtime": 1779351514.9867847,
+    "ast_hash": "c7458f1fbd635311f3cffd34c39460ec",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/exception/CommandNotEnoughArgumentsException.java": {
-    "mtime": 1786702166.3652728,
-    "ast_hash": "9ac2d8918bae173c91f7aad35ff1378c",
-    "semantic_hash": "9ac2d8918bae173c91f7aad35ff1378c"
+    "mtime": 1779351514.9867847,
+    "ast_hash": "df3245c6957698fff86885ef37bd73a8",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/exception/CommandNotFoundException.java": {
-    "mtime": 1786702166.3652728,
-    "ast_hash": "efd70381539e6f80ed8b18f1529d490a",
-    "semantic_hash": "efd70381539e6f80ed8b18f1529d490a"
+    "mtime": 1779351514.9867847,
+    "ast_hash": "46c1997a3c6f6a2cd8390b79f5604a3a",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/exception/CommandTooManyArgumentsException.java": {
-    "mtime": 1786702166.3652728,
-    "ast_hash": "75fff794ae52cc572ea62ccb9ed852e7",
-    "semantic_hash": "75fff794ae52cc572ea62ccb9ed852e7"
+    "mtime": 1779351514.9867847,
+    "ast_hash": "5245880f87ff635719ece32f2b293e93",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/exception/CommandUnhandledException.java": {
-    "mtime": 1786702166.3667848,
-    "ast_hash": "f0d6a58d50dfcca670344a35cbd2a150",
-    "semantic_hash": "f0d6a58d50dfcca670344a35cbd2a150"
+    "mtime": 1779351514.9867847,
+    "ast_hash": "099fd33f952721221f082cf934553ee8",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/exception/ICommandException.java": {
-    "mtime": 1786702166.3667848,
-    "ast_hash": "bdafb6d91c9ebd26c3e7e3f40be671a8",
-    "semantic_hash": "bdafb6d91c9ebd26c3e7e3f40be671a8"
+    "mtime": 1779351514.9867847,
+    "ast_hash": "662dc5c8d4570dd251ef4d9606ba9710",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/helpers/Paginator.java": {
-    "mtime": 1786702166.3667848,
-    "ast_hash": "d15133e3503acdf60b6da14339bb37a4",
-    "semantic_hash": "d15133e3503acdf60b6da14339bb37a4"
+    "mtime": 1779351514.9867847,
+    "ast_hash": "97c692dc3e67693966c18941c55c3538",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/helpers/TabCompleteHelper.java": {
-    "mtime": 1786702166.3667848,
-    "ast_hash": "7f05b7393aeb779f2f55d812a3e7f688",
-    "semantic_hash": "7f05b7393aeb779f2f55d812a3e7f688"
+    "mtime": 1779351514.987019,
+    "ast_hash": "ab72f9a29dfefd0b781ed022fdaa3dea",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/manager/ICommandManager.java": {
-    "mtime": 1786702166.368296,
-    "ast_hash": "b1a94d793fa45989f7951ecb7ee71921",
-    "semantic_hash": "b1a94d793fa45989f7951ecb7ee71921"
+    "mtime": 1779351514.987019,
+    "ast_hash": "2badbcac0f9b30cd7c5d5b9a8a236acb",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/command/registry/Registry.java": {
-    "mtime": 1786702166.368296,
-    "ast_hash": "db646ae4656981a831a12047aa908e94",
-    "semantic_hash": "db646ae4656981a831a12047aa908e94"
+    "mtime": 1779351514.987019,
+    "ast_hash": "81f39fcdf44850dbaa9bbdae61084ac3",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/BlockChangeEvent.java": {
-    "mtime": 1786702166.368296,
-    "ast_hash": "5623fa4dd0baaa574a125903cd6c404b",
-    "semantic_hash": "5623fa4dd0baaa574a125903cd6c404b"
+    "mtime": 1779351514.9871733,
+    "ast_hash": "9208c77fe59d7cc4f0bbec6871660e07",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/BlockInteractEvent.java": {
-    "mtime": 1786702166.368296,
-    "ast_hash": "4f89a4351a28d941c6ae74decb259a23",
-    "semantic_hash": "4f89a4351a28d941c6ae74decb259a23"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "8134a0143e3dc173bb6ab72d9d8ced6d",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/ChatEvent.java": {
-    "mtime": 1786702166.3698347,
-    "ast_hash": "4223e9d26125675355a2b246cc7aa4c1",
-    "semantic_hash": "4223e9d26125675355a2b246cc7aa4c1"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "5431fd282e22dd8426e49ac4a88f4e27",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/ChunkEvent.java": {
-    "mtime": 1786702166.3698347,
-    "ast_hash": "30e64950e201ddeaeffcc1e6281f9520",
-    "semantic_hash": "30e64950e201ddeaeffcc1e6281f9520"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "1b3f99f186094144584a153a8090975f",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/PacketEvent.java": {
-    "mtime": 1786702166.3698347,
-    "ast_hash": "1e2203600ffcc20c1c02dbc736713add",
-    "semantic_hash": "1e2203600ffcc20c1c02dbc736713add"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "4b56a535b200311658028a84ed9614be",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/PathEvent.java": {
-    "mtime": 1786702166.3698347,
-    "ast_hash": "3a0915d950189b37d5fcefc449bfafb2",
-    "semantic_hash": "3a0915d950189b37d5fcefc449bfafb2"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "52c69484e9323712c29a9bc1fbd6be97",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/PlayerUpdateEvent.java": {
-    "mtime": 1786702166.3698347,
-    "ast_hash": "dfb284e6e7f8baf532c3e0d93a495762",
-    "semantic_hash": "dfb284e6e7f8baf532c3e0d93a495762"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "7865dcf390cb70189f0398dab3f2f34f",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/RenderEvent.java": {
-    "mtime": 1786702166.3713446,
-    "ast_hash": "2d6e9b8207b9b7241844510bfc1e3507",
-    "semantic_hash": "2d6e9b8207b9b7241844510bfc1e3507"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "b0cbd6478da97f9ada549196b6fd8782",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/RotationMoveEvent.java": {
-    "mtime": 1786702166.3713446,
-    "ast_hash": "d4d36fa469457e647c9dddbfc90dbfcc",
-    "semantic_hash": "d4d36fa469457e647c9dddbfc90dbfcc"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "b4d375ad3148422f2a176d6dce7e6ea7",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/SprintStateEvent.java": {
-    "mtime": 1786702166.3713446,
-    "ast_hash": "1e5fdbcfdd494660581912eceba612c8",
-    "semantic_hash": "1e5fdbcfdd494660581912eceba612c8"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "fe5b0f5aefd3787940be84557f4c24bd",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/TabCompleteEvent.java": {
-    "mtime": 1786702166.3713446,
-    "ast_hash": "e5de8d9b31802e2167810a844ec9895e",
-    "semantic_hash": "e5de8d9b31802e2167810a844ec9895e"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "1f747abf6bbe8a87264fcb562c74720d",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/TickEvent.java": {
-    "mtime": 1786702166.3713446,
-    "ast_hash": "877ae39b8b7bd0bb4eea3561187e1990",
-    "semantic_hash": "877ae39b8b7bd0bb4eea3561187e1990"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "3b86f8df16c8e12979813e3641b29524",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/WorldEvent.java": {
-    "mtime": 1786702166.3725889,
-    "ast_hash": "c833b6dc4584ee0fad0f173cc974141d",
-    "semantic_hash": "c833b6dc4584ee0fad0f173cc974141d"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "31537a607421430cecbe8d9b23b624bb",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/type/Cancellable.java": {
-    "mtime": 1786702166.3725889,
-    "ast_hash": "c7331d8929d367098bdb612fb93f0217",
-    "semantic_hash": "c7331d8929d367098bdb612fb93f0217"
+    "mtime": 1779351514.9872057,
+    "ast_hash": "e8e98ef7de0a82e818d0f1695dec8082",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/type/EventState.java": {
-    "mtime": 1786702166.3725889,
-    "ast_hash": "d106c8f64e9050c6693bd296aa35a454",
-    "semantic_hash": "d106c8f64e9050c6693bd296aa35a454"
+    "mtime": 1779351514.9874845,
+    "ast_hash": "236ea5a2762c3aa13db9ad1c3f56dc5b",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/type/ICancellable.java": {
-    "mtime": 1786702166.3736026,
-    "ast_hash": "e2181a0f73a17dff04141f49f5b347ae",
-    "semantic_hash": "e2181a0f73a17dff04141f49f5b347ae"
+    "mtime": 1779351514.9874845,
+    "ast_hash": "ee07c1bf4f1e844b28e4145c043e9d0a",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/events/type/Overrideable.java": {
-    "mtime": 1786702166.3736026,
-    "ast_hash": "9573e0aec7e11b106de20862a5bbee86",
-    "semantic_hash": "9573e0aec7e11b106de20862a5bbee86"
+    "mtime": 1779351514.9874845,
+    "ast_hash": "e70c9b5f0813678014afc1952a458e85",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/listener/AbstractGameEventListener.java": {
-    "mtime": 1786702166.3736026,
-    "ast_hash": "260d5d2b08240e3e16a4fb8274ec3bae",
-    "semantic_hash": "260d5d2b08240e3e16a4fb8274ec3bae"
+    "mtime": 1779351514.9874845,
+    "ast_hash": "b8bc85e1c5f847ed3378c08bc973728e",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/listener/IEventBus.java": {
-    "mtime": 1786702166.3736026,
-    "ast_hash": "34c7104857656f0961bc4d40d6c89779",
-    "semantic_hash": "34c7104857656f0961bc4d40d6c89779"
+    "mtime": 1779351514.9875848,
+    "ast_hash": "4f64590a696d93774c4d2b5e1b246cf1",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/event/listener/IGameEventListener.java": {
-    "mtime": 1786702166.3736026,
-    "ast_hash": "5b96d89983fbdae3691aba11bc024aee",
-    "semantic_hash": "5b96d89983fbdae3691aba11bc024aee"
+    "mtime": 1779351514.9875848,
+    "ast_hash": "192c3ad3250511f8a4904c93a03eca3e",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/calc/IPath.java": {
-    "mtime": 1786702166.3751123,
-    "ast_hash": "662c5b8e77e28bc679bdc9614bb717d6",
-    "semantic_hash": "662c5b8e77e28bc679bdc9614bb717d6"
+    "mtime": 1779400626.6334016,
+    "ast_hash": "dbbcec2a6280817b7d31f6343393c61e",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/calc/IPathFinder.java": {
-    "mtime": 1786702166.3751123,
-    "ast_hash": "fd526ec6fb3c474f7cd104fc0e72e1f1",
-    "semantic_hash": "fd526ec6fb3c474f7cd104fc0e72e1f1"
+    "mtime": 1779351514.9877255,
+    "ast_hash": "26299bbff98f7dd60a8ef15a7397bd32",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/calc/IPathingControlManager.java": {
-    "mtime": 1786702166.3751123,
-    "ast_hash": "f8db54b67176ee1486e1733a4844c5e9",
-    "semantic_hash": "f8db54b67176ee1486e1733a4844c5e9"
+    "mtime": 1779351514.9877255,
+    "ast_hash": "6ad8381801fd9258715e3f98a33ff623",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/goals/Goal.java": {
-    "mtime": 1786702166.3751123,
-    "ast_hash": "48bf18fd0889b03d2df9a5227dea53d4",
-    "semantic_hash": "48bf18fd0889b03d2df9a5227dea53d4"
+    "mtime": 1779351514.9877255,
+    "ast_hash": "a4e24d7277b422ea2fec4e5d5d390b7a",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/goals/GoalAxis.java": {
-    "mtime": 1786702166.376622,
-    "ast_hash": "d681f088114ab9b528fdc2ec6e0dce57",
-    "semantic_hash": "d681f088114ab9b528fdc2ec6e0dce57"
+    "mtime": 1779351514.987867,
+    "ast_hash": "dcf772150f470a6fecc2a17d9fad5b76",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/goals/GoalBlock.java": {
-    "mtime": 1786702166.376622,
-    "ast_hash": "4df6b2652015969e950fef32800e1807",
-    "semantic_hash": "4df6b2652015969e950fef32800e1807"
+    "mtime": 1781390308.6076765,
+    "ast_hash": "e59cf43895fc37e24b78ae86733d6e62",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/goals/GoalComposite.java": {
-    "mtime": 1786702166.376622,
-    "ast_hash": "07c298db4e28ff928330918d106a5a4b",
-    "semantic_hash": "07c298db4e28ff928330918d106a5a4b"
+    "mtime": 1779351514.987867,
+    "ast_hash": "5dd06c0d2e09d04edda2ec5cf44e8d40",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/goals/GoalGetToBlock.java": {
-    "mtime": 1786702166.376622,
-    "ast_hash": "a9c8685fb90c21bef89fc4a0ebcf40f5",
-    "semantic_hash": "a9c8685fb90c21bef89fc4a0ebcf40f5"
+    "mtime": 1781390308.6076765,
+    "ast_hash": "66e19d3f677d2f0bfae2ec2f6c16a8dd",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/goals/GoalInverted.java": {
-    "mtime": 1786702166.376622,
-    "ast_hash": "bea17b0ef084fa192d30b040bd67080c",
-    "semantic_hash": "bea17b0ef084fa192d30b040bd67080c"
+    "mtime": 1779351514.987867,
+    "ast_hash": "564e1082cfd0aebe9725ab1569a1bded",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/goals/GoalNear.java": {
-    "mtime": 1786702166.378139,
-    "ast_hash": "77b536c8b8f2bfdab965e2987b9e69c8",
-    "semantic_hash": "77b536c8b8f2bfdab965e2987b9e69c8"
+    "mtime": 1786282491.177863,
+    "ast_hash": "7408ca5e52f1ee9502ff77efd0250ca9",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/goals/GoalRunAway.java": {
-    "mtime": 1786702166.378139,
-    "ast_hash": "7fde2d309e10f01aa0b0ce092022ba2b",
-    "semantic_hash": "7fde2d309e10f01aa0b0ce092022ba2b"
+    "mtime": 1781390308.6076765,
+    "ast_hash": "bf0bcdb650c50bdf5f5d8e80b42bbe2b",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/goals/GoalStrictDirection.java": {
-    "mtime": 1786702166.378139,
-    "ast_hash": "a57426111f302dda434636be5b8a2460",
-    "semantic_hash": "a57426111f302dda434636be5b8a2460"
+    "mtime": 1781390308.6076765,
+    "ast_hash": "35b6bb181ce627e4d094c3b8c7774f73",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/goals/GoalTwoBlocks.java": {
-    "mtime": 1786702166.378139,
-    "ast_hash": "1a53ebe5667cd38184549ed89befc346",
-    "semantic_hash": "1a53ebe5667cd38184549ed89befc346"
+    "mtime": 1781390308.6076765,
+    "ast_hash": "f7fe71d94e0ec0a3e7fc7212dd3b3c7d",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/goals/GoalXZ.java": {
-    "mtime": 1786702166.378139,
-    "ast_hash": "e890bdc2293bd7caca2ebc7f05747a1d",
-    "semantic_hash": "e890bdc2293bd7caca2ebc7f05747a1d"
+    "mtime": 1779351514.987867,
+    "ast_hash": "5426b0431249dced59c950598ac25d07",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/goals/GoalYLevel.java": {
-    "mtime": 1786702166.37965,
-    "ast_hash": "5af75e26a885c838a0ca87c7522245e3",
-    "semantic_hash": "5af75e26a885c838a0ca87c7522245e3"
+    "mtime": 1779351514.987867,
+    "ast_hash": "b428cdc403fa9d528ce70cf9e0671275",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/movement/ActionCosts.java": {
-    "mtime": 1786702166.37965,
-    "ast_hash": "fef5e256acf33c129eba9feb4bafcd88",
-    "semantic_hash": "fef5e256acf33c129eba9feb4bafcd88"
+    "mtime": 1779351514.987867,
+    "ast_hash": "097d6e1ba9933bb0aaa99eabaf854854",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/movement/IMovement.java": {
-    "mtime": 1786702166.37965,
-    "ast_hash": "6a8dac4e3b025cc083f420ba46c16b9f",
-    "semantic_hash": "6a8dac4e3b025cc083f420ba46c16b9f"
+    "mtime": 1779400626.6334016,
+    "ast_hash": "06c754336abf0f017e680e5f90c6457b",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/movement/MovementStatus.java": {
-    "mtime": 1786702166.37965,
-    "ast_hash": "797e171656738265e12fa13ef27fc8a4",
-    "semantic_hash": "797e171656738265e12fa13ef27fc8a4"
+    "mtime": 1779351514.9882812,
+    "ast_hash": "efe3252cba5caadb203a6b0b654913d3",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/pathing/path/IPathExecutor.java": {
-    "mtime": 1786702166.3811643,
-    "ast_hash": "fa1fd465fe69fc4ed275770d0ef04f92",
-    "semantic_hash": "fa1fd465fe69fc4ed275770d0ef04f92"
+    "mtime": 1779351514.9882812,
+    "ast_hash": "d25bafcbcf22fad36def2def0773cdbc",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/process/IBaritoneProcess.java": {
-    "mtime": 1786702166.3811643,
-    "ast_hash": "869eed034693e7eee3c4a023d511322c",
-    "semantic_hash": "869eed034693e7eee3c4a023d511322c"
+    "mtime": 1779351514.9882812,
+    "ast_hash": "4d3724e198471574b321c8b4e5f59806",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/process/IBuilderProcess.java": {
-    "mtime": 1786702166.3811643,
-    "ast_hash": "f166ce9ef54edb98c4094f36ea6f2105",
-    "semantic_hash": "f166ce9ef54edb98c4094f36ea6f2105"
+    "mtime": 1779351514.988419,
+    "ast_hash": "3034afb45937155898bc4077a0fccb94",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/process/ICustomGoalProcess.java": {
-    "mtime": 1786702166.3811643,
-    "ast_hash": "0c6b590cda7cb876fad43ec6f9a428b2",
-    "semantic_hash": "0c6b590cda7cb876fad43ec6f9a428b2"
+    "mtime": 1779351514.988419,
+    "ast_hash": "50426b844a9ee98941ccbc14e3e95ae7",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/process/IElytraProcess.java": {
-    "mtime": 1786702166.3811643,
-    "ast_hash": "25d2026662e25f7f6067a59c36825cd3",
-    "semantic_hash": "25d2026662e25f7f6067a59c36825cd3"
+    "mtime": 1779351514.988419,
+    "ast_hash": "35a78aab263eec941a8a948c5407229b",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/process/IExploreProcess.java": {
-    "mtime": 1786702166.3826752,
-    "ast_hash": "55b4d664596c666bc47d0e355bdcf8d2",
-    "semantic_hash": "55b4d664596c666bc47d0e355bdcf8d2"
+    "mtime": 1779351514.988419,
+    "ast_hash": "dd05e0df44ebdff15d24d07f0cb3bdf0",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/process/IFarmProcess.java": {
-    "mtime": 1786702166.3826752,
-    "ast_hash": "5d0fb063bfe2e47a49e27685b0150c22",
-    "semantic_hash": "5d0fb063bfe2e47a49e27685b0150c22"
+    "mtime": 1779351514.988419,
+    "ast_hash": "ca59647cd0cf06f46934cdeec3dcb7b8",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/process/IFollowProcess.java": {
-    "mtime": 1786702166.3826752,
-    "ast_hash": "519fce4b88a24969e5a403e4300d6848",
-    "semantic_hash": "519fce4b88a24969e5a403e4300d6848"
+    "mtime": 1779351514.988419,
+    "ast_hash": "f4d63d44f0148ba14e48c6920cd07deb",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/process/IGetToBlockProcess.java": {
-    "mtime": 1786702166.3826752,
-    "ast_hash": "23b2bd14f9f847f19694d0d2da91e40b",
-    "semantic_hash": "23b2bd14f9f847f19694d0d2da91e40b"
+    "mtime": 1779351514.988419,
+    "ast_hash": "4bdcbf5c57eb832a68e2e044526e361c",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/process/IMineProcess.java": {
-    "mtime": 1786702166.3826752,
-    "ast_hash": "f6cfdc8db919bc5ee955cd6e90496203",
-    "semantic_hash": "f6cfdc8db919bc5ee955cd6e90496203"
+    "mtime": 1779351514.988419,
+    "ast_hash": "ce0f92ec26545bbc7f7b2e774edc09f1",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/process/PathingCommand.java": {
-    "mtime": 1786702166.384187,
-    "ast_hash": "73452718f0a870810ec26919a5cdc5db",
-    "semantic_hash": "73452718f0a870810ec26919a5cdc5db"
+    "mtime": 1779351514.988419,
+    "ast_hash": "7c9fa30143fabdd23707c8abfd975d75",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/process/PathingCommandType.java": {
-    "mtime": 1786702166.384187,
-    "ast_hash": "d639189d145816da8e61106d81836856",
-    "semantic_hash": "d639189d145816da8e61106d81836856"
+    "mtime": 1779351514.988419,
+    "ast_hash": "58dae231f4d345d8bf05ffb5c0b537fc",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/AbstractSchematic.java": {
-    "mtime": 1786702166.384187,
-    "ast_hash": "badcac372566a06a6fb80c5290d17584",
-    "semantic_hash": "badcac372566a06a6fb80c5290d17584"
+    "mtime": 1779351514.988419,
+    "ast_hash": "6c755ca638d93a754ff1a4430f4a2d3f",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/CompositeSchematic.java": {
-    "mtime": 1786702166.384187,
-    "ast_hash": "4d49199415a73c4ad0be7bfc35a7897d",
-    "semantic_hash": "4d49199415a73c4ad0be7bfc35a7897d"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "06bdab4d6e10b076be608ce8c6c8bd9b",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/CompositeSchematicEntry.java": {
-    "mtime": 1786702166.384187,
-    "ast_hash": "6dd1c82063fa12c8f0e4c489bb132ea7",
-    "semantic_hash": "6dd1c82063fa12c8f0e4c489bb132ea7"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "7b1451ac003e2caece481e620b91800d",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/FillSchematic.java": {
-    "mtime": 1786702166.3857088,
-    "ast_hash": "dfa6822dbc94a7c509eb1634c96f7300",
-    "semantic_hash": "dfa6822dbc94a7c509eb1634c96f7300"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "ff82980489864eb6262d86b59ee2515e",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/ISchematic.java": {
-    "mtime": 1786702166.3857088,
-    "ast_hash": "a223751f70a9309ade2056b153764db9",
-    "semantic_hash": "a223751f70a9309ade2056b153764db9"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "bcc125f3972f4f67b395e75f42538fec",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/ISchematicSystem.java": {
-    "mtime": 1786702166.3872218,
-    "ast_hash": "d0005ebd46b2c30ceb152099d9d1ca6b",
-    "semantic_hash": "d0005ebd46b2c30ceb152099d9d1ca6b"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "6b5635deda88f31ad378c0fd98c6762e",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/IStaticSchematic.java": {
-    "mtime": 1786702166.3872218,
-    "ast_hash": "e418fa715791893ee4627105f0d8bdbf",
-    "semantic_hash": "e418fa715791893ee4627105f0d8bdbf"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "7b5cb4510ff06dfb470588d0546fa4e0",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/MaskSchematic.java": {
-    "mtime": 1786702166.3872218,
-    "ast_hash": "61ab3b59bfa72e605a53dd28ed6238a6",
-    "semantic_hash": "61ab3b59bfa72e605a53dd28ed6238a6"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "84a6c07822108adc1b96809184b2bd1a",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/MirroredSchematic.java": {
-    "mtime": 1786702166.3872218,
-    "ast_hash": "5fb3882f96ade4746be7c1ed6b85dde8",
-    "semantic_hash": "5fb3882f96ade4746be7c1ed6b85dde8"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "518a8701572102b1bb59522909b3497f",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/ReplaceSchematic.java": {
-    "mtime": 1786702166.3872218,
-    "ast_hash": "32a3173ecdadfa744f9d411537002d35",
-    "semantic_hash": "32a3173ecdadfa744f9d411537002d35"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "81eae894d48a4e5041fb59767b8a47d8",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/RotatedSchematic.java": {
-    "mtime": 1786702166.3872218,
-    "ast_hash": "4421b9459d68e0db54b2f63638bbad86",
-    "semantic_hash": "4421b9459d68e0db54b2f63638bbad86"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "4e0ac3e253f71eb1b256b52c022e2c95",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/ShellSchematic.java": {
-    "mtime": 1786702166.388733,
-    "ast_hash": "d6af58ebd4b637020346f4acf6371c8b",
-    "semantic_hash": "d6af58ebd4b637020346f4acf6371c8b"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "1a92318ae9a2b071adab045cfa3a253c",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/SubstituteSchematic.java": {
-    "mtime": 1786702166.388733,
-    "ast_hash": "6bab896eda3f6b112967f2d9f6e3db43",
-    "semantic_hash": "6bab896eda3f6b112967f2d9f6e3db43"
+    "mtime": 1779400592.0178163,
+    "ast_hash": "316fa5c1af0e65846f063bdcedb0d263",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/WallsSchematic.java": {
-    "mtime": 1786702166.388733,
-    "ast_hash": "3fcbfa9181318424cc4a75b2acc2208b",
-    "semantic_hash": "3fcbfa9181318424cc4a75b2acc2208b"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "99190793232de7b6d7c52ae3f096641e",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/format/ISchematicFormat.java": {
-    "mtime": 1786702166.388733,
-    "ast_hash": "78f07c6b4ef7a5c1283f319b51af1b8c",
-    "semantic_hash": "78f07c6b4ef7a5c1283f319b51af1b8c"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "13acb769d2a5f8b593515b36a378a5d2",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/mask/AbstractMask.java": {
-    "mtime": 1786702166.388733,
-    "ast_hash": "8d1f8e252630371823e2907f017eea97",
-    "semantic_hash": "8d1f8e252630371823e2907f017eea97"
+    "mtime": 1779351514.9887269,
+    "ast_hash": "517b7bce8f6d861cd0a19ddc44106edd",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/mask/Mask.java": {
-    "mtime": 1786702166.3902428,
-    "ast_hash": "07cad1c83c59d7e14274c47d9ee68fa2",
-    "semantic_hash": "07cad1c83c59d7e14274c47d9ee68fa2"
+    "mtime": 1779351514.9890401,
+    "ast_hash": "2645ac0907595c74aeddd602d86f4f67",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/mask/PreComputedMask.java": {
-    "mtime": 1786702166.3902428,
-    "ast_hash": "6901810faab60e7484570f2468dff65b",
-    "semantic_hash": "6901810faab60e7484570f2468dff65b"
+    "mtime": 1779351514.9890401,
+    "ast_hash": "d2633f66212a2b488343fd05cffda107",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/mask/StaticMask.java": {
-    "mtime": 1786702166.3902428,
-    "ast_hash": "26a163e4dbf9194811bfe2b0e869cab2",
-    "semantic_hash": "26a163e4dbf9194811bfe2b0e869cab2"
+    "mtime": 1779351514.9890401,
+    "ast_hash": "82fa28d00fc0200460a6d5d575223376",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/mask/operator/BinaryOperatorMask.java": {
-    "mtime": 1786702166.3902428,
-    "ast_hash": "4c390cbd22d4e8bc18c5b2e3b3f52527",
-    "semantic_hash": "4c390cbd22d4e8bc18c5b2e3b3f52527"
+    "mtime": 1779351514.9890401,
+    "ast_hash": "860035b3f97a91789404467e08a0f603",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/mask/operator/NotMask.java": {
-    "mtime": 1786702166.3902428,
-    "ast_hash": "2a2b3c860fe1e9398b30d4f7fb3d62c2",
-    "semantic_hash": "2a2b3c860fe1e9398b30d4f7fb3d62c2"
+    "mtime": 1779351514.9891157,
+    "ast_hash": "88c16436d118bbc7ef1dacf0cea9eab2",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/mask/shape/CylinderMask.java": {
-    "mtime": 1786702166.3917592,
-    "ast_hash": "14dc8a93ff2be901ddbd42f6f0887770",
-    "semantic_hash": "14dc8a93ff2be901ddbd42f6f0887770"
+    "mtime": 1779351514.9891157,
+    "ast_hash": "fa6fb1581757eef5212f06a3fdd59223",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/schematic/mask/shape/SphereMask.java": {
-    "mtime": 1786702166.3917592,
-    "ast_hash": "b5889dcacb53852b1e5f34ac21e33dc5",
-    "semantic_hash": "b5889dcacb53852b1e5f34ac21e33dc5"
+    "mtime": 1779351514.9891684,
+    "ast_hash": "672e394fcd8cc4ae3731a765f5975dc6",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/selection/ISelection.java": {
-    "mtime": 1786702166.3917592,
-    "ast_hash": "f2383aa55a9604fddc4cd8eb88d62f9f",
-    "semantic_hash": "f2383aa55a9604fddc4cd8eb88d62f9f"
+    "mtime": 1779351514.9891684,
+    "ast_hash": "3887a8fce58a50d77e718ccb9ca5827f",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/selection/ISelectionManager.java": {
-    "mtime": 1786702166.3917592,
-    "ast_hash": "414a1b667f5a7d0b72ed61ac3ffb5c40",
-    "semantic_hash": "414a1b667f5a7d0b72ed61ac3ffb5c40"
+    "mtime": 1779351514.9892247,
+    "ast_hash": "5ce3c9f40ad13590831fd5a538f4d6a5",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/BetterBlockPos.java": {
-    "mtime": 1786702166.39327,
-    "ast_hash": "a4b949b1530189eafe1dbc249ea40112",
-    "semantic_hash": "a4b949b1530189eafe1dbc249ea40112"
+    "mtime": 1786283080.3417058,
+    "ast_hash": "9d8241af59b606b019fa13047e1e269a",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/BlockOptionalMeta.java": {
-    "mtime": 1786702166.39327,
-    "ast_hash": "6e86004638cf2aec636d428267e0d741",
-    "semantic_hash": "6e86004638cf2aec636d428267e0d741"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "36b4572012886a89c4794f8fa161c799",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/BlockOptionalMetaLookup.java": {
-    "mtime": 1786702166.39327,
-    "ast_hash": "5da1e187d452ff85447ea4ab40e83dea",
-    "semantic_hash": "5da1e187d452ff85447ea4ab40e83dea"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "3a28756e01759e294cbc869b67f5868d",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/BlockUtils.java": {
-    "mtime": 1786702166.39327,
-    "ast_hash": "e0b943ff37be435ea6d45bd7a586fe4e",
-    "semantic_hash": "e0b943ff37be435ea6d45bd7a586fe4e"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "d76519586755e63e958b0a8a97d413ac",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/BooleanBinaryOperator.java": {
-    "mtime": 1786702166.3947809,
-    "ast_hash": "b2b67ed97ed72b623a7bc59336dc1614",
-    "semantic_hash": "b2b67ed97ed72b623a7bc59336dc1614"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "9b3dc36ae63d83fba5ff89fd9cf20a48",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/BooleanBinaryOperators.java": {
-    "mtime": 1786702166.3947809,
-    "ast_hash": "69995f5ee779e5b942f16db5ced6c9b8",
-    "semantic_hash": "69995f5ee779e5b942f16db5ced6c9b8"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "fd07709da10e555d140f22ff669d94d5",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/Helper.java": {
-    "mtime": 1786702166.3947809,
-    "ast_hash": "ea989ee0918f8a544c54d714a065efcc",
-    "semantic_hash": "ea989ee0918f8a544c54d714a065efcc"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "ec4e005b6b66445020a3194d81543ee1",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/IInputOverrideHandler.java": {
-    "mtime": 1786702166.3947809,
-    "ast_hash": "b769fc05a89002538667806b333eb75c",
-    "semantic_hash": "b769fc05a89002538667806b333eb75c"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "b266f38b5ba0d7d5dad66724b1e35e8e",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/IPlayerContext.java": {
-    "mtime": 1786702166.3947809,
-    "ast_hash": "783dc6376f860a81717bc51ade0bb044",
-    "semantic_hash": "783dc6376f860a81717bc51ade0bb044"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "47e61a8ac9feb43924cdc1e0d662ef0d",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/IPlayerController.java": {
-    "mtime": 1786702166.3962924,
-    "ast_hash": "2dfbbb3cf59af251825a52d1a56be867",
-    "semantic_hash": "2dfbbb3cf59af251825a52d1a56be867"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "9dee6e3a488c4d9928c28fc1c23231ab",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/MyChunkPos.java": {
-    "mtime": 1786702166.3962924,
-    "ast_hash": "4981691f63599df3f07ee2921f9b8c9c",
-    "semantic_hash": "4981691f63599df3f07ee2921f9b8c9c"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "367b4150acd3b43df90395dc47fadcdc",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/NotificationHelper.java": {
-    "mtime": 1786702166.3962924,
-    "ast_hash": "b46ee229109e5de442109ab13373b9c3",
-    "semantic_hash": "b46ee229109e5de442109ab13373b9c3"
+    "mtime": 1781390308.6076765,
+    "ast_hash": "fb24040f6fb609854c4ff4ebd8746e20",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/Pair.java": {
-    "mtime": 1786702166.3962924,
-    "ast_hash": "1b0eb0a977220aa701737559b5c5f0f5",
-    "semantic_hash": "1b0eb0a977220aa701737559b5c5f0f5"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "8c3565e59d295f01b44b01134c03f34f",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/PathCalculationResult.java": {
-    "mtime": 1786702166.3962924,
-    "ast_hash": "7b8f2483c8686ee7d79a946b358c6012",
-    "semantic_hash": "7b8f2483c8686ee7d79a946b358c6012"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "18919500aa533c1036657486133a7204",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/RayTraceUtils.java": {
-    "mtime": 1786702166.3962924,
-    "ast_hash": "ce6190117955d95ee2e1616df0f59a04",
-    "semantic_hash": "ce6190117955d95ee2e1616df0f59a04"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "22dde8373644d31b14112b23345b4e6f",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/Rotation.java": {
-    "mtime": 1786702166.3978026,
-    "ast_hash": "eb55236e6f42084bffa44d0beb87c3d8",
-    "semantic_hash": "eb55236e6f42084bffa44d0beb87c3d8"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "b6fc59f9b25cc0a7f1cb4c3ab10d4612",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/RotationUtils.java": {
-    "mtime": 1786702166.3978026,
-    "ast_hash": "d38e9a2306a0edfc00e062ab3f061bc4",
-    "semantic_hash": "d38e9a2306a0edfc00e062ab3f061bc4"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "049667ad4187cc0d488e65e23aa9dba4",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/SettingsUtil.java": {
-    "mtime": 1786702166.3978026,
-    "ast_hash": "f9b08f1b5a47ba4c87b67b3748338a41",
-    "semantic_hash": "f9b08f1b5a47ba4c87b67b3748338a41"
+    "mtime": 1781392157.9676287,
+    "ast_hash": "58f14d1323b6c7edc183e8b1def8086d",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/TypeUtils.java": {
-    "mtime": 1786702166.3978026,
-    "ast_hash": "77a54e7f0df4d785f2136eaf34772d98",
-    "semantic_hash": "77a54e7f0df4d785f2136eaf34772d98"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "676801ade78dccf0aa67646e660f57eb",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/VecUtils.java": {
-    "mtime": 1786702166.3978026,
-    "ast_hash": "3e9263e1ff7c8a033bf138bfba951e25",
-    "semantic_hash": "3e9263e1ff7c8a033bf138bfba951e25"
+    "mtime": 1781390308.6076765,
+    "ast_hash": "bd9c883a133c9e21e1fa936c93b9c4f3",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/accessor/IItemStack.java": {
-    "mtime": 1786702166.399315,
-    "ast_hash": "eb815531bffa6521187f655de13ba858",
-    "semantic_hash": "eb815531bffa6521187f655de13ba858"
+    "mtime": 1779351514.9893193,
+    "ast_hash": "7d90c44ea93945354eb720db729b76c4",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/accessor/ILootTable.java": {
-    "mtime": 1786702166.399315,
-    "ast_hash": "b1578c21d1e15e45d270b4b010e5619a",
-    "semantic_hash": "b1578c21d1e15e45d270b4b010e5619a"
+    "mtime": 1779351514.989888,
+    "ast_hash": "452ae0752f499da2bcb56714a6fb8534",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/gui/BaritoneToast.java": {
-    "mtime": 1786702166.399315,
-    "ast_hash": "24849b3068fc82dbebf8c2395b9ae1e2",
-    "semantic_hash": "24849b3068fc82dbebf8c2395b9ae1e2"
+    "mtime": 1779351514.989888,
+    "ast_hash": "47703f36ee384d59657ceff43394a679",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/input/Input.java": {
-    "mtime": 1786702166.4008327,
-    "ast_hash": "ef17f67d4fb8a0e9efb8df0dbc23519f",
-    "semantic_hash": "ef17f67d4fb8a0e9efb8df0dbc23519f"
+    "mtime": 1779351514.989888,
+    "ast_hash": "30e9c806578b45351a56bdbf35ea92f4",
+    "semantic_hash": ""
   },
   "src/api/java/baritone/api/utils/interfaces/IGoalRenderPos.java": {
-    "mtime": 1786702166.4008327,
-    "ast_hash": "7a43220d2957ea4c7f69b1725592f5de",
-    "semantic_hash": "7a43220d2957ea4c7f69b1725592f5de"
+    "mtime": 1779351514.989888,
+    "ast_hash": "78ee6868d0eb94cfccc1137f7b2752c8",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/BaritoneMixinConnector.java": {
-    "mtime": 1786702166.4008327,
-    "ast_hash": "17e0236bc8fbd51009bf12624dd64696",
-    "semantic_hash": "17e0236bc8fbd51009bf12624dd64696"
+    "mtime": 1779351514.9900413,
+    "ast_hash": "d06a68d861f75b5426089ba42d9d566c",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinChunkArray.java": {
-    "mtime": 1786702166.4023464,
-    "ast_hash": "56a00d46fa2154b5e8ac9a921d72b9b4",
-    "semantic_hash": "56a00d46fa2154b5e8ac9a921d72b9b4"
+    "mtime": 1779351514.9900715,
+    "ast_hash": "dad15bb21af751ad95c4e01b8daba60e",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinClientChunkProvider.java": {
-    "mtime": 1786702166.4023464,
-    "ast_hash": "85699a44a28c3ddf94a9e3b224819dda",
-    "semantic_hash": "85699a44a28c3ddf94a9e3b224819dda"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "aac9ffd021e3598824af527cbb5d6e13",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinClientPlayNetHandler.java": {
-    "mtime": 1786702166.4023464,
-    "ast_hash": "cbd5a5049603ba1e52d32cf8f739a643",
-    "semantic_hash": "cbd5a5049603ba1e52d32cf8f739a643"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "0a24392979d128b8ececef4ae422a16f",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinClientPlayerEntity.java": {
-    "mtime": 1786702166.4023464,
-    "ast_hash": "e3a9f7b8a4393b2f8c848f44613249e2",
-    "semantic_hash": "e3a9f7b8a4393b2f8c848f44613249e2"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "d9ba22ff664f8623084a7a409ee26887",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinCommandSuggestionHelper.java": {
-    "mtime": 1786702166.4038587,
-    "ast_hash": "031a3d54b70b88688c1139db23b34e0d",
-    "semantic_hash": "031a3d54b70b88688c1139db23b34e0d"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "10c3fc5f8612bc559e3251183d30e784",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinEntity.java": {
-    "mtime": 1786702166.4038587,
-    "ast_hash": "0ebfb6a727f8a3616571b1144b46189b",
-    "semantic_hash": "0ebfb6a727f8a3616571b1144b46189b"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "b5e30b847da75a4548e5294a44335276",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinEntityRenderManager.java": {
-    "mtime": 1786702166.4038587,
-    "ast_hash": "f70f8f72be851c23a8d89105bb08e036",
-    "semantic_hash": "f70f8f72be851c23a8d89105bb08e036"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "1608a5288b3b58271f68a256158a448b",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinFireworkRocketEntity.java": {
-    "mtime": 1786702166.4038587,
-    "ast_hash": "a6ff6aaa9e04adfe53212281dcc1d000",
-    "semantic_hash": "a6ff6aaa9e04adfe53212281dcc1d000"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "4354950a6ecf0e2899dc61ea9b9d88b5",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinItemStack.java": {
-    "mtime": 1786702166.4038587,
-    "ast_hash": "0d06264d83ab94d2c2878ea18d27ef16",
-    "semantic_hash": "0d06264d83ab94d2c2878ea18d27ef16"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "073b7dc8f3125c22065a1e423cacb95c",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinLivingEntity.java": {
-    "mtime": 1786702166.4038587,
-    "ast_hash": "b24f9fd961c75084a449a5cd0c61a790",
-    "semantic_hash": "b24f9fd961c75084a449a5cd0c61a790"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "18b0859b4c6eda461a391151e7669d5d",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinLootContextBuilder.java": {
-    "mtime": 1786702166.4053693,
-    "ast_hash": "c58d2c2516a1c28102aed02eabfdd82d",
-    "semantic_hash": "c58d2c2516a1c28102aed02eabfdd82d"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "b7a7726ce13999bf70a7dffee8c0682d",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinLootTable.java": {
-    "mtime": 1786702166.4053693,
-    "ast_hash": "7a565e1fa88cb0ed2f6257b84de21320",
-    "semantic_hash": "7a565e1fa88cb0ed2f6257b84de21320"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "f8aaf16264493acb0a866487ecdd53f2",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinMinecraft.java": {
-    "mtime": 1786702166.4053693,
-    "ast_hash": "6d82dce5b05914b025c5cdeeacc9ea63",
-    "semantic_hash": "6d82dce5b05914b025c5cdeeacc9ea63"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "99aae5c9d9781e10f2b1f7c32c0d3a84",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinNetworkManager.java": {
-    "mtime": 1786702166.4053693,
-    "ast_hash": "e9b0d5c4aa4d5e4d0fc1ea770446333a",
-    "semantic_hash": "e9b0d5c4aa4d5e4d0fc1ea770446333a"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "156a641bd7612316d808eabf533aadcd",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinPalettedContainer$Data.java": {
-    "mtime": 1786702166.4053693,
-    "ast_hash": "e02dcd388323823da591d372992cf92b",
-    "semantic_hash": "e02dcd388323823da591d372992cf92b"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "b026eb898ac1df4cf96e1a80f2937d8d",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinPalettedContainer.java": {
-    "mtime": 1786702166.4068809,
-    "ast_hash": "a48ef997be25f4ff6d1e788134fcd3b5",
-    "semantic_hash": "a48ef997be25f4ff6d1e788134fcd3b5"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "324b0d51f0e5cd0285bf0f3f87dd3f8e",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinPlayerController.java": {
-    "mtime": 1786702166.4068809,
-    "ast_hash": "f9312b20330ea2a9fa724abdc6213ab4",
-    "semantic_hash": "f9312b20330ea2a9fa724abdc6213ab4"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "8220c4abc39e9eadbf32506036feaeee",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinRenderPipelines.java": {
-    "mtime": 1786702166.4068809,
-    "ast_hash": "2bd18c0b3d694025db27dfd7ff1c410a",
-    "semantic_hash": "2bd18c0b3d694025db27dfd7ff1c410a"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "b18f1280e8875dc44a9f48e3a3d65248",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinRenderType.java": {
-    "mtime": 1786702166.4068809,
-    "ast_hash": "e2fed85cc1bcb99922504277216cadd3",
-    "semantic_hash": "e2fed85cc1bcb99922504277216cadd3"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "31c0bcfc1de5b8aed79df081d03fcea5",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinScreen.java": {
-    "mtime": 1786702166.4068809,
-    "ast_hash": "cda79fc7f27a752021cdcb8ed299b42b",
-    "semantic_hash": "cda79fc7f27a752021cdcb8ed299b42b"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "011221c3d8c6d8fd8bbb0fe7f4822a86",
+    "semantic_hash": ""
   },
   "src/launch/java/baritone/launch/mixins/MixinWorldRenderer.java": {
-    "mtime": 1786702166.4068809,
-    "ast_hash": "38d3bbc8c8447ccc8019aa7d4d0aa7f0",
-    "semantic_hash": "38d3bbc8c8447ccc8019aa7d4d0aa7f0"
+    "mtime": 1779351514.9901078,
+    "ast_hash": "fd9f302cfc94a7e735f511cc30381f0e",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/Baritone.java": {
-    "mtime": 1786702166.40991,
-    "ast_hash": "3f47665f8e5ecd9a691eab66e2de720a",
-    "semantic_hash": "3f47665f8e5ecd9a691eab66e2de720a"
+    "mtime": 1788201608.9426472,
+    "ast_hash": "cd500830bd3e5817552de6163b05b23e",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/BaritoneProvider.java": {
-    "mtime": 1786702166.40991,
-    "ast_hash": "011cdb0feedf1448f55f0e0d0b47ba39",
-    "semantic_hash": "011cdb0feedf1448f55f0e0d0b47ba39"
+    "mtime": 1779351514.9906826,
+    "ast_hash": "e5072ae3698e088ba9e68ab1aaf9dbb3",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/KeepName.java": {
-    "mtime": 1786702166.40991,
-    "ast_hash": "1f1c65cef417e8de8aea732f1855bf30",
-    "semantic_hash": "1f1c65cef417e8de8aea732f1855bf30"
+    "mtime": 1779351514.9906826,
+    "ast_hash": "7e02e94b747f176606526fd34ffcc50d",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/behavior/Behavior.java": {
-    "mtime": 1786702166.40991,
-    "ast_hash": "f2bcaf1a9195a5b9061d0b3a8bd9b809",
-    "semantic_hash": "f2bcaf1a9195a5b9061d0b3a8bd9b809"
+    "mtime": 1779351514.9906826,
+    "ast_hash": "36e72b598fc8abb6912c1fc4f0149df1",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/behavior/InventoryBehavior.java": {
-    "mtime": 1786702166.40991,
-    "ast_hash": "8687c75187eacd984ef15d3e00de1d04",
-    "semantic_hash": "8687c75187eacd984ef15d3e00de1d04"
+    "mtime": 1779351514.9907973,
+    "ast_hash": "26bf61f0a972bb4952ef7e0819608727",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/behavior/LookBehavior.java": {
-    "mtime": 1786702166.411421,
-    "ast_hash": "363ec355718f3934c9fb1316951e8720",
-    "semantic_hash": "363ec355718f3934c9fb1316951e8720"
+    "mtime": 1788201608.9426472,
+    "ast_hash": "daebc7cc843679967f21a43948331f22",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/behavior/PathingBehavior.java": {
-    "mtime": 1786702166.411421,
-    "ast_hash": "2739a44b9d2ce53f431feb184dcd2b17",
-    "semantic_hash": "2739a44b9d2ce53f431feb184dcd2b17"
+    "mtime": 1788201608.9426472,
+    "ast_hash": "43c2536da98dd9f5ba201671cb53f31a",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/behavior/WaypointBehavior.java": {
-    "mtime": 1786702166.411421,
-    "ast_hash": "6ee6685a7224f6c90657e93e509622b3",
-    "semantic_hash": "6ee6685a7224f6c90657e93e509622b3"
+    "mtime": 1779351514.9907973,
+    "ast_hash": "e4fdf9a6fcacd81b0864b47892293c26",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/behavior/look/ForkableRandom.java": {
-    "mtime": 1786702166.4129374,
-    "ast_hash": "d63d0e767a45f321909e360fe575d2b2",
-    "semantic_hash": "d63d0e767a45f321909e360fe575d2b2"
+    "mtime": 1779351514.9907973,
+    "ast_hash": "2c23fd93c4c21336682618184f478157",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/cache/CachedChunk.java": {
-    "mtime": 1786702166.4129374,
-    "ast_hash": "4923e2e610e4190a1fff99745ba90cab",
-    "semantic_hash": "4923e2e610e4190a1fff99745ba90cab"
+    "mtime": 1788201608.9426472,
+    "ast_hash": "1e92de7bec39666fb0aa6ecb9a2f32be",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/cache/CachedRegion.java": {
-    "mtime": 1786702166.4129374,
-    "ast_hash": "6ce4a0e026801c6a13190b687d0e8565",
-    "semantic_hash": "6ce4a0e026801c6a13190b687d0e8565"
+    "mtime": 1788201608.9426472,
+    "ast_hash": "daac3b3d90f38530c7aa8b9193449b80",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/cache/CachedWorld.java": {
-    "mtime": 1786702166.4129374,
-    "ast_hash": "470fa07449f231d4f81d146711e1afe6",
-    "semantic_hash": "470fa07449f231d4f81d146711e1afe6"
+    "mtime": 1788201608.9426472,
+    "ast_hash": "386a77a5f8198efd2623f4cf6691e5c6",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/cache/ChunkPacker.java": {
-    "mtime": 1786702166.4144528,
-    "ast_hash": "328e91172553590997b3c801a6f7e58c",
-    "semantic_hash": "328e91172553590997b3c801a6f7e58c"
+    "mtime": 1788201608.9426472,
+    "ast_hash": "4bddcb807cd53b50a0318c68789500fb",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/cache/FasterWorldScanner.java": {
-    "mtime": 1786702166.4144528,
-    "ast_hash": "6c40f3c00602738076d1efb744a73ee5",
-    "semantic_hash": "6c40f3c00602738076d1efb744a73ee5"
+    "mtime": 1779351514.9910092,
+    "ast_hash": "cb08291d48e24d6143977eddcdd34ae9",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/cache/WaypointCollection.java": {
-    "mtime": 1786702166.4144528,
-    "ast_hash": "8ae9ef3f908e1aeffd0e82deb18d7980",
-    "semantic_hash": "8ae9ef3f908e1aeffd0e82deb18d7980"
+    "mtime": 1779351514.9910092,
+    "ast_hash": "3c9775bf4edd9f8d4eae1e2c75716d02",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/cache/WorldData.java": {
-    "mtime": 1786702166.4144528,
-    "ast_hash": "df7c62f9c9c1cdfe48e2d6e3788df1f2",
-    "semantic_hash": "df7c62f9c9c1cdfe48e2d6e3788df1f2"
+    "mtime": 1788201608.9426472,
+    "ast_hash": "15ef15aad148d00c82a93764b47c1032",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/cache/WorldProvider.java": {
-    "mtime": 1786702166.4144528,
-    "ast_hash": "3b79a2845c04ee4e64b991276d5f7433",
-    "semantic_hash": "3b79a2845c04ee4e64b991276d5f7433"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "2c45a22d1e60af005cd8035ece3b5cf5",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/cache/WorldScanner.java": {
-    "mtime": 1786702166.4159896,
-    "ast_hash": "26af7161d22747c612b072dc37e3bf43",
-    "semantic_hash": "26af7161d22747c612b072dc37e3bf43"
+    "mtime": 1779351514.9910092,
+    "ast_hash": "f237402cb083e08bea2fb418c4d798ba",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/CommandSystem.java": {
-    "mtime": 1786702166.4159896,
-    "ast_hash": "6ffeb73cde87c458184ec76e4ccb2228",
-    "semantic_hash": "6ffeb73cde87c458184ec76e4ccb2228"
+    "mtime": 1779351514.9910092,
+    "ast_hash": "8726f04d633cf54e495ad1882d04a0fb",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/ExampleBaritoneControl.java": {
-    "mtime": 1786702166.4159896,
-    "ast_hash": "12ea89f9271cf76367c5791733d0b873",
-    "semantic_hash": "12ea89f9271cf76367c5791733d0b873"
+    "mtime": 1779351514.9912913,
+    "ast_hash": "95c9ef91fb073a9c5045269daf6251de",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/argparser/ArgParserManager.java": {
-    "mtime": 1786702166.4159896,
-    "ast_hash": "167dc48ce4ec6c021321ee4cbeea59a6",
-    "semantic_hash": "167dc48ce4ec6c021321ee4cbeea59a6"
+    "mtime": 1779351514.9912913,
+    "ast_hash": "6e4b78eef255452b757149ea18304570",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/argparser/DefaultArgParsers.java": {
-    "mtime": 1786702166.417501,
-    "ast_hash": "2bcdeb43bbafda623befdcbc9e8c4212",
-    "semantic_hash": "2bcdeb43bbafda623befdcbc9e8c4212"
+    "mtime": 1779351514.99136,
+    "ast_hash": "a426cc8e1fcd26d3057aab61556f57b4",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/argument/ArgConsumer.java": {
-    "mtime": 1786702166.417501,
-    "ast_hash": "38cca0010b64e68169ccdfdcac1ba248",
-    "semantic_hash": "38cca0010b64e68169ccdfdcac1ba248"
+    "mtime": 1779400626.6336691,
+    "ast_hash": "bf3e0d34f1271eb6841e49587e75bb8b",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/argument/CommandArgument.java": {
-    "mtime": 1786702166.417501,
-    "ast_hash": "a887ab5b7ca1402de249435c49f5aae9",
-    "semantic_hash": "a887ab5b7ca1402de249435c49f5aae9"
+    "mtime": 1779351514.991424,
+    "ast_hash": "f425beb38ccd112be960fcffe02543ae",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/argument/CommandArguments.java": {
-    "mtime": 1786702166.417501,
-    "ast_hash": "358cc1617af9a6ea00ce5272ab80e6bb",
-    "semantic_hash": "358cc1617af9a6ea00ce5272ab80e6bb"
+    "mtime": 1779351514.991424,
+    "ast_hash": "175ad8a1230bd9cfb434e37d9362d547",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/AxisCommand.java": {
-    "mtime": 1786702166.4190114,
-    "ast_hash": "ae2438e0cfca44243608b888593bcfa5",
-    "semantic_hash": "ae2438e0cfca44243608b888593bcfa5"
+    "mtime": 1779351514.991424,
+    "ast_hash": "ac59cb76a60c9af647dce3a1b4256930",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/BlacklistCommand.java": {
-    "mtime": 1786702166.4190114,
-    "ast_hash": "821b253574d47db5c4fe1b224cf8352c",
-    "semantic_hash": "821b253574d47db5c4fe1b224cf8352c"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "874cd1de53ef7224ddf73200f7ea9a66",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/BuildCommand.java": {
-    "mtime": 1786702166.4190114,
-    "ast_hash": "83abc02ade7bd77d9ac165d6f8aa8a48",
-    "semantic_hash": "83abc02ade7bd77d9ac165d6f8aa8a48"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "bba03a70eb58677771a310660320faeb",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/ClickCommand.java": {
-    "mtime": 1786702166.4190114,
-    "ast_hash": "18e7a0b923616c0af1595ef227ee30c2",
-    "semantic_hash": "18e7a0b923616c0af1595ef227ee30c2"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "3e63d563ec69bee3f729b0f000906877",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/ComeCommand.java": {
-    "mtime": 1786702166.4190114,
-    "ast_hash": "b0a8934d0bb2a2ab23ce8c31d8cb0510",
-    "semantic_hash": "b0a8934d0bb2a2ab23ce8c31d8cb0510"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "e2dafa8fc2ddf4c9b9b25223ad4afe09",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/CommandAlias.java": {
-    "mtime": 1786702166.4205236,
-    "ast_hash": "5b9b52fc026bb71b5ed54033fdb64909",
-    "semantic_hash": "5b9b52fc026bb71b5ed54033fdb64909"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "742e9a7f23695aca931ff9cbe5262f94",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/DefaultCommands.java": {
-    "mtime": 1786702166.4205236,
-    "ast_hash": "17ee402c77a7c119656f61931cc14119",
-    "semantic_hash": "17ee402c77a7c119656f61931cc14119"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "fe35ca8b68a001e8774c4eb2c64a37d3",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/ETACommand.java": {
-    "mtime": 1786702166.4205236,
-    "ast_hash": "dfa1f8e6774e6e06803d48f8a1bf9d67",
-    "semantic_hash": "dfa1f8e6774e6e06803d48f8a1bf9d67"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "83f115dd29b3088f9e4d2f5f65073aa9",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/ElytraCommand.java": {
-    "mtime": 1786702166.4205236,
-    "ast_hash": "69347fd352e761ef29b772ccd27bb932",
-    "semantic_hash": "69347fd352e761ef29b772ccd27bb932"
+    "mtime": 1781390148.683944,
+    "ast_hash": "a6ddeb09ebc5122cb4662ee1835e91b6",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/ExecutionControlCommands.java": {
-    "mtime": 1786702166.4205236,
-    "ast_hash": "2b92507c155aac14c68d0542e3afc2bd",
-    "semantic_hash": "2b92507c155aac14c68d0542e3afc2bd"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "3d68a41f5992aeec8a81d59a781ea222",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/ExploreCommand.java": {
-    "mtime": 1786702166.4220345,
-    "ast_hash": "27133bd4f3ecfc8bf07c7e6d25f46494",
-    "semantic_hash": "27133bd4f3ecfc8bf07c7e6d25f46494"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "72076e7da325a27b2fe8172299969213",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/ExploreFilterCommand.java": {
-    "mtime": 1786702166.4220345,
-    "ast_hash": "6f8dc394b486ca7f266c52009a9c603b",
-    "semantic_hash": "6f8dc394b486ca7f266c52009a9c603b"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "0ed09b7c94c2cfc414363b0fc64673b8",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/FarmCommand.java": {
-    "mtime": 1786702166.4220345,
-    "ast_hash": "1864c945df9025c8784970978d74c52b",
-    "semantic_hash": "1864c945df9025c8784970978d74c52b"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "f9a7c31f012a211c91bd8e471c8e1c53",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/FindCommand.java": {
-    "mtime": 1786702166.4220345,
-    "ast_hash": "0b0a7869022e409939b5b3aae8b504fe",
-    "semantic_hash": "0b0a7869022e409939b5b3aae8b504fe"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "57053691b95265a2698b6e1ba2e2b8e0",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/FollowCommand.java": {
-    "mtime": 1786702166.4220345,
-    "ast_hash": "85b18e534e5861cdfb9089e78150824d",
-    "semantic_hash": "85b18e534e5861cdfb9089e78150824d"
+    "mtime": 1779400626.6336691,
+    "ast_hash": "1da8b3dae3b548851dd80d658c1a2f27",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/ForceCancelCommand.java": {
-    "mtime": 1786702166.4235487,
-    "ast_hash": "f4047e57d233337217a386f35f278a0b",
-    "semantic_hash": "f4047e57d233337217a386f35f278a0b"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "39f197f86096b0a8057dca6863c8d904",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/GcCommand.java": {
-    "mtime": 1786702166.4235487,
-    "ast_hash": "f996c09290eda8d604db3c6cfedd9b65",
-    "semantic_hash": "f996c09290eda8d604db3c6cfedd9b65"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "2dfc15ec3c2e108277572b37bd94b86b",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/GoalCommand.java": {
-    "mtime": 1786702166.4235487,
-    "ast_hash": "fd1bb23194011d7534cb213ed3a169c1",
-    "semantic_hash": "fd1bb23194011d7534cb213ed3a169c1"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "52d4c18ba496cef6c5550d0c65e2a8a8",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/GotoCommand.java": {
-    "mtime": 1786702166.4235487,
-    "ast_hash": "dfde760cbe85e7a5b11b277c862e7a6d",
-    "semantic_hash": "dfde760cbe85e7a5b11b277c862e7a6d"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "83bc5c3c7508e8087253e58d36e82903",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/HelpCommand.java": {
-    "mtime": 1786702166.4235487,
-    "ast_hash": "4c17d7a22088ecbab90c068028d45360",
-    "semantic_hash": "4c17d7a22088ecbab90c068028d45360"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "64738858caee649c0a65675c0b4cf377",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/InvertCommand.java": {
-    "mtime": 1786702166.4235487,
-    "ast_hash": "c152e18d7b1b5ad2548e0d2de009830c",
-    "semantic_hash": "c152e18d7b1b5ad2548e0d2de009830c"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "5b39831011abe7c5bd3d8b9369750942",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/LitematicaCommand.java": {
-    "mtime": 1786702166.4250603,
-    "ast_hash": "4714b8a948a8174fd7dd1fe828dc8942",
-    "semantic_hash": "4714b8a948a8174fd7dd1fe828dc8942"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "29196b4aeedb4aec05cd7b480e955180",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/MineCommand.java": {
-    "mtime": 1786702166.4250603,
-    "ast_hash": "20359cc38e0fdaef0216dcc6862cf7a9",
-    "semantic_hash": "20359cc38e0fdaef0216dcc6862cf7a9"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "44269353779f4a4115191dae02de696b",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/PathCommand.java": {
-    "mtime": 1786702166.4250603,
-    "ast_hash": "cce7e91e22febe9a4ac70928486e6df6",
-    "semantic_hash": "cce7e91e22febe9a4ac70928486e6df6"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "223f34ec4a1ace2c36d001e4f1bfd2bf",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/PickupCommand.java": {
-    "mtime": 1786702166.4250603,
-    "ast_hash": "11c1653bea14361513e946153b3d1ca6",
-    "semantic_hash": "11c1653bea14361513e946153b3d1ca6"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "a61578ef698127644cbf09f279d80cba",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/ProcCommand.java": {
-    "mtime": 1786702166.4250603,
-    "ast_hash": "4644e909d2929680cdfabcf3873f11cf",
-    "semantic_hash": "4644e909d2929680cdfabcf3873f11cf"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "39c949494e567f1608fd143836154dee",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/ReloadAllCommand.java": {
-    "mtime": 1786702166.426571,
-    "ast_hash": "4e6887303a1c5370b087666fed1c439b",
-    "semantic_hash": "4e6887303a1c5370b087666fed1c439b"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "97838ace814271831246db357d49dcc7",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/RenderCommand.java": {
-    "mtime": 1786702166.426571,
-    "ast_hash": "f0b9425cc35e71acf9802bc1e45ead99",
-    "semantic_hash": "f0b9425cc35e71acf9802bc1e45ead99"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "24b3b80ef543ea037e0ce67b5975a2a2",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/RepackCommand.java": {
-    "mtime": 1786702166.426571,
-    "ast_hash": "328f196ba7ed954620ea0759f9711c18",
-    "semantic_hash": "328f196ba7ed954620ea0759f9711c18"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "bf5c5637412749fe1c374de37ee89327",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/SaveAllCommand.java": {
-    "mtime": 1786702166.426571,
-    "ast_hash": "7e381695dc34a3a512ae56f9099dd7bd",
-    "semantic_hash": "7e381695dc34a3a512ae56f9099dd7bd"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "4d1616471e600c16af69af3550bf7bf9",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/SchematicaCommand.java": {
-    "mtime": 1786702166.426571,
-    "ast_hash": "7d9eac976728646f4e18ef455f82be06",
-    "semantic_hash": "7d9eac976728646f4e18ef455f82be06"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "c4551a56ff31c543a9b9286dd234c890",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/SelCommand.java": {
-    "mtime": 1786702166.426571,
-    "ast_hash": "a2c4e83fc2518c2a62f9f0aa5793b1f5",
-    "semantic_hash": "a2c4e83fc2518c2a62f9f0aa5793b1f5"
+    "mtime": 1779351514.9915123,
+    "ast_hash": "9def9accd32e334fb595f3590f40941e",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/SetCommand.java": {
-    "mtime": 1786702166.4280815,
-    "ast_hash": "d31081b74c226d8fd1e2fbbe85e795a8",
-    "semantic_hash": "d31081b74c226d8fd1e2fbbe85e795a8"
+    "mtime": 1781392160.562652,
+    "ast_hash": "4da6a16835976db93b7b400843adbe8a",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/SurfaceCommand.java": {
-    "mtime": 1786702166.4280815,
-    "ast_hash": "60335558dfa4cba302e93708bcd2aba7",
-    "semantic_hash": "60335558dfa4cba302e93708bcd2aba7"
+    "mtime": 1779351514.9919276,
+    "ast_hash": "3343afd46172b9bec103cf803d9d0502",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/ThisWayCommand.java": {
-    "mtime": 1786702166.4280815,
-    "ast_hash": "17eda07b1a4501f4e75d829a48782625",
-    "semantic_hash": "17eda07b1a4501f4e75d829a48782625"
+    "mtime": 1779351514.9919276,
+    "ast_hash": "9cf0e6078162836f35d2e80934bf377f",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/TunnelCommand.java": {
-    "mtime": 1786702166.4280815,
-    "ast_hash": "6b96934f5057c714d22690049a694073",
-    "semantic_hash": "6b96934f5057c714d22690049a694073"
+    "mtime": 1779351514.9919276,
+    "ast_hash": "78975a3bc9fa50c7dc0320f81e94678c",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/VersionCommand.java": {
-    "mtime": 1786702166.4280815,
-    "ast_hash": "11aee38520262456d31384629a787622",
-    "semantic_hash": "11aee38520262456d31384629a787622"
+    "mtime": 1779351514.9919276,
+    "ast_hash": "7019b308cf965532fde454181825dcd1",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/defaults/WaypointsCommand.java": {
-    "mtime": 1786702166.429593,
-    "ast_hash": "0131f4a104cbe1626f7cb7b3e7d68a8b",
-    "semantic_hash": "0131f4a104cbe1626f7cb7b3e7d68a8b"
+    "mtime": 1779351514.9919276,
+    "ast_hash": "380b95fd670768aa0eafae4c9c6f87ad",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/command/manager/CommandManager.java": {
-    "mtime": 1786702166.429593,
-    "ast_hash": "a835e68bf727b519d2febdd6e165628d",
-    "semantic_hash": "a835e68bf727b519d2febdd6e165628d"
+    "mtime": 1779351514.9919276,
+    "ast_hash": "b1fe9dc8d28996a6f3c7272c0bc4aeeb",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/event/GameEventHandler.java": {
-    "mtime": 1786702166.429593,
-    "ast_hash": "d561c85325503c38598be0763223cf5b",
-    "semantic_hash": "d561c85325503c38598be0763223cf5b"
+    "mtime": 1781392165.5716975,
+    "ast_hash": "73d4962cbac31b1ca73f93f7f064fdef",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/calc/AStarPathFinder.java": {
-    "mtime": 1786702166.431111,
-    "ast_hash": "54777e24666795b9b8f5730a59565e90",
-    "semantic_hash": "54777e24666795b9b8f5730a59565e90"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "164547f67cd109ee544252d3ddc1013c",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/calc/AbstractNodeCostSearch.java": {
-    "mtime": 1786702166.431111,
-    "ast_hash": "72cfffffd730d3abb611702b7777e0bb",
-    "semantic_hash": "72cfffffd730d3abb611702b7777e0bb"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "f7ea8147693ccc3dca1ed53b29e838f6",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/calc/Path.java": {
-    "mtime": 1786702166.431111,
-    "ast_hash": "1612641a07a7605701bcaa30cc0596fc",
-    "semantic_hash": "1612641a07a7605701bcaa30cc0596fc"
+    "mtime": 1779351514.992749,
+    "ast_hash": "75c43acb15725eb564751605858e6b16",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/calc/PathNode.java": {
-    "mtime": 1786702166.431111,
-    "ast_hash": "972da72f9fefa208ebee6256a142719a",
-    "semantic_hash": "972da72f9fefa208ebee6256a142719a"
+    "mtime": 1786283080.3417058,
+    "ast_hash": "690b4c06c1d51c347bd58eeac6073d46",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/calc/openset/BinaryHeapOpenSet.java": {
-    "mtime": 1786702166.4326267,
-    "ast_hash": "c0e7bbd800436e27e420677a114d9972",
-    "semantic_hash": "c0e7bbd800436e27e420677a114d9972"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "5ddcac4e2d53bdda37374b7449ba28f0",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/calc/openset/IOpenSet.java": {
-    "mtime": 1786702166.4326267,
-    "ast_hash": "4e140eb9953f3022e25f2bfd7e2c6097",
-    "semantic_hash": "4e140eb9953f3022e25f2bfd7e2c6097"
+    "mtime": 1779351514.9928725,
+    "ast_hash": "09ba047f3b44a1356a4d43fe254d0ed4",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/calc/openset/LinkedListOpenSet.java": {
-    "mtime": 1786702166.4326267,
-    "ast_hash": "5dcd5052506751d170a3d1e175bc8b4e",
-    "semantic_hash": "5dcd5052506751d170a3d1e175bc8b4e"
+    "mtime": 1779351514.9928725,
+    "ast_hash": "e3a70821c62433983529b60f3480d5cb",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/CalculationContext.java": {
-    "mtime": 1786702166.4326267,
-    "ast_hash": "c4dea2fdf9724ffa04150709955902ab",
-    "semantic_hash": "c4dea2fdf9724ffa04150709955902ab"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "033e84f2c11edd4961695f51f357c9d7",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/Movement.java": {
-    "mtime": 1786702166.4341414,
-    "ast_hash": "f0939ca6f827389a88fe2a4c830c4bd0",
-    "semantic_hash": "f0939ca6f827389a88fe2a4c830c4bd0"
+    "mtime": 1781390308.6076765,
+    "ast_hash": "4dcece0a839fa6dbcaec0e6c8d6ad062",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/MovementHelper.java": {
-    "mtime": 1786702166.4341414,
-    "ast_hash": "83d833f153978484f5bbaf99588ca9c1",
-    "semantic_hash": "83d833f153978484f5bbaf99588ca9c1"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "ba9e7a8581d920372ffb6895b8cad5dd",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/MovementOption.java": {
-    "mtime": 1786702166.4341414,
-    "ast_hash": "4d73661660c61ec886568dddea6d4ba0",
-    "semantic_hash": "4d73661660c61ec886568dddea6d4ba0"
+    "mtime": 1779351514.9929469,
+    "ast_hash": "8158cc7a7313db94144e1d674bc0b69f",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/MovementState.java": {
-    "mtime": 1786702166.4351537,
-    "ast_hash": "b16e1171953fdc9bee424c237df3faf1",
-    "semantic_hash": "b16e1171953fdc9bee424c237df3faf1"
+    "mtime": 1779351514.9929469,
+    "ast_hash": "d1f315e233c4ad9588770bddc145d63c",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/Moves.java": {
-    "mtime": 1786702166.4351537,
-    "ast_hash": "5fd81d04b671a4efe3af14b148d19c1d",
-    "semantic_hash": "5fd81d04b671a4efe3af14b148d19c1d"
+    "mtime": 1779351514.9929469,
+    "ast_hash": "34e4e1145ff54f4fe45b8e0ca349456f",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/movements/MovementAscend.java": {
-    "mtime": 1786702166.4351537,
-    "ast_hash": "ecf870230255fb1d5c8f6c520c19e8ca",
-    "semantic_hash": "ecf870230255fb1d5c8f6c520c19e8ca"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "7f61cce24a6596413da3266a07426f65",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/movements/MovementDescend.java": {
-    "mtime": 1786702166.4351537,
-    "ast_hash": "0ca26c8fd6af2c129310b6c4d104e531",
-    "semantic_hash": "0ca26c8fd6af2c129310b6c4d104e531"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "0b2f770f66ec6d5c13d7d1e032b31d1d",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/movements/MovementDiagonal.java": {
-    "mtime": 1786702166.4366658,
-    "ast_hash": "6b3da6344b15c967de5425b62632b246",
-    "semantic_hash": "6b3da6344b15c967de5425b62632b246"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "2c1c891ae9b9b1fec3c747e84e2deeec",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/movements/MovementDownward.java": {
-    "mtime": 1786702166.4366658,
-    "ast_hash": "56dbbd30022b12ef796cc8be9f5cb59a",
-    "semantic_hash": "56dbbd30022b12ef796cc8be9f5cb59a"
+    "mtime": 1779351514.993268,
+    "ast_hash": "b78bc2102e8a462ce7246da43b61074b",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/movements/MovementFall.java": {
-    "mtime": 1786702166.4366658,
-    "ast_hash": "d5113bd5f2aa085ba4513348195c23db",
-    "semantic_hash": "d5113bd5f2aa085ba4513348195c23db"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "ba16ba099d6a2aec2b0c64735a09ce7d",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/movements/MovementParkour.java": {
-    "mtime": 1786702166.4366658,
-    "ast_hash": "a421b3e468ee480188553fde311128b7",
-    "semantic_hash": "a421b3e468ee480188553fde311128b7"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "5d1b5c70e9c220f9a1ec76f035a5e547",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/movements/MovementPillar.java": {
-    "mtime": 1786702166.438177,
-    "ast_hash": "7f2cd0738317aa57ef30c4068d5bdae5",
-    "semantic_hash": "7f2cd0738317aa57ef30c4068d5bdae5"
+    "mtime": 1781390308.6076765,
+    "ast_hash": "bfe8a3c0ded353577a78987b3a113aeb",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/movement/movements/MovementTraverse.java": {
-    "mtime": 1786702166.438177,
-    "ast_hash": "aa69258ccc9bd0261d441786407dbbda",
-    "semantic_hash": "aa69258ccc9bd0261d441786407dbbda"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "9180ebbacd337d3d4a6ad126d749f79e",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/path/CutoffPath.java": {
-    "mtime": 1786702166.438177,
-    "ast_hash": "81d1cd2a17e8c2f54354a6b5811c61cc",
-    "semantic_hash": "81d1cd2a17e8c2f54354a6b5811c61cc"
+    "mtime": 1779351514.993268,
+    "ast_hash": "4b877bc0db33addc1310991418d294f0",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/path/PathExecutor.java": {
-    "mtime": 1786702166.4396873,
-    "ast_hash": "c68d85d34fe04e259344c5344530902e",
-    "semantic_hash": "c68d85d34fe04e259344c5344530902e"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "424b5cb8e3c672a1e89f04f9a6bcf09e",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/path/SplicedPath.java": {
-    "mtime": 1786702166.4396873,
-    "ast_hash": "a775c1189dd754d9de19320fb1197e10",
-    "semantic_hash": "a775c1189dd754d9de19320fb1197e10"
+    "mtime": 1779351514.9937725,
+    "ast_hash": "820947ea0750d9ddd7fd7090313e6ad1",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/precompute/PrecomputedData.java": {
-    "mtime": 1786702166.4396873,
-    "ast_hash": "f17a367d13c69e2abc4674709c46628a",
-    "semantic_hash": "f17a367d13c69e2abc4674709c46628a"
+    "mtime": 1781390148.6849442,
+    "ast_hash": "ad1c61c9300b1e5995c35f9ddf6a75f4",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/pathing/precompute/Ternary.java": {
-    "mtime": 1786702166.4396873,
-    "ast_hash": "8bf02d55875be52805d7ca2dd0b6cd29",
-    "semantic_hash": "8bf02d55875be52805d7ca2dd0b6cd29"
+    "mtime": 1779351514.9938672,
+    "ast_hash": "eacbd60c08398a82c8222712f28335dc",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/BackfillProcess.java": {
-    "mtime": 1786702166.4396873,
-    "ast_hash": "2f3501ee705259a7e3f3c8aed1be1b77",
-    "semantic_hash": "2f3501ee705259a7e3f3c8aed1be1b77"
+    "mtime": 1779351514.9938672,
+    "ast_hash": "8e0f71382c9a5f22bec00572304529e6",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/BuilderProcess.java": {
-    "mtime": 1786702166.4411995,
-    "ast_hash": "a03eb95833c09b886656613c865a4556",
-    "semantic_hash": "a03eb95833c09b886656613c865a4556"
+    "mtime": 1781390308.6083336,
+    "ast_hash": "93932bdca74e7df252a8633a0b917a71",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/CustomGoalProcess.java": {
-    "mtime": 1786702166.4411995,
-    "ast_hash": "acac346da24c674526ee02b4165e1f82",
-    "semantic_hash": "acac346da24c674526ee02b4165e1f82"
+    "mtime": 1779351514.9939654,
+    "ast_hash": "81644439cbcbff0a96c6eed6588a80d1",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/ElytraProcess.java": {
-    "mtime": 1786702166.4411995,
-    "ast_hash": "f0a4b06c3ff01246c907e406fe7d65e7",
-    "semantic_hash": "f0a4b06c3ff01246c907e406fe7d65e7"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "b99cee26e11ced3fa2708de508fd7efa",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/ExploreProcess.java": {
-    "mtime": 1786702166.4427104,
-    "ast_hash": "4e80200eaf88b56737539f0eb7a83ee6",
-    "semantic_hash": "4e80200eaf88b56737539f0eb7a83ee6"
+    "mtime": 1781390308.6083336,
+    "ast_hash": "5867e59fbca8ea0fdb4b370b65cc8371",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/FarmProcess.java": {
-    "mtime": 1786702166.4427104,
-    "ast_hash": "0b9e7525e8e63fd2288e0b6cdefd1c1a",
-    "semantic_hash": "0b9e7525e8e63fd2288e0b6cdefd1c1a"
+    "mtime": 1781390308.6083336,
+    "ast_hash": "9efd93804ea06fc6a19fba49da7a695f",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/FollowProcess.java": {
-    "mtime": 1786702166.4427104,
-    "ast_hash": "b980675896f2c8ad5de37485838104a4",
-    "semantic_hash": "b980675896f2c8ad5de37485838104a4"
+    "mtime": 1788201608.9436471,
+    "ast_hash": "5508df0c1f0ba4f5ff220eb1e15400f6",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/GetToBlockProcess.java": {
-    "mtime": 1786702166.4427104,
-    "ast_hash": "617e19a30307bf6de0002dd1887898c9",
-    "semantic_hash": "617e19a30307bf6de0002dd1887898c9"
+    "mtime": 1779351514.9939654,
+    "ast_hash": "01955633794c21d3b621c930631cb61b",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/InventoryPauserProcess.java": {
-    "mtime": 1786702166.4427104,
-    "ast_hash": "efaaa224cd28960e85a7f60fb6686ca9",
-    "semantic_hash": "efaaa224cd28960e85a7f60fb6686ca9"
+    "mtime": 1779351514.9939654,
+    "ast_hash": "e046a9518edf86a135b0d94e2d6c2e71",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/MineProcess.java": {
-    "mtime": 1786702166.444225,
-    "ast_hash": "6f6a6eed00e88ff1a0ce2d02fbe96a0d",
-    "semantic_hash": "6f6a6eed00e88ff1a0ce2d02fbe96a0d"
+    "mtime": 1779351514.9939654,
+    "ast_hash": "bbf53e62033396496fff3ab436f1488e",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/elytra/BlockStateOctreeInterface.java": {
-    "mtime": 1786702166.444225,
-    "ast_hash": "f5a12f6586e6b8738eb709d969bd5095",
-    "semantic_hash": "f5a12f6586e6b8738eb709d969bd5095"
+    "mtime": 1788201608.9446473,
+    "ast_hash": "84878a8dd61d743f340142c740d8a341",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/elytra/ElytraBehavior.java": {
-    "mtime": 1786702166.444225,
-    "ast_hash": "b5c3f355ba8e1f3cef23722c72100637",
-    "semantic_hash": "b5c3f355ba8e1f3cef23722c72100637"
+    "mtime": 1788201608.9446473,
+    "ast_hash": "7dc74419645e9f134224de8717a0eaf5",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/elytra/NetherPath.java": {
-    "mtime": 1786702166.444225,
-    "ast_hash": "bda1a701a1092846d6a4f3aca4fb2182",
-    "semantic_hash": "bda1a701a1092846d6a4f3aca4fb2182"
+    "mtime": 1779351514.9944253,
+    "ast_hash": "3a3484ce756efe2fd6f8c62d0ae18a00",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/elytra/NetherPathfinderContext.java": {
-    "mtime": 1786702166.4457378,
-    "ast_hash": "f01e50457faeb629ce46f2d73df2c1cd",
-    "semantic_hash": "f01e50457faeb629ce46f2d73df2c1cd"
+    "mtime": 1788201608.9446473,
+    "ast_hash": "711a005db9b65af5158b3e9c793386e7",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/elytra/NullElytraProcess.java": {
-    "mtime": 1786702166.4457378,
-    "ast_hash": "484a036ee081e8c2db13d0e61ea789ba",
-    "semantic_hash": "484a036ee081e8c2db13d0e61ea789ba"
+    "mtime": 1779351514.9944253,
+    "ast_hash": "d519b9339c202e77484bb4f08abc9cda",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/elytra/PathCalculationException.java": {
-    "mtime": 1786702166.4457378,
-    "ast_hash": "ba9cee491a563abdd171eaef4ac821a7",
-    "semantic_hash": "ba9cee491a563abdd171eaef4ac821a7"
+    "mtime": 1779351514.9944253,
+    "ast_hash": "25db59a004f05961fc95ca704d2287de",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/process/elytra/UnpackedSegment.java": {
-    "mtime": 1786702166.4457378,
-    "ast_hash": "c6d5e4bfd27659e8006f34054a297198",
-    "semantic_hash": "c6d5e4bfd27659e8006f34054a297198"
+    "mtime": 1779351514.9944253,
+    "ast_hash": "68607f781ab9fbbe30c7f892c5f53894",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/selection/Selection.java": {
-    "mtime": 1786702166.4472826,
-    "ast_hash": "931a209f780caf891d49aa04047f35a9",
-    "semantic_hash": "931a209f780caf891d49aa04047f35a9"
+    "mtime": 1779351514.9944253,
+    "ast_hash": "0675c106c82f3fe3a21e00e441ea1ea5",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/selection/SelectionManager.java": {
-    "mtime": 1786702166.4472826,
-    "ast_hash": "ade6a6926f0b060bb5fd25daf17de2fd",
-    "semantic_hash": "ade6a6926f0b060bb5fd25daf17de2fd"
+    "mtime": 1779351514.9945889,
+    "ast_hash": "e07a2c5e2edae0a1bca9dd830fd349a1",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/selection/SelectionRenderer.java": {
-    "mtime": 1786702166.4472826,
-    "ast_hash": "f8db34b3ecc14ea9d111385fce8c62e0",
-    "semantic_hash": "f8db34b3ecc14ea9d111385fce8c62e0"
+    "mtime": 1779351514.9945889,
+    "ast_hash": "d3dbdf8321144e0a04c5d9cbef66d0c6",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/BaritoneMath.java": {
-    "mtime": 1786702166.4472826,
-    "ast_hash": "2253b8e2efad1e8b3ccfda7fcf31dd7e",
-    "semantic_hash": "2253b8e2efad1e8b3ccfda7fcf31dd7e"
+    "mtime": 1779351514.9945889,
+    "ast_hash": "f7809acc420f488a4dbfeb23081f0e65",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/BaritoneProcessHelper.java": {
-    "mtime": 1786702166.4487936,
-    "ast_hash": "8e3fad3d4a693e150696dc57a85ee070",
-    "semantic_hash": "8e3fad3d4a693e150696dc57a85ee070"
+    "mtime": 1779351514.9947329,
+    "ast_hash": "9feba7cc6873fd1116c760a9200d5d32",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/BlockBreakHelper.java": {
-    "mtime": 1786702166.4487936,
-    "ast_hash": "cfbe89e80dfcdbef3c0ecaa70224576e",
-    "semantic_hash": "cfbe89e80dfcdbef3c0ecaa70224576e"
+    "mtime": 1779351514.9947329,
+    "ast_hash": "6ab65d974d25a8c7c62f0cde2e0668f0",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/BlockPlaceHelper.java": {
-    "mtime": 1786702166.4487936,
-    "ast_hash": "c286765bc978a3dab96abeb9ea7c0194",
-    "semantic_hash": "c286765bc978a3dab96abeb9ea7c0194"
+    "mtime": 1779351514.9947329,
+    "ast_hash": "3be37c2c1bf02157de7bc14654b276f8",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/BlockStateInterface.java": {
-    "mtime": 1786702166.4487936,
-    "ast_hash": "b7a2e68613a7f5159a3dfab863e4890b",
-    "semantic_hash": "b7a2e68613a7f5159a3dfab863e4890b"
+    "mtime": 1779351514.9947329,
+    "ast_hash": "6b58d4c9ae1b94d2be27ba9759679ac7",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/BlockStateInterfaceAccessWrapper.java": {
-    "mtime": 1786702166.4487936,
-    "ast_hash": "aa5ab8a56352c1c1886cd8686e26712f",
-    "semantic_hash": "aa5ab8a56352c1c1886cd8686e26712f"
+    "mtime": 1779351514.9947329,
+    "ast_hash": "a591b972e4dd13817a1912e463e4880a",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/GuiClick.java": {
-    "mtime": 1786702166.450305,
-    "ast_hash": "200cca28ed7cf0f8d83a21fa7516d546",
-    "semantic_hash": "200cca28ed7cf0f8d83a21fa7516d546"
+    "mtime": 1779351514.9947329,
+    "ast_hash": "8bd03c46e64dddb9743e4f7acb34b288",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/IRenderer.java": {
-    "mtime": 1786702166.450305,
-    "ast_hash": "73580469cf02c714b182e0679e1527d5",
-    "semantic_hash": "73580469cf02c714b182e0679e1527d5"
+    "mtime": 1788201608.9446473,
+    "ast_hash": "b4f74b7eb5612ad42ea2b29dcde127c3",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/InputOverrideHandler.java": {
-    "mtime": 1786702166.450305,
-    "ast_hash": "ba0dfe0d3ad843869ebf49f99973c567",
-    "semantic_hash": "ba0dfe0d3ad843869ebf49f99973c567"
+    "mtime": 1781390148.6849442,
+    "ast_hash": "b085c691dd80b4578d204175e2220fd6",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/PathRenderer.java": {
-    "mtime": 1786702166.450305,
-    "ast_hash": "e9b2b91e1d2efc0bcd242868080b8e70",
-    "semantic_hash": "e9b2b91e1d2efc0bcd242868080b8e70"
+    "mtime": 1779351514.9947329,
+    "ast_hash": "a81d6fec90ba2c10b7d47bb83bf9de5e",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/PathingCommandContext.java": {
-    "mtime": 1786702166.450305,
-    "ast_hash": "c9ad64a821b2bed1291c3d8032549c8a",
-    "semantic_hash": "c9ad64a821b2bed1291c3d8032549c8a"
+    "mtime": 1779351514.9947329,
+    "ast_hash": "e1108772d1b4c929e0e43abe56325b33",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/PathingControlManager.java": {
-    "mtime": 1786702166.4518166,
-    "ast_hash": "8720116789fd1615d94dc46706b536e1",
-    "semantic_hash": "8720116789fd1615d94dc46706b536e1"
+    "mtime": 1788201608.9446473,
+    "ast_hash": "f85db0dfe98f36dbe6611cf010c00af9",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/PlayerMovementInput.java": {
-    "mtime": 1786702166.4518166,
-    "ast_hash": "f991a9a6bb7c9c0c6eb0dafff4c692d8",
-    "semantic_hash": "f991a9a6bb7c9c0c6eb0dafff4c692d8"
+    "mtime": 1779351514.9947329,
+    "ast_hash": "435c682178f612698f175394889a063f",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/ToolSet.java": {
-    "mtime": 1786702166.4518166,
-    "ast_hash": "213d5fe7508f4cf64e462d13ef4016d5",
-    "semantic_hash": "213d5fe7508f4cf64e462d13ef4016d5"
+    "mtime": 1779351514.9947329,
+    "ast_hash": "6c03209fa0b7d27bc517ef56c0eb0ce2",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/accessor/IChunkArray.java": {
-    "mtime": 1786702166.4518166,
-    "ast_hash": "b4ab0a862552d4b45c828b54b6ebbb4e",
-    "semantic_hash": "b4ab0a862552d4b45c828b54b6ebbb4e"
+    "mtime": 1779351514.9947329,
+    "ast_hash": "383e1e8be57c3f9235b30db981f2956f",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/accessor/IChunkProviderClient.java": {
-    "mtime": 1786702166.4518166,
-    "ast_hash": "3e47fb9076b310aacf6f29f53a1dab86",
-    "semantic_hash": "3e47fb9076b310aacf6f29f53a1dab86"
+    "mtime": 1779351514.9952266,
+    "ast_hash": "aedb7901add953adf34cd88957267a91",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/accessor/IClientChunkProvider.java": {
-    "mtime": 1786702166.4533296,
-    "ast_hash": "1261eec93884ab1d9f5aa0234cd85330",
-    "semantic_hash": "1261eec93884ab1d9f5aa0234cd85330"
+    "mtime": 1779351514.9952266,
+    "ast_hash": "1b4a93bee592412bab4a256632365228",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/accessor/IEntityRenderManager.java": {
-    "mtime": 1786702166.4533296,
-    "ast_hash": "41bf93873b410458693086e593f7c936",
-    "semantic_hash": "41bf93873b410458693086e593f7c936"
+    "mtime": 1779351514.9952266,
+    "ast_hash": "6ccb4ff72a451b4f742c740c69536f71",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/accessor/IFireworkRocketEntity.java": {
-    "mtime": 1786702166.4533296,
-    "ast_hash": "3bd9dd7a268aac0a5c5212f82664bb57",
-    "semantic_hash": "3bd9dd7a268aac0a5c5212f82664bb57"
+    "mtime": 1779351514.9952266,
+    "ast_hash": "2f8759137c9eb25ddddf9d0860ab643d",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/accessor/IGuiScreen.java": {
-    "mtime": 1786702166.4533296,
-    "ast_hash": "85219f469b5efe6a1cdb62d33aee0f45",
-    "semantic_hash": "85219f469b5efe6a1cdb62d33aee0f45"
+    "mtime": 1779351514.9952266,
+    "ast_hash": "ae29580be3b4fb8a08672d88a797fd9c",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/accessor/IPalettedContainer.java": {
-    "mtime": 1786702166.4533296,
-    "ast_hash": "d8baadf6a6250c7643e02bbdda7be09e",
-    "semantic_hash": "d8baadf6a6250c7643e02bbdda7be09e"
+    "mtime": 1779351514.9952266,
+    "ast_hash": "9505bfe490eac28500d7b78bc0d7793b",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/accessor/IPlayerControllerMP.java": {
-    "mtime": 1786702166.4548461,
-    "ast_hash": "02142310b4203caf16e55bb1ebdbf1d4",
-    "semantic_hash": "02142310b4203caf16e55bb1ebdbf1d4"
+    "mtime": 1779351514.9952266,
+    "ast_hash": "956ce691266934940a44f18a69fc75b8",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/accessor/IRenderPipelines.java": {
-    "mtime": 1786702166.4548461,
-    "ast_hash": "6737e99f136a82f485045e139cff3963",
-    "semantic_hash": "6737e99f136a82f485045e139cff3963"
+    "mtime": 1779351514.9952266,
+    "ast_hash": "f67b0ec9284c0f85bcccadd71c660ce3",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/accessor/IRenderType.java": {
-    "mtime": 1786702166.4548461,
-    "ast_hash": "e744848c4e35a38f41451542bbbb35a0",
-    "semantic_hash": "e744848c4e35a38f41451542bbbb35a0"
+    "mtime": 1779351514.9952266,
+    "ast_hash": "ddb82cde7ae43e2e909cb80ca342ba7b",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/pathing/Avoidance.java": {
-    "mtime": 1786702166.4548461,
-    "ast_hash": "4ad0aae087aa899bca39b0a7a5b7d262",
-    "semantic_hash": "4ad0aae087aa899bca39b0a7a5b7d262"
+    "mtime": 1788201608.9446473,
+    "ast_hash": "eb7b3b9911d93939b5dc9cc622c930a8",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/pathing/BetterWorldBorder.java": {
-    "mtime": 1786702166.4563608,
-    "ast_hash": "2cb6a878720cc238fa3fb040a61df98e",
-    "semantic_hash": "2cb6a878720cc238fa3fb040a61df98e"
+    "mtime": 1779351514.9954426,
+    "ast_hash": "82e2ae2e7d3390c875de35c1d07a6dd4",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/pathing/Favoring.java": {
-    "mtime": 1786702166.4563608,
-    "ast_hash": "4c6862f20391515925bd4f9fed391af5",
-    "semantic_hash": "4c6862f20391515925bd4f9fed391af5"
+    "mtime": 1788201608.9446473,
+    "ast_hash": "2af472ee8bf5bdade1b46f9071471cd7",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/pathing/MutableMoveResult.java": {
-    "mtime": 1786702166.4563608,
-    "ast_hash": "a5616d2926d355caa48882111efe6f21",
-    "semantic_hash": "a5616d2926d355caa48882111efe6f21"
+    "mtime": 1779351514.9954426,
+    "ast_hash": "8a68e5f4035923390783779a9710ac4b",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/pathing/PathBase.java": {
-    "mtime": 1786702166.4563608,
-    "ast_hash": "16a771024cfe10ac2b497b07418a20c4",
-    "semantic_hash": "16a771024cfe10ac2b497b07418a20c4"
+    "mtime": 1779351514.9954426,
+    "ast_hash": "8b12e452a587ad33b362a13bde887ae6",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/pathing/PathingBlockType.java": {
-    "mtime": 1786702166.4563608,
-    "ast_hash": "1e6e47aa2c0b97be625f2d9a9657c46f",
-    "semantic_hash": "1e6e47aa2c0b97be625f2d9a9657c46f"
+    "mtime": 1779351514.9954426,
+    "ast_hash": "203057625fac9cf29710b17467352415",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/player/BaritonePlayerContext.java": {
-    "mtime": 1786702166.4578714,
-    "ast_hash": "3825347bcb412f90389d2d662f6cc88f",
-    "semantic_hash": "3825347bcb412f90389d2d662f6cc88f"
+    "mtime": 1779351514.9954426,
+    "ast_hash": "e64e6559475e7c08b4a4d48022a1bca9",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/player/BaritonePlayerController.java": {
-    "mtime": 1786702166.4578714,
-    "ast_hash": "9e3aeca1d5b307e64fa5a1ed74268dca",
-    "semantic_hash": "9e3aeca1d5b307e64fa5a1ed74268dca"
+    "mtime": 1779351514.995562,
+    "ast_hash": "5a961603353cfaee745662e971240c98",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/schematic/MapArtSchematic.java": {
-    "mtime": 1786702166.4578714,
-    "ast_hash": "aabf46fa998c917f86e2d0cd88bcf325",
-    "semantic_hash": "aabf46fa998c917f86e2d0cd88bcf325"
+    "mtime": 1779351514.995562,
+    "ast_hash": "5be24de50ed163082c21f280b5a15002",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/schematic/SchematicSystem.java": {
-    "mtime": 1786702166.4593828,
-    "ast_hash": "cdf22eeb7eb5eb5cae5bdd59c8c50fd2",
-    "semantic_hash": "cdf22eeb7eb5eb5cae5bdd59c8c50fd2"
+    "mtime": 1779351514.995607,
+    "ast_hash": "da407568a5dd44d771c5f1676d9dad21",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/schematic/SelectionSchematic.java": {
-    "mtime": 1786702166.4593828,
-    "ast_hash": "7d57092ac36c729c9629c77bb4815c03",
-    "semantic_hash": "7d57092ac36c729c9629c77bb4815c03"
+    "mtime": 1779351514.995607,
+    "ast_hash": "a2286219b8c61a76d31630ade4151912",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/schematic/StaticSchematic.java": {
-    "mtime": 1786702166.4593828,
-    "ast_hash": "7aba96dbd03675f4c10122a98af92d62",
-    "semantic_hash": "7aba96dbd03675f4c10122a98af92d62"
+    "mtime": 1779351514.995607,
+    "ast_hash": "d27cf5aedf1d53137569d3c40f586a3f",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/schematic/format/DefaultSchematicFormats.java": {
-    "mtime": 1786702166.4593828,
-    "ast_hash": "1c4287f45b8cae02a81b525c98629ef1",
-    "semantic_hash": "1c4287f45b8cae02a81b525c98629ef1"
+    "mtime": 1779351514.995607,
+    "ast_hash": "14f515149f0cf3f49f0204482557a43d",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/schematic/format/defaults/LitematicaSchematic.java": {
-    "mtime": 1786702166.460894,
-    "ast_hash": "2975f76832b2824f1558558c341a0aff",
-    "semantic_hash": "2975f76832b2824f1558558c341a0aff"
+    "mtime": 1779351514.9957075,
+    "ast_hash": "411a7b423f5c89e34b19af356e31cf73",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/schematic/format/defaults/MCEditSchematic.java": {
-    "mtime": 1786702166.460894,
-    "ast_hash": "53a595518333a6e72870aedd4bb2d16e",
-    "semantic_hash": "53a595518333a6e72870aedd4bb2d16e"
+    "mtime": 1779351514.995755,
+    "ast_hash": "d6d68cf80aa0ee93ad8c8d125a8ac817",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/schematic/format/defaults/SpongeSchematic.java": {
-    "mtime": 1786702166.460894,
-    "ast_hash": "a136b60c4bc7cf0d4f694b008cac0e27",
-    "semantic_hash": "a136b60c4bc7cf0d4f694b008cac0e27"
+    "mtime": 1779351514.995755,
+    "ast_hash": "e734dbcca215d9944f4c4ca73495383a",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/schematic/litematica/LitematicaHelper.java": {
-    "mtime": 1786702166.460894,
-    "ast_hash": "319153dd5b6729a652d976c633925c69",
-    "semantic_hash": "319153dd5b6729a652d976c633925c69"
+    "mtime": 1779351514.995755,
+    "ast_hash": "77e3a978743e088de5f268802cad36a6",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/schematic/schematica/SchematicAdapter.java": {
-    "mtime": 1786702166.46241,
-    "ast_hash": "5c9dd8f872b800a3265fdad55082bcb5",
-    "semantic_hash": "5c9dd8f872b800a3265fdad55082bcb5"
+    "mtime": 1779351514.995755,
+    "ast_hash": "a4f246792d9c3df6f040bff4ded30b7b",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/schematic/schematica/SchematicaHelper.java": {
-    "mtime": 1786702166.46241,
-    "ast_hash": "441c4c3cb15f91b1029572697656599f",
-    "semantic_hash": "441c4c3cb15f91b1029572697656599f"
+    "mtime": 1779351514.995905,
+    "ast_hash": "c63003f5a8e647e46cfc81bf4879ab2c",
+    "semantic_hash": ""
   },
   "src/main/java/baritone/utils/type/VarInt.java": {
-    "mtime": 1786702166.46241,
-    "ast_hash": "e19c0d3b5d81d15e5783cfbe5a82eae6",
-    "semantic_hash": "e19c0d3b5d81d15e5783cfbe5a82eae6"
+    "mtime": 1779351514.995905,
+    "ast_hash": "f48a62f46360277b272cade97514a0bc",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/com/github/lunatrius/core/util/math/MBlockPos.java": {
-    "mtime": 1786702166.4639206,
-    "ast_hash": "c6c2240879a18642fd91c94ef114d295",
-    "semantic_hash": "c6c2240879a18642fd91c94ef114d295"
+    "mtime": 1779351514.9960124,
+    "ast_hash": "ed425aefed8b028e8ade5d6975829ff0",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/com/github/lunatrius/schematica/Schematica.java": {
-    "mtime": 1786702166.4654367,
-    "ast_hash": "67fa565c63c11180a225053a55d549da",
-    "semantic_hash": "67fa565c63c11180a225053a55d549da"
+    "mtime": 1779351514.9960124,
+    "ast_hash": "45af90ff02536a2ecc902b4afae3287f",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/com/github/lunatrius/schematica/api/ISchematic.java": {
-    "mtime": 1786702166.4654367,
-    "ast_hash": "ecd420b7daa6f23f40bbf7c6f1e39f0f",
-    "semantic_hash": "ecd420b7daa6f23f40bbf7c6f1e39f0f"
+    "mtime": 1779351514.9961061,
+    "ast_hash": "8e1b854f69f449159e50e475fd27cbc1",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/com/github/lunatrius/schematica/client/world/SchematicWorld.java": {
-    "mtime": 1786702166.4654367,
-    "ast_hash": "9380c9ab20459175a0e8586efe6917da",
-    "semantic_hash": "9380c9ab20459175a0e8586efe6917da"
+    "mtime": 1779351514.996141,
+    "ast_hash": "212b9dc7b1632e6245e67e883978a1bb",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/com/github/lunatrius/schematica/proxy/ClientProxy.java": {
-    "mtime": 1786702166.4669485,
-    "ast_hash": "1f9951e8dc40e970b1dabf74ec183000",
-    "semantic_hash": "1f9951e8dc40e970b1dabf74ec183000"
+    "mtime": 1779351514.996141,
+    "ast_hash": "627fc03afb7f2de3951c8efcb75f7329",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/com/github/lunatrius/schematica/proxy/CommonProxy.java": {
-    "mtime": 1786702166.4669485,
-    "ast_hash": "bf2ce3d15ef68a9d8912f336a975b2b6",
-    "semantic_hash": "bf2ce3d15ef68a9d8912f336a975b2b6"
+    "mtime": 1779351514.9962318,
+    "ast_hash": "ef17bd45dd9c3a6084a87933f8599296",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/fi/dy/masa/litematica/Litematica.java": {
-    "mtime": 1786702166.4669485,
-    "ast_hash": "2e52f355367e46e4c8bdaf6aa6c4a8da",
-    "semantic_hash": "2e52f355367e46e4c8bdaf6aa6c4a8da"
+    "mtime": 1779351514.9962697,
+    "ast_hash": "b118f528e6cd35623ae7f9bca61128e3",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/fi/dy/masa/litematica/data/DataManager.java": {
-    "mtime": 1786702166.4684587,
-    "ast_hash": "bc1b009f492019a28381c24fc43694c4",
-    "semantic_hash": "bc1b009f492019a28381c24fc43694c4"
+    "mtime": 1779351514.9963033,
+    "ast_hash": "4d45e7bd894bfa0d67ff1fe01860d04b",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/fi/dy/masa/litematica/schematic/LitematicaSchematic.java": {
-    "mtime": 1786702166.4684587,
-    "ast_hash": "fc62b4360ffd9dd1580550d60278c492",
-    "semantic_hash": "fc62b4360ffd9dd1580550d60278c492"
+    "mtime": 1779351514.9963033,
+    "ast_hash": "cd8e9f65fba4da213ee012bb3b173460",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/fi/dy/masa/litematica/schematic/placement/SchematicPlacement.java": {
-    "mtime": 1786702166.4684587,
-    "ast_hash": "5a31173ec53e3828ec06eb2203357cf3",
-    "semantic_hash": "5a31173ec53e3828ec06eb2203357cf3"
+    "mtime": 1779351514.9964564,
+    "ast_hash": "5c451ee20bd2c7031f39cd9359b1f897",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/fi/dy/masa/litematica/schematic/placement/SchematicPlacementManager.java": {
-    "mtime": 1786702166.4684587,
-    "ast_hash": "be838c418afe7973a3c3dccc98af57f0",
-    "semantic_hash": "be838c418afe7973a3c3dccc98af57f0"
+    "mtime": 1779351514.996527,
+    "ast_hash": "3163a1929781b3fbd68ab9c31224f2b6",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/fi/dy/masa/litematica/schematic/placement/SubRegionPlacement.java": {
-    "mtime": 1786702166.4699714,
-    "ast_hash": "6a16dd1aeb13bb5056e8aaa268efd97e",
-    "semantic_hash": "6a16dd1aeb13bb5056e8aaa268efd97e"
+    "mtime": 1779351514.996527,
+    "ast_hash": "30733dd2d6d10ddc7f2eb65f7d2c6cbd",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/fi/dy/masa/litematica/world/SchematicWorldHandler.java": {
-    "mtime": 1786702166.4699714,
-    "ast_hash": "dfca89b3cf040f1047c0da75240cf2df",
-    "semantic_hash": "dfca89b3cf040f1047c0da75240cf2df"
+    "mtime": 1779351514.996527,
+    "ast_hash": "8cbbd41a8a7638ac8c6b7eab812437a7",
+    "semantic_hash": ""
   },
   "src/schematica_api/java/fi/dy/masa/litematica/world/WorldSchematic.java": {
-    "mtime": 1786702166.4699714,
-    "ast_hash": "a3fdf249ac88d468cb9724fa848791ae",
-    "semantic_hash": "a3fdf249ac88d468cb9724fa848791ae"
+    "mtime": 1779351514.9965777,
+    "ast_hash": "661bfc58e216b158a289645bf5aeadeb",
+    "semantic_hash": ""
   },
   "src/test/java/baritone/api/command/datatypes/RelativeFileTest.java": {
-    "mtime": 1786702166.4714825,
-    "ast_hash": "8b2a20b14147bdf8e44beab1ad83723b",
-    "semantic_hash": "8b2a20b14147bdf8e44beab1ad83723b"
+    "mtime": 1781390308.6097133,
+    "ast_hash": "c960ebbd28f5adde434aed7ac7b1766e",
+    "semantic_hash": ""
   },
   "src/test/java/baritone/cache/CachedRegionTest.java": {
-    "mtime": 1786702166.4714825,
-    "ast_hash": "79c224b2e06f5cbb8c7479b1a8bd24fc",
-    "semantic_hash": "79c224b2e06f5cbb8c7479b1a8bd24fc"
+    "mtime": 1779351514.996617,
+    "ast_hash": "b0523cc86e939ccd7d2c88ebc87da39c",
+    "semantic_hash": ""
   },
   "src/test/java/baritone/pathing/calc/openset/OpenSetsTest.java": {
-    "mtime": 1786702166.472993,
-    "ast_hash": "360d9d5543a3f6fa60aa36cca422e913",
-    "semantic_hash": "360d9d5543a3f6fa60aa36cca422e913"
+    "mtime": 1779351514.996672,
+    "ast_hash": "074d6df767e50890f1333b7282fe7145",
+    "semantic_hash": ""
   },
   "src/test/java/baritone/pathing/goals/GoalGetToBlockTest.java": {
-    "mtime": 1786702166.472993,
-    "ast_hash": "bead6c3d41f0a217828ed92d8064db06",
-    "semantic_hash": "bead6c3d41f0a217828ed92d8064db06"
+    "mtime": 1779351514.996672,
+    "ast_hash": "17432071116a33ee93aa123ed3a247cc",
+    "semantic_hash": ""
   },
   "src/test/java/baritone/pathing/movement/ActionCostsTest.java": {
-    "mtime": 1786702166.472993,
-    "ast_hash": "6181aa0bc3271e09bb3e593d815755a9",
-    "semantic_hash": "6181aa0bc3271e09bb3e593d815755a9"
+    "mtime": 1779351514.996672,
+    "ast_hash": "6496f5adef26c63c3a29350e2807cffa",
+    "semantic_hash": ""
   },
   "src/test/java/baritone/utils/pathing/BetterBlockPosTest.java": {
-    "mtime": 1786702166.4745035,
-    "ast_hash": "7cf8a8527e6bb2705ed313a3ae670c01",
-    "semantic_hash": "7cf8a8527e6bb2705ed313a3ae670c01"
+    "mtime": 1779351514.996803,
+    "ast_hash": "740819c9361b70987902c5b6879d4cd3",
+    "semantic_hash": ""
   },
   "src/test/java/baritone/utils/pathing/PathingBlockTypeTest.java": {
-    "mtime": 1786702166.4745035,
-    "ast_hash": "327ed77e98b9bc28a1cdf55500428a05",
-    "semantic_hash": "327ed77e98b9bc28a1cdf55500428a05"
+    "mtime": 1779351514.9968464,
+    "ast_hash": "b5b39a45ef4599f4f6d76d32ec0b2e45",
+    "semantic_hash": ""
   },
   "tweaker/build.gradle": {
-    "mtime": 1786702166.4745035,
-    "ast_hash": "baed7f91b1a2d59df3e897f69190fb41",
-    "semantic_hash": "baed7f91b1a2d59df3e897f69190fb41"
+    "mtime": 1781390148.6849442,
+    "ast_hash": "15e223134959415201141762fb13f6a5",
+    "semantic_hash": ""
   },
   "tweaker/src/main/java/baritone/launch/tweaker/BaritoneTweaker.java": {
-    "mtime": 1786702166.4760206,
-    "ast_hash": "57326ca93fd0f892d81109672afc0541",
-    "semantic_hash": "57326ca93fd0f892d81109672afc0541"
+    "mtime": 1781390148.6969442,
+    "ast_hash": "42f9c9af97a83b6f8e262f65136d6152",
+    "semantic_hash": ""
+  },
+  "src/api/java/baritone/api/behavior/look/ILookPriorityHub.java": {
+    "mtime": 1788201608.9426472,
+    "ast_hash": "7fee243c0551ae92646631483c1baaba",
+    "semantic_hash": ""
+  },
+  "src/api/java/baritone/api/behavior/look/ILookRequest.java": {
+    "mtime": 1788201608.9426472,
+    "ast_hash": "340704dbac40c51fa334fd7b0cdb653e",
+    "semantic_hash": ""
+  },
+  "src/main/java/baritone/behavior/LookPriorityHub.java": {
+    "mtime": 1788201608.9426472,
+    "ast_hash": "2c2c5d923c428d5a44ed9d37a05d7133",
+    "semantic_hash": ""
+  },
+  "src/main/java/baritone/utils/MouseGCD.java": {
+    "mtime": 1788201608.9446473,
+    "ast_hash": "a274328e7f29ac2da13d13716f9ee340",
+    "semantic_hash": ""
+  },
+  "src/main/java/baritone/utils/ShaderCompat.java": {
+    "mtime": 1788201608.9446473,
+    "ast_hash": "c04942819777a9bbc18f7746b9386077",
+    "semantic_hash": ""
+  },
+  "src/test/java/baritone/behavior/LookBehaviorSmoothTest.java": {
+    "mtime": 1788201608.9446473,
+    "ast_hash": "1a8da09a393ddb8a4c7b2bf5df2cae95",
+    "semantic_hash": ""
+  },
+  ".github/ISSUE_TEMPLATE/bug.md": {
+    "mtime": 1779351514.9831781,
+    "ast_hash": "ff604b4ad80e2de04617043d682f0c3d",
+    "semantic_hash": ""
+  },
+  ".github/ISSUE_TEMPLATE/question.md": {
+    "mtime": 1779351514.983218,
+    "ast_hash": "94dd3c3aae74b38c5f9e51997903fa6d",
+    "semantic_hash": ""
+  },
+  ".github/ISSUE_TEMPLATE/suggestion.md": {
+    "mtime": 1779351514.983218,
+    "ast_hash": "5a8696b7a077199b1e9c4c99d65f7097",
+    "semantic_hash": ""
+  },
+  ".github/PULL_REQUEST_TEMPLATE.md": {
+    "mtime": 1779351514.983218,
+    "ast_hash": "17e44474c04bb55f3aee2d7f4ff66e90",
+    "semantic_hash": ""
+  },
+  ".github/workflows/ci_build.yml": {
+    "mtime": 1781390148.683944,
+    "ast_hash": "fa8541ad07d6fcc2bcae42be515bd618",
+    "semantic_hash": ""
+  },
+  ".github/workflows/release.yml": {
+    "mtime": 1781390148.683944,
+    "ast_hash": "cc89c7dcb990e37a64e0b51bd19cb3de",
+    "semantic_hash": ""
+  },
+  ".gitlab-ci.yml": {
+    "mtime": 1779351514.9836586,
+    "ast_hash": "f98a03cf3f6b6e85d88b2a9e0ef16542",
+    "semantic_hash": ""
+  },
+  ".jules/bolt.md": {
+    "mtime": 1788201608.9226468,
+    "ast_hash": "745bd3c3f106e8f785d6bfa7b9cc8761",
+    "semantic_hash": ""
+  },
+  "CHANGELOG.md": {
+    "mtime": 1779402120.569155,
+    "ast_hash": "21b7bd84bc56b522f4f17895645b8686",
+    "semantic_hash": ""
+  },
+  "CODE_OF_CONDUCT.md": {
+    "mtime": 1779351514.9837651,
+    "ast_hash": "105ab462cde6b5afebd63b4d131c1fbf",
+    "semantic_hash": ""
+  },
+  "FEATURES.md": {
+    "mtime": 1779351514.9837651,
+    "ast_hash": "5c34b6db3e886c6d4f1c27aa03715686",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1779401483.8889039,
+    "ast_hash": "6f323acb0d8164cf2638dc156dcfee5d",
+    "semantic_hash": ""
+  },
+  "RELEASES.md": {
+    "mtime": 1779401612.2514985,
+    "ast_hash": "419f3d5046c8041e73b7d486cdc97953",
+    "semantic_hash": ""
+  },
+  "SETUP.md": {
+    "mtime": 1779351514.9837651,
+    "ast_hash": "76855f6f305c4ecf8334745681f9b7c4",
+    "semantic_hash": ""
+  },
+  "USAGE.md": {
+    "mtime": 1779351514.9837651,
+    "ast_hash": "1a38fcfacc4d7b7671d18df6bdcfc948",
+    "semantic_hash": ""
+  },
+  "bug_report.md": {
+    "mtime": 1781390308.6076765,
+    "ast_hash": "4d59d16a1f873b54ce78553bea623b29",
+    "semantic_hash": ""
+  },
+  "forge/RELEASE.md": {
+    "mtime": 1779401552.2577517,
+    "ast_hash": "46f1a715af71d4735de4e894501a33d8",
+    "semantic_hash": ""
+  },
+  "jitpack.yml": {
+    "mtime": 1779351514.984893,
+    "ast_hash": "4d87880aa9fd833aea9989c9a581815e",
+    "semantic_hash": ""
+  },
+  "neoforge/RELEASE.md": {
+    "mtime": 1779401579.9618683,
+    "ast_hash": "1f66290f863bde75f62db3fe1bd1a1e3",
+    "semantic_hash": ""
+  },
+  "pr_description.md": {
+    "mtime": 1781390308.6076765,
+    "ast_hash": "5f94fbcf9d3960cf281e97478b9c3296",
+    "semantic_hash": ""
+  },
+  "LICENSE-Part-2.jpg": {
+    "mtime": 1779351514.9837651,
+    "ast_hash": "b51946316669da3c21f4e80ccbb62e25",
+    "semantic_hash": ""
   }
 }
