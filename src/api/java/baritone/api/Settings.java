@@ -1612,6 +1612,28 @@ public final class Settings {
     public final Setting<Boolean> elytraTermsAccepted = new Setting<>(false);
 
     /**
+     * Prefer ice highways when elytra path-finding: nodes whose floor (the blocks up to
+     * 4 below the flight node) is packed or blue ice are discounted by
+     * {@link #elytraHighwayCostMultiplier} / {@link #elytraBlueIceCostMultiplier},
+     * so A* biases routes along ice roads where one is available
+     */
+    public final Setting<Boolean> elytraPreferHighways = new Setting<>(true);
+
+    /**
+     * Cost multiplier applied to elytra path nodes whose floor is packed ice, once highway
+     * continuity is established (see {@link #elytraPreferHighways}). 1.0 disables the discount
+     */
+    public final Setting<Double> elytraHighwayCostMultiplier = new Setting<>(0.5);
+
+    /**
+     * Cost multiplier applied to elytra path nodes whose floor is blue ice (the standard
+     * player-built highway surface), once highway continuity is established
+     * (see {@link #elytraPreferHighways}). Must be &le; {@link #elytraHighwayCostMultiplier}
+     * for blue ice to be preferred over packed ice
+     */
+    public final Setting<Double> elytraBlueIceCostMultiplier = new Setting<>(0.35);
+
+    /**
      * Verbose chat logging in elytra mode
      */
     public final Setting<Boolean> elytraChatSpam = new Setting<>(false);

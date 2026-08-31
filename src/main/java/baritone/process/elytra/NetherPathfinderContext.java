@@ -39,8 +39,10 @@ import sun.misc.Unsafe;
 import java.lang.ref.SoftReference;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
+import java.util.BitSet;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeSet;
@@ -104,6 +106,27 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
     private final TreeSet<PackTask> pendingPacks = new TreeSet<>(Comparator.comparingInt(PackTask::distance));
     private final Map<Long, PackTask> pendingByKey = new HashMap<>();
     private volatile BlockPos playerPosForPacking = new BlockPos(0, 0, 0);
+
+    // --- Highway (ice road) index (roadmap item 2 part 1) ---
+    // Per-chunk positions of packed/blue ice, built as a side product of chunk packing
+    // (writeChunkData already walks every real BlockState in the palette) and of block
+    // updates. The native octree stores only solid/air, so ice identity would otherwise be
+    // lost; this index lets the highway cost model probe node floors WITHOUT any extra chunk
+    // loads or world access in the A* hot path.
+    // Lock discipline: same as the native chunk data — mutations (packing, block updates,
+    // cull sweeps) hold the write lock, lookups (pathfind executors) hold the read lock.
+    private final Map<Long, ChunkIceIndex> iceFloors = new HashMap<>();
+
+    /** Packed/blue ice positions of one chunk, bit index (y << 8) | (z << 4) | x, y minY-relative. */
+    private static final class ChunkIceIndex {
+        static final int BITS = 384 * 16 * 16; // minY-relative heights * 16x16 columns
+        final BitSet packedIce = new BitSet(BITS);
+        final BitSet blueIce = new BitSet(BITS);
+
+        static int bitIndex(int x, int y, int z) {
+            return (y << 8) | (z << 4) | (x & 0xF);
+        }
+    }
 
     // --- Deterministic segment cache (plan item 19) ---
     // Bounded LRU keyed by (src, dst, generate, atLeastX4, refine). Re-plans after a
@@ -184,6 +207,8 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
                 boi.chunkPtr = 0L;
                 this.boi.chunkPtr = 0L;
                 NetherPathfinder.cullFarChunks(this.context, chunkX, chunkZ, maxDistanceBlocks);
+                // keep the highway ice index in sync with the native cache
+                this.sweepIceIndex(chunkX, chunkZ, maxDistanceBlocks);
             } finally {
                 this.writeLock.unlock();
             }
@@ -230,6 +255,8 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
                     if (pos.getY() < 0 || pos.getY() >= this.maxHeight) return;
                     boolean isSolid = pair.second() != AIR_BLOCK_STATE;
                     Octree.setBlock(ptr, pos.getX() & 15, pos.getY(), pos.getZ() & 15, isSolid);
+                    // keep the highway ice index in sync with real block changes
+                    this.updateIceIndex(pos.getX(), pos.getY(), pos.getZ(), pair.second());
                 });
             } finally {
                 this.writeLock.unlock();
@@ -363,6 +390,129 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
         return !this.boi.get0(x, y, z);
     }
 
+    private static long chunkKey(int chunkX, int chunkZ) {
+        return ((long) chunkX << 32) | (chunkZ & 0xFFFFFFFFL);
+    }
+
+    private static long chunkKey(ChunkPos pos) {
+        return chunkKey(pos.x(), pos.z());
+    }
+
+    /**
+     * Floor kind for an elytra path node, probed 1..4 blocks below it (nearest block wins),
+     * one of {@link HighwayCostModel#FLOOR_NONE}, {@link HighwayCostModel#FLOOR_PACKED_ICE}
+     * or {@link HighwayCostModel#FLOOR_BLUE_ICE}.
+     * <p>
+     * Reads the highway ice index ({@link #iceFloors}) built from chunk data this context
+     * has already packed — a pure in-memory lookup with no chunk loads and no world access,
+     * safe for the A* hot path. Returns {@link HighwayCostModel#FLOOR_NONE} for chunks that
+     * have not been packed yet (unknown terrain is never discounted).
+     * <p>
+     * Must be called with the context read lock held (e.g. from a pathfind executor).
+     *
+     * @param x world X of the node
+     * @param y world Y of the node
+     * @param z world Z of the node
+     * @return the effective floor kind of the node
+     */
+    public int highwayFloorKind(int x, int y, int z) {
+        final ChunkIceIndex index = this.iceFloors.get(chunkKey(x >> 4, z >> 4));
+        if (index == null) {
+            return HighwayCostModel.FLOOR_NONE;
+        }
+        final int maxIndexedY = ChunkIceIndex.BITS >> 8; // 384
+        final int[] probes = new int[HighwayCostModel.FLOOR_PROBE_DEPTH];
+        for (int depth = 1; depth <= HighwayCostModel.FLOOR_PROBE_DEPTH; depth++) {
+            final int ay = y - depth - this.minY;
+            if (ay < 0) {
+                break; // below the indexed world
+            }
+            if (ay >= maxIndexedY) {
+                continue; // node itself is above the indexed world, keep probing down
+            }
+            final int bit = ChunkIceIndex.bitIndex(x, ay, z);
+            if (index.blueIce.get(bit)) {
+                probes[depth - 1] = HighwayCostModel.FLOOR_BLUE_ICE;
+            } else if (index.packedIce.get(bit)) {
+                probes[depth - 1] = HighwayCostModel.FLOOR_PACKED_ICE;
+            } else {
+                probes[depth - 1] = HighwayCostModel.FLOOR_NONE;
+            }
+        }
+        return HighwayCostModel.floorKindFromProbes(probes);
+    }
+
+    /**
+     * Per-node highway cost multiplier (roadmap item 2 part 1): nodes over an ice floor get
+     * discounted once highway continuity is established — at least 2 of the last 4 evaluated
+     * nodes also had an ice floor (rolling state in {@code continuity}; the first node of a
+     * stretch is always full price, so isolated ice patches never bias the path). Packed ice
+     * floors are discounted by {@code elytraHighwayCostMultiplier}, blue ice floors (the
+     * standard player-built highway surface) by the lower {@code elytraBlueIceCostMultiplier}.
+     * Returns 1.0 when {@code elytraPreferHighways} is off.
+     * <p>
+     * <b>Integration note:</b> the A* itself runs in the native nether-pathfinder library,
+     * which evaluates node costs internally and currently exposes no per-node cost callback
+     * (its only cost knob is the flat {@code fakeChunkCost}). This method is the Java-side
+     * per-node cost evaluation contract; it is unit-tested in
+     * {@code HighwayCostModelTest} and is the hook the native cost callback (or a Java-side
+     * refinement pass) consumes. Floor lookups here never trigger chunk loads.
+     * <p>
+     * Must be called with the context read lock held (e.g. from a pathfind executor).
+     *
+     * @param x          world X of the node
+     * @param y          world Y of the node
+     * @param z          world Z of the node
+     * @param continuity per-search rolling continuity state
+     * @return the multiplier to apply to the node's base cost (1.0 = no discount)
+     */
+    public double highwayNodeCostMultiplier(int x, int y, int z, HighwayCostModel continuity) {
+        if (!Baritone.settings().elytraPreferHighways.value) {
+            return 1.0;
+        }
+        return continuity.nodeCostMultiplier(this.highwayFloorKind(x, y, z));
+    }
+
+    /** Updates the highway ice index for a single block change. Called under the write lock. */
+    private void updateIceIndex(int x, int y, int z, BlockState newState) {
+        final boolean isPackedIce = newState == Blocks.PACKED_ICE.defaultBlockState();
+        final boolean isBlueIce = newState == Blocks.BLUE_ICE.defaultBlockState();
+        final long key = chunkKey(x >> 4, z >> 4);
+        final ChunkIceIndex index = this.iceFloors.get(key);
+        if (index == null) {
+            return; // chunk never had ice; new ice appears on the next repack
+        }
+        final int bit = ChunkIceIndex.bitIndex(x, y - this.minY, z);
+        if (isPackedIce | isBlueIce) {
+            if (isPackedIce) {
+                index.packedIce.set(bit);
+            }
+            if (isBlueIce) {
+                index.blueIce.set(bit);
+            }
+        } else {
+            index.packedIce.clear(bit);
+            index.blueIce.clear(bit);
+        }
+    }
+
+    /** Drops highway ice index entries for chunks culled from the native cache. Called under the write lock. */
+    private void sweepIceIndex(int chunkX, int chunkZ, int maxDistanceBlocks) {
+        final long maxDistSq = (long) maxDistanceBlocks * maxDistanceBlocks;
+        final Iterator<Map.Entry<Long, ChunkIceIndex>> it = this.iceFloors.entrySet().iterator();
+        while (it.hasNext()) {
+            final Map.Entry<Long, ChunkIceIndex> entry = it.next();
+            final long key = entry.getKey();
+            final int cx = (int) (key >> 32);
+            final int cz = (int) key; // low 32 bits, sign-extended by the cast
+            final int dx = (cx * 16 + 8) - (chunkX * 16 + 8);
+            final int dz = (cz * 16 + 8) - (chunkZ * 16 + 8);
+            if ((long) dx * dx + (long) dz * dz > maxDistSq) {
+                it.remove();
+            }
+        }
+    }
+
     public void cancel() {
         NetherPathfinder.cancel(this.context);
     }
@@ -452,8 +602,12 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
         return this.maxHeight;
     }
 
-    private static void writeChunkData(LevelChunk chunk, long chunkPtr) {
+    private void writeChunkData(LevelChunk chunk, long chunkPtr) {
         try {
+            // Rebuild the highway (ice) index for this chunk from scratch — a repack must not
+            // leave stale ice bits behind (see iceFloors). Called under the write lock.
+            final ChunkIceIndex freshIceIndex = new ChunkIceIndex();
+            this.iceFloors.put(chunkKey(chunk.getPos()), freshIceIndex);
             LevelChunkSection[] chunkInternalStorageArray = chunk.getSections();
             final int maxSections = Math.min(chunkInternalStorageArray.length, 24); // pathfinder support stops at 384/16 sections
             for (int y0 = 0; y0 < maxSections; y0++) {
@@ -470,12 +624,16 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
                 int caveAirId = -1;
                 int redMushroomId = -1;
                 int brownMushroomId = -1;
+                int packedIceId = -1;
+                int blueIceId = -1;
                 for (int i = 0; i < palette.getSize(); i++) {
                     BlockState bs = palette.valueFor(i);
                     if (bs == Blocks.AIR.defaultBlockState()) airId = i;
                     else if (bs == Blocks.CAVE_AIR.defaultBlockState()) caveAirId = i;
                     else if (bs == Blocks.RED_MUSHROOM.defaultBlockState()) redMushroomId = i;
                     else if (bs == Blocks.BROWN_MUSHROOM.defaultBlockState()) brownMushroomId = i;
+                    else if (bs == Blocks.PACKED_ICE.defaultBlockState()) packedIceId = i;
+                    else if (bs == Blocks.BLUE_ICE.defaultBlockState()) blueIceId = i;
                 }
                 if (airId == -1 & caveAirId == -1) {
                     final long bytesInSection = SECTION_SIZE / 8;
@@ -491,6 +649,7 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
                 long maxEntryValue = (1L << bitsPerEntry) - 1L;
 
                 final int yReal = y0 << 4;
+                final ChunkIceIndex iceIndex = (packedIceId != -1 | blueIceId != -1) ? freshIceIndex : null;
                 for (int i = 0, idx = 0; i < longArray.length && idx < arraySize; ++i) {
                     long l = longArray[i];
                     for (int offset = 0; offset <= (64 - bitsPerEntry) && idx < arraySize; offset += bitsPerEntry, ++idx) {
@@ -498,6 +657,16 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
                         int x = (idx & 15);
                         int y = yReal + (idx >> 8);
                         int z = ((idx >> 4) & 15);
+
+                        // Highway index: record ice positions so the cost model can probe
+                        // floors without touching the world (see iceFloors).
+                        if (iceIndex != null) {
+                            if (value == packedIceId) {
+                                iceIndex.packedIce.set(ChunkIceIndex.bitIndex(x, y, z));
+                            } else if (value == blueIceId) {
+                                iceIndex.blueIce.set(ChunkIceIndex.bitIndex(x, y, z));
+                            }
+                        }
 
                         // Avoid unnecessary writes that may trigger a page allocation
                         if (!(value == airId | value == caveAirId) & value != redMushroomId & value != brownMushroomId) {
