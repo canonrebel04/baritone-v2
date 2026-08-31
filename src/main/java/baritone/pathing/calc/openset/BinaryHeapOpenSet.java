@@ -62,8 +62,10 @@ public final class BinaryHeapOpenSet implements IOpenSet {
             array = Arrays.copyOf(array, array.length << 1);
         }
         size++;
+        // ⚡ Bolt Optimization: Priority Queue Half-Exchange
+        // Defer array and heapPosition assignment until update() finishes finding the target index
+        // to minimize redundant memory stores.
         value.heapPosition = size;
-        array[size] = value;
         update(value);
     }
 
@@ -96,18 +98,18 @@ public final class BinaryHeapOpenSet implements IOpenSet {
         }
         PathNode result = array[1];
         PathNode val = array[size];
-        array[1] = val;
-        val.heapPosition = 1;
         array[size] = null;
         size--;
         result.heapPosition = -1;
-        if (size < 2) {
+        if (size < 1) {
             return result;
         }
+        // ⚡ Bolt Optimization: Priority Queue Half-Exchange
+        // Defer array and heapPosition assignment until the sift-down finishes finding the target index.
         int index = 1;
         int smallerChild = 2;
         double cost = val.combinedCost;
-        do {
+        while (smallerChild <= size) {
             PathNode smallerChildNode = array[smallerChild];
             double smallerChildCost = smallerChildNode.combinedCost;
             if (smallerChild < size) {
@@ -125,7 +127,8 @@ public final class BinaryHeapOpenSet implements IOpenSet {
             array[index] = smallerChildNode;
             smallerChildNode.heapPosition = index;
             index = smallerChild;
-        } while ((smallerChild <<= 1) <= size);
+            smallerChild <<= 1;
+        }
         array[index] = val;
         val.heapPosition = index;
         return result;
