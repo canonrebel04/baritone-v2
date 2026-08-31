@@ -135,7 +135,13 @@ public interface IRenderer {
     static void endLines(BufferBuilder bufferBuilder, boolean ignoredDepth) {
         MeshData meshData = bufferBuilder.build();
         if (meshData != null) {
-            if (ignoredDepth) {
+            if (ShaderCompat.shaderPackRenderingActive()) {
+                // Iris fallback: custom pipelines (non-vanilla blend/depth state) are invisible
+                // to Iris's frame graph and conflict with the shader program state. Vanilla
+                // lines pipelines are fully Iris-managed. Note: the no-depth (x-ray) variant
+                // degrades to depth-tested lines under Iris — vanilla has no no-depth lines.
+                RenderTypes.lines().draw(meshData);
+            } else if (ignoredDepth) {
                 linesNoDepthRenderType.draw(meshData);
             } else {
                 linesWithDepthRenderType.draw(meshData);
@@ -234,6 +240,11 @@ public interface IRenderer {
     }
 
     static RenderType beaconBeam(Identifier identifier, boolean bl) {
+        if (ShaderCompat.shaderPackRenderingActive()) {
+            // Iris fallback: vanilla beacon beam pipeline (Iris-managed) instead of Baritone's
+            // custom ALWAYS_PASS-depth variant.
+            return RenderTypes.beaconBeam(identifier, bl);
+        }
         return BEACON_BEAM.apply(identifier, bl);
     }
 
