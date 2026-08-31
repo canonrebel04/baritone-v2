@@ -78,6 +78,7 @@ public class Baritone implements IBaritone {
     private final CustomGoalProcess customGoalProcess;
     private final BuilderProcess builderProcess;
     private final ExploreProcess exploreProcess;
+    public final FrontierExplorerProcess frontierExplorerProcess;
     private final FarmProcess farmProcess;
     private final InventoryPauserProcess inventoryPauserProcess;
     private final IElytraProcess elytraProcess;
@@ -121,6 +122,7 @@ public class Baritone implements IBaritone {
             this.getToBlockProcess       = this.registerProcess(GetToBlockProcess::new);
             this.builderProcess          = this.registerProcess(BuilderProcess::new);
             this.exploreProcess          = this.registerProcess(ExploreProcess::new);
+            this.frontierExplorerProcess = this.registerProcess(FrontierExplorerProcess::new);
             this.farmProcess             = this.registerProcess(FarmProcess::new);
             this.inventoryPauserProcess  = this.registerProcess(InventoryPauserProcess::new);
             this.elytraProcess           = this.registerProcess(ElytraProcess::create);

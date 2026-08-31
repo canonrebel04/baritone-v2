@@ -58,6 +58,7 @@ public final class DefaultCommands {
                 new ReloadAllCommand(baritone),
                 new SaveAllCommand(baritone),
                 new ExploreCommand(baritone),
+                new FrontierCommand(baritone),
                 new BlacklistCommand(baritone),
                 new FindCommand(baritone),
                 new MineCommand(baritone),
