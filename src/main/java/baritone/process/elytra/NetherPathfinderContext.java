@@ -77,6 +77,8 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
     public final ReentrantReadWriteLock.ReadLock readLock = rwl.readLock();
     public final ReentrantReadWriteLock.WriteLock writeLock = rwl.writeLock();
     private final int maxHeight;
+    /** Dimension identifier path (e.g. "the_nether") of the world this context paths in. */
+    private final String dimensionId;
 
     // Visible for access in BlockStateOctreeInterface
     final long context;
@@ -150,6 +152,7 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
             height = Math.min(height, 128);
         }
         this.maxHeight = height;
+        this.dimensionId = dimensionKey.identifier().getPath();
         this.context = NetherPathfinder.newContext(seed, cache != null ? cache.toString() : null, this.dimension, height, Baritone.settings().elytraCustomAllocator.value);
         this.seed = seed;
         this.boi = new BlockStateOctreeInterface(this);
@@ -626,6 +629,7 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
                 int brownMushroomId = -1;
                 int packedIceId = -1;
                 int blueIceId = -1;
+                int netherPortalId = -1;
                 for (int i = 0; i < palette.getSize(); i++) {
                     BlockState bs = palette.valueFor(i);
                     if (bs == Blocks.AIR.defaultBlockState()) airId = i;
@@ -634,6 +638,7 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
                     else if (bs == Blocks.BROWN_MUSHROOM.defaultBlockState()) brownMushroomId = i;
                     else if (bs == Blocks.PACKED_ICE.defaultBlockState()) packedIceId = i;
                     else if (bs == Blocks.BLUE_ICE.defaultBlockState()) blueIceId = i;
+                    else if (bs == Blocks.NETHER_PORTAL.defaultBlockState()) netherPortalId = i;
                 }
                 if (airId == -1 & caveAirId == -1) {
                     final long bytesInSection = SECTION_SIZE / 8;
@@ -666,6 +671,17 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
                             } else if (value == blueIceId) {
                                 iceIndex.blueIce.set(ChunkIceIndex.bitIndex(x, y, z));
                             }
+                        }
+
+                        // Portal discovery (elytra roadmap item 2b): emit observed nether
+                        // portal blocks into the static registry (see PortalKnowledge).
+                        if (netherPortalId != -1 && value == netherPortalId
+                                && Baritone.settings().elytraPortalDiscovery.value) {
+                            PortalKnowledge.recordPortal(
+                                    this.dimensionId,
+                                    chunk.getPos().x() * 16 + x,
+                                    y + this.minY,
+                                    chunk.getPos().z() * 16 + z);
                         }
 
                         // Avoid unnecessary writes that may trigger a page allocation

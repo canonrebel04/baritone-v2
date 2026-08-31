@@ -639,7 +639,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         this.tripLegIndex = startIndex;
         this.saveTripState();
         logDirect((startIndex > 0 ? "Resuming trip" : "Starting trip") + " with " + legs.size() + " legs, flying leg " + (startIndex + 1) + "/" + legs.size());
-        this.pathTo(this.tripLegs.get(this.tripLegIndex));
+        this.pathTo(this.checkPortalShortcut(this.tripLegs.get(this.tripLegIndex)));
     }
 
     @Override
@@ -678,11 +678,50 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         this.saveTripState();
         logDirect("leg " + (this.tripLegIndex + 1) + "/" + this.tripLegs.size() + " complete, continuing");
         try {
-            this.pathTo(this.tripLegs.get(this.tripLegIndex));
+            this.pathTo(this.checkPortalShortcut(this.tripLegs.get(this.tripLegIndex)));
         } catch (IllegalArgumentException e) {
             logDirect("Failed to continue trip: " + e.getMessage(), ChatFormatting.RED);
             this.cancelTrip();
         }
+    }
+
+    // =====================================================
+    // Nether portal shortcuts (elytra roadmap item 2b)
+    // =====================================================
+
+    /**
+     * Portal shortcut check before pathing a trip leg. If a known portal (see
+     * {@code PortalKnowledge}, populated by chunk packing when {@code elytraPortalDiscovery}
+     * observes nether portal blocks) is near the leg's start and its other side — via the /8
+     * coordinate mapping — is near the leg's target, a chat note is emitted and, when
+     * {@code elytraUsePortalShortcuts} is enabled, the portal is inserted as an intermediate
+     * trip leg (the original target stays queued after it) and returned as the leg to fly now.
+     *
+     * @param legTarget the leg's original target
+     * @return the position to actually path this leg to (the portal, or the original target)
+     */
+    private GoalXZ checkPortalShortcut(GoalXZ legTarget) {
+        if (ctx.player() == null || ctx.world() == null
+                || (!Baritone.settings().elytraPortalDiscovery.value && !Baritone.settings().elytraUsePortalShortcuts.value)) {
+            return legTarget;
+        }
+        PortalKnowledge.Portal portal = PortalKnowledge.findShortcut(
+                ctx.world().dimension().identifier().getPath(),
+                ctx.playerFeet().getX(), ctx.playerFeet().getZ(),
+                legTarget.getX(), legTarget.getZ());
+        if (portal == null) {
+            return legTarget;
+        }
+        logDirect("portal shortcut available, routing via portal at (" + portal.x + ", " + portal.z + ")");
+        if (!Baritone.settings().elytraUsePortalShortcuts.value
+                || this.tripLegs == null
+                // already at (or just flew to) this portal: don't loop on shortcut legs
+                || this.tripLegs.stream().anyMatch(leg -> leg.getX() == portal.x && leg.getZ() == portal.z)) {
+            return legTarget;
+        }
+        this.tripLegs.add(this.tripLegIndex + 1, legTarget);
+        this.saveTripState();
+        return new GoalXZ(portal.x, portal.z);
     }
 
     private Path tripFile() {
@@ -897,6 +936,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     public void onWorldEvent(WorldEvent event) {
         if (event.getWorld() != null && event.getState() == EventState.POST) {
             // Exiting the world, just destroy
+            PortalKnowledge.saveAll(); // persist portal discoveries (elytra roadmap item 2b)
             destroyBehaviorAsync();
             // allow trip resume to be attempted again when joining the next world
             this.tripResumeAttempted = false;
@@ -910,6 +950,16 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
      */
     @Override
     public void onTick(TickEvent event) {
+        if (event.getState() == EventState.POST
+                && ctx.player() != null
+                && ctx.world() != null
+                && baritone.getWorldProvider().getCurrentWorld() != null) {
+            // portal knowledge (elytra roadmap item 2b): keep the persistence directory and the
+            // current dimension's portal file in sync while a world is joined
+            PortalKnowledge.syncWorldDirectory(
+                    baritone.getWorldProvider().getCurrentWorld().directory,
+                    ctx.world().dimension().identifier().getPath());
+        }
         if (event.getState() != EventState.POST
                 || this.behavior != null
                 || this.tripLegs != null

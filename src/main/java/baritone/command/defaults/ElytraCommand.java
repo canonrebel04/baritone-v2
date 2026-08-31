@@ -29,6 +29,8 @@ import baritone.api.pathing.goals.GoalBlock;
 import baritone.api.pathing.goals.GoalXZ;
 import baritone.api.process.ICustomGoalProcess;
 import baritone.api.process.IElytraProcess;
+import baritone.cache.WorldData;
+import baritone.process.elytra.PortalKnowledge;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.ClickEvent;
@@ -128,6 +130,29 @@ public class ElytraCommand extends Command {
                     logDirect("No active trip");
                 } else {
                     elytra.cancelTrip();
+                }
+                break;
+            }
+            case "portals": {
+                if (ctx.world() == null) {
+                    throw new CommandInvalidStateException("Not in a world");
+                }
+                final String dimensionId = ctx.world().dimension().identifier().getPath();
+                final WorldData world = (WorldData) baritone.getWorldProvider().getCurrentWorld();
+                if (world != null) {
+                    // load the dimension's portal file if it hasn't been loaded yet this session
+                    PortalKnowledge.syncWorldDirectory(world.directory, dimensionId);
+                }
+                final List<PortalKnowledge.Portal> portals = PortalKnowledge.known(dimensionId);
+                if (portals.isEmpty()) {
+                    logDirect("No known nether portals in this dimension. Portals are discovered automatically while baritone walks or flies near them (see elytraPortalDiscovery).");
+                } else {
+                    logDirect(portals.size() + " known portal(s) in this dimension:");
+                    for (PortalKnowledge.Portal portal : portals) {
+                        logDirect(String.format(
+                                "  portal at (%d, %d, %d) — overworld side (%d, %d) [%s]",
+                                portal.x, portal.y, portal.z, portal.overworldX, portal.overworldZ, portal.side));
+                    }
                 }
                 break;
             }
@@ -254,7 +279,7 @@ public class ElytraCommand extends Command {
     public Stream<String> tabComplete(String label, IArgConsumer args) throws CommandException {
         TabCompleteHelper helper = new TabCompleteHelper();
         if (args.hasExactlyOne()) {
-            helper.append("reset", "repack", "supported", "trip", "cancel");
+            helper.append("reset", "repack", "supported", "trip", "cancel", "portals");
         }
         return helper.filterPrefix(args.getString()).stream();
     }
@@ -274,6 +299,7 @@ public class ElytraCommand extends Command {
                 "> elytra <x> <z> [y] - fly to the specified coordinates",
                 "> elytra trip <x1> <z1> <x2> <z2> [...] - fly a multi-leg trip: land at each waypoint, then continue to the next leg automatically",
                 "> elytra cancel - cancel the current trip and clear its saved progress",
+                "> elytra portals - list the nether portals known in this dimension (discovered automatically, used for portal shortcuts)",
                 "> elytra reset - Resets the state of the process, but will try to keep flying to the same goal.",
                 "> elytra repack - Queues all of the chunks in render distance to be given to the native library.",
                 "> elytra supported - Tells you if baritone ships a native library that is compatible with your PC."

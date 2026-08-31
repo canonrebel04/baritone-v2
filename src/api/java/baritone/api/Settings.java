@@ -1736,6 +1736,24 @@ public final class Settings {
     public final Setting<Boolean> elytraRequireFireworkBudget = new Setting<>(false);
 
     /**
+     * Nether portal discovery (elytra roadmap item 2b): record the positions of nether portals
+     * observed while pathing or elytra flying (see {@code ChunkPacker} and the nether pathfinder
+     * chunk packing) into {@code <dimension>-portals.json} in the baritone world folder, so
+     * multi-leg trips can detect portal shortcuts (see {@link #elytraUsePortalShortcuts}).
+     */
+    public final Setting<Boolean> elytraPortalDiscovery = new Setting<>(true);
+
+    /**
+     * Nether portal shortcuts (elytra roadmap item 2b): when starting or advancing a multi-leg
+     * elytra trip (see {@code .elytra trip}), if a known portal (see {@link #elytraPortalDiscovery})
+     * is near the leg's start (within 64 blocks) and its other side (via the /8 coordinate
+     * mapping) is near the leg's target, route through it: the portal is inserted as an
+     * intermediate trip leg. Opt-in: with the default value the shortcut is only reported in
+     * chat and the leg is flown directly.
+     */
+    public final Setting<Boolean> elytraUsePortalShortcuts = new Setting<>(false);
+
+    /**
      * Sneak when magma blocks are under feet
      */
     public final Setting<Boolean> allowWalkOnMagmaBlocks = new Setting<>(false);

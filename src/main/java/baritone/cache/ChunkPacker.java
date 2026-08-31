@@ -17,8 +17,10 @@
 
 package baritone.cache;
 
+import baritone.Baritone;
 import baritone.api.utils.BlockUtils;
 import baritone.pathing.movement.MovementHelper;
+import baritone.process.elytra.PortalKnowledge;
 import baritone.utils.pathing.PathingBlockType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
@@ -81,6 +83,15 @@ public final class ChunkPacker {
                             if (CachedChunk.BLOCKS_TO_KEEP_TRACK_OF.contains(block)) {
                                 String name = BlockUtils.blockToString(block);
                                 specialBlocks.computeIfAbsent(name, b -> new ArrayList<>()).add(new BlockPos(x, y+chunk.getMinY(), z));
+                                if (block == Blocks.NETHER_PORTAL && Baritone.settings().elytraPortalDiscovery.value) {
+                                    // elytra roadmap item 2b: feed observed nether portals into the
+                                    // static registry (same side-product pattern as ChunkIceIndex)
+                                    PortalKnowledge.recordPortal(
+                                            chunk.getLevel().dimension().identifier().getPath(),
+                                            (chunk.getPos().x() << 4) + x,
+                                            y + chunk.getMinY(),
+                                            (chunk.getPos().z() << 4) + z);
+                                }
                             }
                         }
                     }
