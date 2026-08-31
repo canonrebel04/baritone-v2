@@ -28,8 +28,9 @@ import org.gradle.jvm.toolchain.JavaToolchainService;
 import xyz.wagyourtail.unimined.api.UniminedExtension;
 import xyz.wagyourtail.unimined.api.minecraft.MinecraftConfig;
 
-import java.io.*;
-import java.net.URL;
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -92,7 +93,8 @@ public class ProguardTask extends BaritoneGradleTask {
     private void downloadProguard() throws Exception {
         Path proguardZip = getTemporaryFile(String.format(PROGUARD_ZIP, proguardVersion));
         if (!Files.exists(proguardZip)) {
-            write(new URL(String.format("https://github.com/Guardsquare/proguard/releases/download/v%s/proguard-%s.zip", proguardVersion, proguardVersion)).openStream(), proguardZip);
+            String downloadAddress = String.format("https://github.com/Guardsquare/proguard/releases/download/v%s/proguard-%s.zip", proguardVersion, proguardVersion);
+            write(new URI(downloadAddress).toURL().openStream(), proguardZip);
         }
     }
 

@@ -38,6 +38,7 @@ import sun.misc.Unsafe;
 
 import java.lang.ref.SoftReference;
 import java.lang.reflect.Field;
+import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -48,40 +49,45 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * @author Brady
  */
-public final class NetherPathfinderContext {
+public final class NetherPathfinderContext implements IElytraPathFinder {
 
-    private static final BlockState AIR_BLOCK_STATE = Blocks.AIR.defaultBlockState();
-
-    // Bulk-fill fully-solid octree sections in one call instead of 4096 setBlock calls.
-    private static final int SECTION_SIZE = 16 * 16 * 16;
-    private static final int SECTION_BYTES = SECTION_SIZE / 8;
     private static final Unsafe UNSAFE;
     static {
         try {
             Field f = Unsafe.class.getDeclaredField("theUnsafe");
             f.setAccessible(true);
             UNSAFE = (Unsafe) f.get(null);
-        } catch (ReflectiveOperationException ex) {
+        } catch (Exception ex) {
             throw new RuntimeException(ex);
         }
     }
+    private static final BlockState AIR_BLOCK_STATE = Blocks.AIR.defaultBlockState();
+    private static final int SECTION_SIZE = 16;
+    // This lock must be held while there are active pointers to chunks in java,
+    // but we just hold it for the entire tick so we don't have to think much about it.
+    public final ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
+    public final ReentrantReadWriteLock.ReadLock readLock = rwl.readLock();
+    public final ReentrantReadWriteLock.WriteLock writeLock = rwl.writeLock();
+    private final int maxHeight;
 
     // Visible for access in BlockStateOctreeInterface
     final long context;
     private final long seed;
+    // Native dimension constant (DIMENSION_NETHER / _END / _OVERWORLD)
     private final int dimension;
-    private final int maxHeight;
+    final int minY;
+    private final BlockStateOctreeInterface boi;
 
     // --- Phase 2 threading (plan item 28) ---
     // The native lib does NO internal synchronization: reads (raytrace, passable, octree
     // lookups, non-generating pathfinds) must hold the read lock; mutations (chunk packing,
     // block updates, culling, seed-generation pathfinds) must hold the write lock.
-    public final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
 
     // writeExecutor: mutations only (packing, block updates, culling, generating pathfinds).
     // packExecutor: chunk packing with nearest-first priority + bounded queue (plan item 9).
@@ -103,21 +109,27 @@ public final class NetherPathfinderContext {
     // Bounded LRU keyed by (src, dst, generate, atLeastX4, refine). Re-plans after a
     // setback/recalc return the SAME path (stable flight) and re-#elytra is instant.
     private static final int PATH_CACHE_MAX = 64;
-    private final LinkedHashMap<PathKey, PathSegment> pathCache = new LinkedHashMap<>(PATH_CACHE_MAX, 0.75f, true) {
+    private final LinkedHashMap<PathKey, UnpackedSegment> pathCache = new LinkedHashMap<>(PATH_CACHE_MAX, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<PathKey, PathSegment> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<PathKey, UnpackedSegment> eldest) {
             return size() > PATH_CACHE_MAX;
         }
     };
 
-    public NetherPathfinderContext(long seed, ResourceKey<Level> dimensionKey, int maxHeight) {
+    public NetherPathfinderContext(long seed, Path cache, Level world) {
+        final ResourceKey<Level> dimensionKey = world.dimension();
         this.dimension = dimensionKey == Level.NETHER ? NetherPathfinder.DIMENSION_NETHER
                 : dimensionKey == Level.END ? NetherPathfinder.DIMENSION_END
                 : NetherPathfinder.DIMENSION_OVERWORLD;
-        this.maxHeight = maxHeight;
-        // baritoneCacheDir = null (no disk cache yet), allocator = false (keep new/delete for safety)
-        this.context = NetherPathfinder.newContext(seed, null, this.dimension, this.maxHeight, false);
+        this.minY = world.dimensionType().minY();
+        int height = Math.min(world.dimensionType().height(), 384);
+        if (!Baritone.settings().elytraAllowAboveRoof.value && this.dimension == NetherPathfinder.DIMENSION_NETHER) {
+            height = Math.min(height, 128);
+        }
+        this.maxHeight = height;
+        this.context = NetherPathfinder.newContext(seed, cache != null ? cache.toString() : null, this.dimension, height, Baritone.settings().elytraCustomAllocator.value);
         this.seed = seed;
+        this.boi = new BlockStateOctreeInterface(this);
         this.writeExecutor = Executors.newSingleThreadExecutor();
         this.packExecutor = Executors.newSingleThreadExecutor();
         this.readExecutor = Executors.newSingleThreadExecutor();
@@ -145,16 +157,18 @@ public final class NetherPathfinderContext {
                 }
                 continue;
             }
-            this.rwLock.writeLock().lock();
+            this.writeLock.lock();
             try {
                 final LevelChunk chunk = task.ref.get();
                 if (chunk != null) {
+                    // we might free this chunk
+                    this.boi.chunkPtr = 0L;
                     long ptr = NetherPathfinder.allocateAndInsertChunk(this.context, task.chunkX, task.chunkZ);
                     writeChunkData(chunk, ptr);
                     NetherPathfinder.setChunkState(this.context, task.chunkX, task.chunkZ, true);
                 }
             } finally {
-                this.rwLock.writeLock().unlock();
+                this.writeLock.unlock();
             }
         }
     }
@@ -165,12 +179,13 @@ public final class NetherPathfinderContext {
 
     public void queueCacheCulling(int chunkX, int chunkZ, int maxDistanceBlocks, BlockStateOctreeInterface boi) {
         this.writeExecutor.execute(() -> {
-            this.rwLock.writeLock().lock();
+            this.writeLock.lock();
             try {
                 boi.chunkPtr = 0L;
+                this.boi.chunkPtr = 0L;
                 NetherPathfinder.cullFarChunks(this.context, chunkX, chunkZ, maxDistanceBlocks);
             } finally {
-                this.rwLock.writeLock().unlock();
+                this.writeLock.unlock();
             }
         });
     }
@@ -204,24 +219,27 @@ public final class NetherPathfinderContext {
 
     public void queueBlockUpdate(BlockChangeEvent event) {
         this.writeExecutor.execute(() -> {
-            this.rwLock.writeLock().lock();
+            ChunkPos chunkPos = event.getChunkPos();
+            // not inserting or deleting from the cache hashmap but it would still be bad for this function to race with itself
+            this.writeLock.lock();
             try {
-                ChunkPos chunkPos = event.getChunkPos();
                 long ptr = NetherPathfinder.getChunk(this.context, chunkPos.x(), chunkPos.z());
                 if (ptr == 0) return; // this shouldn't ever happen
                 event.getBlocks().forEach(pair -> {
-                    BlockPos pos = pair.first();
+                    BlockPos pos = pair.first().below(minY);
                     if (pos.getY() < 0 || pos.getY() >= this.maxHeight) return;
                     boolean isSolid = pair.second() != AIR_BLOCK_STATE;
                     Octree.setBlock(ptr, pos.getX() & 15, pos.getY(), pos.getZ() & 15, isSolid);
                 });
             } finally {
-                this.rwLock.writeLock().unlock();
+                this.writeLock.unlock();
             }
         });
     }
 
-    public CompletableFuture<PathSegment> pathFindAsync(final BlockPos src, final BlockPos dst) {
+    public CompletableFuture<UnpackedSegment> pathFindAsync(final BlockPos src, final BlockPos dst) {
+        final BlockPos adjustedSrc = src.below(minY);
+        final BlockPos adjustedDst = dst.below(minY);
         // Only generate terrain from the seed in the nether — the native generator is a
         // nether world-gen port; other dimensions must treat unloaded chunks as air.
         final boolean generate = Baritone.settings().elytraPredictTerrain.value && this.dimension == NetherPathfinder.DIMENSION_NETHER;
@@ -231,50 +249,46 @@ public final class NetherPathfinderContext {
         // Deterministic segment cache: identical (src, dst, settings) returns the cached path.
         final PathKey key = new PathKey(src, dst, generate, atLeastX4, refine);
         synchronized (this.pathCache) {
-            final PathSegment cached = this.pathCache.get(key);
+            final UnpackedSegment cached = this.pathCache.get(key);
             if (cached != null) {
                 return CompletableFuture.completedFuture(cached);
             }
         }
 
+        // Generating pathfinds mutate the chunk cache (seed terrain) -> write lock on the
+        // write executor; non-generating pathfinds only read -> read lock on the read executor.
+        final Lock lock = generate ? this.writeLock : this.readLock;
         final ExecutorService exec = generate ? this.writeExecutor : this.readExecutor;
         return CompletableFuture.supplyAsync(() -> {
-            // Generating pathfinds mutate the chunk cache (seed terrain) -> write lock;
-            // non-generating pathfinds only read -> read lock.
-            if (generate) this.rwLock.writeLock().lock(); else this.rwLock.readLock().lock();
+            lock.lock();
             try {
                 final PathSegment segment = NetherPathfinder.pathFind(
                         this.context,
-                        src.getX(), src.getY(), src.getZ(),
-                        dst.getX(), dst.getY(), dst.getZ(),
+                        adjustedSrc.getX(), adjustedSrc.getY(), adjustedSrc.getZ(),
+                        adjustedDst.getX(), adjustedDst.getY(), adjustedDst.getZ(),
                         atLeastX4, // require >=4 block clearance unless tight spaces allowed
                         refine, // refine pass smooths the node string
-                        10000,
-                        !generate,
+                        10000, // timeoutMs
+                        !generate, // useAirIfChunkNotLoaded
                         // Cost per node traversed through a chunk the native lib hasn't observed —
                         // makes A* prefer known/loaded routes over blind leaps into unloaded terrain.
-                        8.0
+                        8.0 // fakeChunkCost
                 );
                 if (segment == null) {
                     throw new PathCalculationException("Path calculation failed");
                 }
+
+                final UnpackedSegment unpacked = new UnpackedSegment(
+                        UnpackedSegment.from(segment).collect().stream().map(pos -> pos.above(minY)),
+                        segment.finished);
                 synchronized (this.pathCache) {
-                    this.pathCache.put(key, segment);
+                    this.pathCache.put(key, unpacked);
                 }
-                return segment;
+                return unpacked;
             } finally {
-                if (generate) this.rwLock.writeLock().unlock(); else this.rwLock.readLock().unlock();
+                lock.unlock();
             }
         }, exec);
-    }
-
-    /** Read lock helper for external readers (flight solver). */
-    public void acquireReadLock() {
-        this.rwLock.readLock().lock();
-    }
-
-    public void releaseReadLock() {
-        this.rwLock.readLock().unlock();
     }
 
     /**
@@ -291,7 +305,9 @@ public final class NetherPathfinderContext {
      */
     public boolean raytrace(final double startX, final double startY, final double startZ,
                             final double endX, final double endY, final double endZ) {
-        return NetherPathfinder.isVisible(this.context, NetherPathfinder.CACHE_MISS_SOLID, startX, startY, startZ, endX, endY, endZ);
+        final double adjustedStartY = startY - this.minY;
+        final double adjustedEndY = endY - this.minY;
+        return NetherPathfinder.isVisible(this.context, NetherPathfinder.CACHE_MISS_SOLID, startX, adjustedStartY, startZ, endX, adjustedEndY, endZ);
     }
 
     /**
@@ -303,10 +319,21 @@ public final class NetherPathfinderContext {
      * @return {@code true} if there is visibility between the points
      */
     public boolean raytrace(final Vec3 start, final Vec3 end) {
-        return NetherPathfinder.isVisible(this.context, NetherPathfinder.CACHE_MISS_SOLID, start.x, start.y, start.z, end.x, end.y, end.z);
+        final Vec3 adjustedStart = start.subtract(0, this.minY, 0);
+        final Vec3 adjustedEnd = end.subtract(0, this.minY, 0);
+        return NetherPathfinder.isVisible(this.context, NetherPathfinder.CACHE_MISS_SOLID, adjustedStart.x, adjustedStart.y, adjustedStart.z, adjustedEnd.x, adjustedEnd.y, adjustedEnd.z);
     }
 
     public boolean raytrace(final int count, final double[] src, final double[] dst, final int visibility) {
+        if (src.length != count * 3 || dst.length != count * 3) {
+            throw new IllegalArgumentException("Bad array lengths");
+        }
+
+        for(int i = 1; i < src.length; i+= 3) {
+            src[i] -= this.minY;
+            dst[i] -= this.minY;
+        }
+
         switch (visibility) {
             case Visibility.ALL:
                 return NetherPathfinder.isVisibleMulti(this.context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, false) == -1;
@@ -320,7 +347,20 @@ public final class NetherPathfinderContext {
     }
 
     public void raytrace(final int count, final double[] src, final double[] dst, final boolean[] hitsOut, final double[] hitPosOut) {
+        if (src.length != count * 3 || dst.length != count * 3) {
+            throw new IllegalArgumentException("Bad array lengths");
+        }
+
+        for(int i = 1; i < src.length; i+= 3) {
+            src[i] -= this.minY;
+            dst[i] -= this.minY;
+        }
+
         NetherPathfinder.raytrace(this.context, NetherPathfinder.CACHE_MISS_SOLID, count, src, dst, hitsOut, hitPosOut);
+    }
+
+    public boolean passable(int x, int y, int z) {
+        return !this.boi.get0(x, y, z);
     }
 
     public void cancel() {
@@ -396,24 +436,40 @@ public final class NetherPathfinderContext {
         return this.seed;
     }
 
-    private static void writeChunkData(LevelChunk chunk, long ptr) {
+    public void acquireReadLock() {
+        this.readLock.lock();
+    }
+
+    public boolean tryAcquireReadLock() {
+        return this.readLock.tryLock();
+    }
+
+    public void releaseReadLock() {
+        this.readLock.unlock();
+    }
+
+    public int getMaxHeight() {
+        return this.maxHeight;
+    }
+
+    private static void writeChunkData(LevelChunk chunk, long chunkPtr) {
         try {
-            LevelChunkSection[] sections = chunk.getSections();
-            int minSectionY = chunk.getMinY() >> 4;
-            for (int sectionIdx = 0; sectionIdx < sections.length; sectionIdx++) {
-                final LevelChunkSection section = sections[sectionIdx];
-                if (section == null || section.hasOnlyAir()) {
+            LevelChunkSection[] chunkInternalStorageArray = chunk.getSections();
+            final int maxSections = Math.min(chunkInternalStorageArray.length, 24); // pathfinder support stops at 384/16 sections
+            for (int y0 = 0; y0 < maxSections; y0++) {
+                final LevelChunkSection extendedblockstorage = chunkInternalStorageArray[y0];
+                if (extendedblockstorage == null || extendedblockstorage.hasOnlyAir()) {
                     continue;
                 }
-                final PalettedContainer<BlockState> bsc = section.getStates();
+                final PalettedContainer<BlockState> bsc = extendedblockstorage.getStates();
                 IPalettedContainer<BlockState> iPalettedContainer = (IPalettedContainer<BlockState>) bsc;
-                // Single palette pass to find air/cave-air/mushroom ids (idFor can't be used —
-                // it may update the palette and trigger page allocation).
+                var palette = iPalettedContainer.getPalette();
+                // Mushrooms spawn on the roof and writing them as solid will cause pages to be unnecessarily allocated.
+                // idFor can't be used because it may update the palette
                 int airId = -1;
                 int caveAirId = -1;
                 int redMushroomId = -1;
                 int brownMushroomId = -1;
-                var palette = iPalettedContainer.getPalette();
                 for (int i = 0; i < palette.getSize(); i++) {
                     BlockState bs = palette.valueFor(i);
                     if (bs == Blocks.AIR.defaultBlockState()) airId = i;
@@ -421,14 +477,9 @@ public final class NetherPathfinderContext {
                     else if (bs == Blocks.RED_MUSHROOM.defaultBlockState()) redMushroomId = i;
                     else if (bs == Blocks.BROWN_MUSHROOM.defaultBlockState()) brownMushroomId = i;
                 }
-                final int sectionY = minSectionY + sectionIdx;
-                final int yReal = sectionY << 4;
-                if (airId == -1 && caveAirId == -1) {
-                    // Section contains no air at all (fully solid) — bulk-fill the octree page
-                    // with 0xFF in one call instead of 4096 setBlock(true) calls.
-                    if (yReal >= 0 && yReal < 128) {
-                        UNSAFE.setMemory(ptr + ((long) yReal / 16) * SECTION_BYTES, SECTION_BYTES, (byte) 0xFF);
-                    }
+                if (airId == -1 & caveAirId == -1) {
+                    final long bytesInSection = SECTION_SIZE / 8;
+                    UNSAFE.setMemory(chunkPtr + (y0 * bytesInSection), bytesInSection, (byte) 0xFF);
                     continue;
                 }
                 // pasted from FasterWorldScanner
@@ -439,17 +490,18 @@ public final class NetherPathfinderContext {
                 int bitsPerEntry = array.getBits();
                 long maxEntryValue = (1L << bitsPerEntry) - 1L;
 
+                final int yReal = y0 << 4;
                 for (int i = 0, idx = 0; i < longArray.length && idx < arraySize; ++i) {
                     long l = longArray[i];
                     for (int offset = 0; offset <= (64 - bitsPerEntry) && idx < arraySize; offset += bitsPerEntry, ++idx) {
                         int value = (int) ((l >> offset) & maxEntryValue);
                         int x = (idx & 15);
                         int y = yReal + (idx >> 8);
-                        if (y < 0 || y >= 128) continue;
                         int z = ((idx >> 4) & 15);
-                        // Avoid unnecessary writes (air/cave-air/mushrooms) that may trigger a page allocation
+
+                        // Avoid unnecessary writes that may trigger a page allocation
                         if (!(value == airId | value == caveAirId) & value != redMushroomId & value != brownMushroomId) {
-                            Octree.setBlock(ptr, x, y, z, true);
+                            Octree.setBlock(chunkPtr, x, y, z, true);
                         }
                     }
                 }
@@ -460,16 +512,14 @@ public final class NetherPathfinderContext {
         }
     }
 
-    public static final class Visibility {
+    public static boolean isSupported() {
+        return NetherPathfinder.isThisSystemSupported();
+    }
 
+    public static final class Visibility {
         public static final int ALL = 0;
         public static final int NONE = 1;
         public static final int ANY = 2;
-
         private Visibility() {}
-    }
-
-    public static boolean isSupported() {
-        return NetherPathfinder.isThisSystemSupported();
     }
 }

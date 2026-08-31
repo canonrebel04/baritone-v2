@@ -324,11 +324,6 @@ public interface MovementHelper extends ActionCosts, Helper {
         return state.canBeReplaced();
     }
 
-    @Deprecated
-    static boolean isReplacable(int x, int y, int z, BlockState state, BlockStateInterface bsi) {
-        return isReplaceable(x, y, z, state, bsi);
-    }
-
     static boolean isReplaceable(CalculationContext context, int x, int y, int z, BlockState state) {
         return context.precomputedData.isReplaceable(context.bsi, x, y, z, state);
     }
@@ -436,7 +431,7 @@ public interface MovementHelper extends ActionCosts, Helper {
         if (block instanceof AzaleaBlock) {
             return YES;
         }
-        if (block == Blocks.LADDER || (block == Blocks.VINE && Baritone.settings().allowVines.value)) { // TODO reconsider this
+        if (block == Blocks.LADDER || (isClimbable(block) && Baritone.settings().allowVines.value)) { // TODO reconsider this
             return YES;
         }
         if (block == Blocks.FARMLAND || block == Blocks.DIRT_PATH || block == Blocks.SOUL_SAND) {
@@ -566,7 +561,7 @@ public interface MovementHelper extends ActionCosts, Helper {
      */
     static boolean mustBeSolidToWalkOn(CalculationContext context, int x, int y, int z, BlockState state) {
         Block block = state.getBlock();
-        if (block == Blocks.LADDER || block == Blocks.VINE) {
+        if (isClimbable(block)) {
             return false;
         }
         if (!state.getFluidState().isEmpty()) {
@@ -634,6 +629,20 @@ public interface MovementHelper extends ActionCosts, Helper {
 
     static boolean canPlaceAgainst(CalculationContext context, int x, int y, int z) {
         return canPlaceAgainst(context, x, y, z, context.get(x, y, z));
+    }
+
+    /**
+     * Can we climb up this block by pressing space while inside it?
+     * Also doubles as "If I start a movement on this, can weird things happen?"
+     * because movements can end/start on these blocks despite them not being canWalkOn.
+     */
+    static boolean isClimbable(Block block) {
+        return block == Blocks.LADDER
+            || block == Blocks.VINE
+            || block == Blocks.WEEPING_VINES
+            || block == Blocks.WEEPING_VINES_PLANT
+            || block == Blocks.TWISTING_VINES
+            || block == Blocks.TWISTING_VINES_PLANT;
     }
 
     static double getMiningDurationTicks(CalculationContext context, int x, int y, int z, boolean includeFalling) {

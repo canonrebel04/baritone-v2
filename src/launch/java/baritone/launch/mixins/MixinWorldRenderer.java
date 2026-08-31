@@ -25,9 +25,7 @@ import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
-import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Vector4f;
 import org.spongepowered.asm.mixin.Mixin;
@@ -43,15 +41,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class MixinWorldRenderer {
 
     @Inject(
-            method = "renderLevel",
+            method = "render",
             at = @At("RETURN")
     )
-    private void onStartHand(final GraphicsResourceAllocator graphicsResourceAllocator, final DeltaTracker deltaTracker, final boolean bl, final CameraRenderState cameraRenderState, final Matrix4fc worldMatrix, final GpuBufferSlice gpuBufferSlice, final Vector4f vector4f, final boolean bl2, final ChunkSectionsToRender chunkSectionsToRender, final CallbackInfo ci) {
+    private void onStartHand(final GraphicsResourceAllocator allocator, final DeltaTracker deltaTracker, final boolean outline, final CameraRenderState camera, final Matrix4fc modelViewMatrix, final GpuBufferSlice fog, final Vector4f fogColor, final boolean sky, final CallbackInfo ci) {
         for (IBaritone ibaritone : BaritoneAPI.getProvider().getAllBaritones()) {
             PoseStack poseStack = new PoseStack();
-            poseStack.mulPose(worldMatrix);
-            Matrix4f projection = new Matrix4f(cameraRenderState.projectionMatrix);
-            ibaritone.getGameEventHandler().onRenderPass(new RenderEvent(deltaTracker.getGameTimeDeltaPartialTick(false), poseStack, projection));
+            poseStack.mulPose(modelViewMatrix);
+            ibaritone.getGameEventHandler().onRenderPass(new RenderEvent(deltaTracker.getGameTimeDeltaPartialTick(false), poseStack, camera.projectionMatrix));
         }
     }
 }

@@ -20,7 +20,7 @@ import baritone.gradle.task.ProguardTask
 //import baritone.gradle.task.TweakerJsonAssembler
 
 plugins {
-    id "com.github.johnrengelman.shadow" version "8.0.0"
+    id "com.github.johnrengelman.shadow" version "8.1.1"
 }
 
 unimined.minecraft {
@@ -97,7 +97,7 @@ jar {
 }
 
 task proguard(type: ProguardTask) {
-    proguardVersion "7.8.2"
+    proguardVersion "7.9.1"
 }
 
 task createDist(type: CreateDistTask, dependsOn: proguard)

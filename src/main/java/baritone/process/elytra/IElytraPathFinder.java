@@ -15,15 +15,12 @@
  * along with Baritone.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package baritone.api.utils.gui;
+package baritone.process.elytra;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.toasts.SystemToast;
-import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
 
-public class BaritoneToast {
-    private static final SystemToast.SystemToastId BARITONE_TOAST_ID = new SystemToast.SystemToastId(5000L);
-    public static void addOrUpdate(Component title, Component subtitle) {
-        SystemToast.addOrUpdate(Minecraft.getInstance().gui.toastManager(), BARITONE_TOAST_ID, title, subtitle);
-    }
+import java.util.concurrent.CompletableFuture;
+
+public interface IElytraPathFinder {
+    CompletableFuture<UnpackedSegment> pathFindAsync(final BlockPos src, final BlockPos dst);
 }
