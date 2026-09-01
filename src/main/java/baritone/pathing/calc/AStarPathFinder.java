@@ -175,7 +175,9 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                 double tentativeCost = currentNode.cost + actionCost;
                 if (neighbor == null || neighbor.cost - tentativeCost > minimumImprovement) {
                     if (neighbor == null) {
-                        neighbor = getNodeAtPosition(res.x, res.y, res.z, hashCode);
+                        // ⚡ Bolt: Use createNodeAtPosition to bypass the redundant map.get()
+                        // lookup inside getNodeAtPosition since we already know the node doesn't exist
+                        neighbor = createNodeAtPosition(res.x, res.y, res.z, hashCode);
                     }
                     neighbor.previous = currentNode;
                     neighbor.cost = tentativeCost;
