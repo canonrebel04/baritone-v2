@@ -177,6 +177,16 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
         }
         return node;
     }
+    /**
+     * Creates and inserts a node directly into the map bypassing a redundant lookup.
+     * Should be used when peekNodeAtPosition returns null.
+     */
+    protected PathNode createNodeAtPosition(int x, int y, int z, long hashCode) {
+        PathNode node = new PathNode(x, y, z, goal);
+        map.put(hashCode, node);
+        return node;
+    }
+
 
     /**
      * Returns the node already mapped to the given hashCode, or {@code null},
