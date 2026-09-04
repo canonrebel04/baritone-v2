@@ -172,9 +172,15 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
     protected PathNode getNodeAtPosition(int x, int y, int z, long hashCode) {
         PathNode node = map.get(hashCode);
         if (node == null) {
-            node = new PathNode(x, y, z, goal);
-            map.put(hashCode, node);
+            node = createNodeAtPosition(x, y, z, hashCode);
         }
+        return node;
+    }
+
+    // ⚡ Bolt Optimization: Instantiate and map directly to bypass redundant map.get() on miss
+    protected PathNode createNodeAtPosition(int x, int y, int z, long hashCode) {
+        PathNode node = new PathNode(x, y, z, goal);
+        map.put(hashCode, node);
         return node;
     }
 
