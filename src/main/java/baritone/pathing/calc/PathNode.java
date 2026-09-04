@@ -91,8 +91,12 @@ public final class PathNode {
      */
     @Override
     public int hashCode() {
-        // Optimize: use Long.hashCode with BetterBlockPos perfect spatial hashing to prevent severe local collisions
-        return Long.hashCode(BetterBlockPos.longHash(x, y, z));
+        // Polynomial hashing (31 * result + coord) is preferred for good bucket distribution
+        int hash = 1;
+        hash = 31 * hash + x;
+        hash = 31 * hash + y;
+        hash = 31 * hash + z;
+        return hash;
     }
 
     @Override
