@@ -1,0 +1,10 @@
+1. **Explore the codebase and understand the problem**: We identified that in `AStarPathFinder.java`, `peekNodeAtPosition` is used to check for an existing node in a HashMap without allocating. If it returns null, we need to create a new node. Currently, `getNodeAtPosition` is called when `neighbor == null`, which performs a redundant `map.get()` call since we already know the node doesn't exist in the map.
+2. **Implement optimization**:
+   - Add a new method `createNodeAtPosition` in `AbstractNodeCostSearch.java` which directly creates and inserts a node into the map.
+   - Refactor `getNodeAtPosition` to use this new method.
+   - In `AStarPathFinder.java`, when `neighbor == null`, call `createNodeAtPosition` instead of `getNodeAtPosition` to save a redundant map lookup in the absolute innermost loop of the pathfinder.
+3. **Add Bolt Comments**: Add `// ⚡ Bolt Optimization: Avoid redundant map lookups...` before the change.
+4. **Test the changes**: Run `./gradlew check` to verify that everything still compiles and passes.
+5. **Update Bolt journal**: Append this optimization learning to `.jules/bolt.md`.
+6. **Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.**
+7. **Submit the Pull Request**: Create a PR with the title "⚡ Bolt: Avoid redundant map lookups in AStarPathFinder innermost loop" and description detailing What, Why, Impact, and Measurement.
