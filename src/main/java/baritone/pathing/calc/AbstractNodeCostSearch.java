@@ -178,10 +178,17 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
         return node;
     }
 
+    protected PathNode createNodeAtPosition(int x, int y, int z, long hashCode) {
+        // ⚡ Bolt Optimization: Bypass map.get() when creating new node
+        PathNode node = new PathNode(x, y, z, goal);
+        map.put(hashCode, node);
+        return node;
+    }
+
     /**
      * Returns the node already mapped to the given hashCode, or {@code null},
      * without allocating a new {@link PathNode}. The caller should only allocate
-     * (via {@link #getNodeAtPosition}) after confirming the candidate actually
+     * (via {@link #createNodeAtPosition}) after confirming the candidate actually
      * improves the node, so the goal heuristic and object churn are avoided for
      * candidates that get rejected.
      */
