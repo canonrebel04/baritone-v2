@@ -195,12 +195,15 @@ public class CalculationContext {
     private int cacheCenterY = Integer.MIN_VALUE;
     private int cacheCenterZ = Integer.MIN_VALUE;
     private final BlockState[] cubeCache = new BlockState[9 * 9 * 9];
+    // ⚡ Bolt Optimization: Use a cache ID to avoid O(N) array fill on every setCacheCenter
+    private final int[] cubeCacheId = new int[9 * 9 * 9];
+    private int currentCacheId = 0;
 
     public void setCacheCenter(int x, int y, int z) {
         this.cacheCenterX = x;
         this.cacheCenterY = y;
         this.cacheCenterZ = z;
-        java.util.Arrays.fill(cubeCache, null);
+        this.currentCacheId++;
     }
 
     public BlockState get(int x, int y, int z) {
@@ -209,12 +212,12 @@ public class CalculationContext {
         int dz = z - cacheCenterZ;
         if (dx >= -4 && dx <= 4 && dy >= -4 && dy <= 4 && dz >= -4 && dz <= 4) {
             int index = (dx + 4) * 81 + (dy + 4) * 9 + (dz + 4);
-            BlockState cached = cubeCache[index];
-            if (cached != null) {
-                return cached;
+            if (cubeCacheId[index] == currentCacheId) {
+                return cubeCache[index];
             }
             BlockState state = bsi.get0(x, y, z);
             cubeCache[index] = state;
+            cubeCacheId[index] = currentCacheId;
             return state;
         }
         return bsi.get0(x, y, z); // laughs maniacally
