@@ -35,3 +35,6 @@
 ## 2026-09-06 - AbstractNodeCostSearch Bypass redundant map lookup
 **Learning:** In AStarPathFinder, when a neighbor node doesn't exist, calling `getNodeAtPosition` does a redundant `map.get()` lookup before inserting. By checking for null first (via `peekNodeAtPosition`), we can skip the extra lookup by introducing `createNodeAtPosition`.
 **Action:** Bypass redundant `map.get()` checks when inserting new nodes if the node's absence is already known.
+## 2025-05-21 - CalculationContext cache Generation ID Optimization
+**Learning:** In `CalculationContext`, the `cubeCache` was being cleared using `Arrays.fill(cubeCache, null)` repeatedly. This O(N) array clearing added significant memory write overhead during high-frequency node evaluations (e.g., A* pathfinding). A parallel `generationCache` array combined with an O(1) `cacheGeneration` variable eliminates these repeated memory writes, leading to better performance.
+**Action:** Avoid `Arrays.fill` for clearing small caches during high-frequency tasks; use generation or epoch IDs when possible.
