@@ -342,6 +342,15 @@ public final class Settings {
     public final Setting<Boolean> avoidUpdatingFallingBlocks = new Setting<>(true);
 
     /**
+     * If this setting is true, MineProcess will consider ore blocks that are adjacent to liquids
+     * (or have flowing liquid pointed at them) as minable. This relaxes the mining-selection
+     * filter only — pathing-level break safety is untouched. Useful in cave veins where a
+     * pocket of water or lava near the wall makes Baritone skip ore that is actually safe to
+     * mine. Default false (upstream behavior: never break blocks adjacent to liquid).
+     */
+    public final Setting<Boolean> mineIgnoreAdjacentLiquids = new Setting<>(false);
+
+    /**
      * Enables some more advanced vine features. They're honestly just gimmicks and won't ever be needed in real
      * pathing scenarios. And they can cause Baritone to get trapped indefinitely in a strange scenario.
      * <p>

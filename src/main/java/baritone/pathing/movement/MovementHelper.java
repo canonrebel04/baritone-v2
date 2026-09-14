@@ -69,6 +69,10 @@ import static baritone.pathing.precompute.Ternary.*;
 public interface MovementHelper extends ActionCosts, Helper {
 
     static boolean avoidBreaking(BlockStateInterface bsi, int x, int y, int z, BlockState state) {
+        return avoidBreaking(bsi, x, y, z, state, false);
+    }
+
+    static boolean avoidBreaking(BlockStateInterface bsi, int x, int y, int z, BlockState state, boolean ignoreAdjacentLiquids) {
         if (!bsi.worldBorder.canPlaceAt(x, z)) {
             return true;
         }
@@ -77,14 +81,18 @@ public interface MovementHelper extends ActionCosts, Helper {
                 || b == Blocks.ICE // ice becomes water, and water can mess up the path
                 || b instanceof InfestedBlock // obvious reasons
                 // call context.get directly with x,y,z. no need to make 5 new BlockPos for no reason
-                || avoidAdjacentBreaking(bsi, x, y + 1, z, true)
-                || avoidAdjacentBreaking(bsi, x + 1, y, z, false)
-                || avoidAdjacentBreaking(bsi, x - 1, y, z, false)
-                || avoidAdjacentBreaking(bsi, x, y, z + 1, false)
-                || avoidAdjacentBreaking(bsi, x, y, z - 1, false);
+                || avoidAdjacentBreaking(bsi, x, y + 1, z, true, ignoreAdjacentLiquids)
+                || avoidAdjacentBreaking(bsi, x + 1, y, z, false, ignoreAdjacentLiquids)
+                || avoidAdjacentBreaking(bsi, x - 1, y, z, false, ignoreAdjacentLiquids)
+                || avoidAdjacentBreaking(bsi, x, y, z + 1, false, ignoreAdjacentLiquids)
+                || avoidAdjacentBreaking(bsi, x, y, z - 1, false, ignoreAdjacentLiquids);
     }
 
     static boolean avoidAdjacentBreaking(BlockStateInterface bsi, int x, int y, int z, boolean directlyAbove) {
+        return avoidAdjacentBreaking(bsi, x, y, z, directlyAbove, false);
+    }
+
+    static boolean avoidAdjacentBreaking(BlockStateInterface bsi, int x, int y, int z, boolean directlyAbove, boolean ignoreLiquids) {
         // returns true if you should avoid breaking a block that's adjacent to this one (e.g. lava that will start flowing if you give it a path)
         // this is only called for north, south, east, west, and up. this is NOT called for down.
         // we assume that it's ALWAYS okay to break the block thats ABOVE liquid
@@ -99,6 +107,9 @@ public interface MovementHelper extends ActionCosts, Helper {
         }
         // only pure liquids for now
         // waterlogged blocks can have closed bottom sides and such
+        if (ignoreLiquids) {
+            return false; // mining-selection relaxation: caller (MineProcess) decided liquid adjacency is acceptable
+        }
         if (block instanceof LiquidBlock) {
             if (directlyAbove || Baritone.settings().strictLiquidCheck.value) {
                 return true;

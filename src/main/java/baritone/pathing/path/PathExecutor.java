@@ -88,6 +88,8 @@ public class PathExecutor implements IPathExecutor, Helper {
 
     private int overshootTicksRemaining = 0;
     private Rotation overshootRotation = null;
+    // Direction of the in-progress humanization overshoot, for lookahead safety checks
+    private int overshootOx = 0, overshootOz = 0;
     private int ticksSprinting = 0;
     private int sprintDropTicksRemaining = 0;
 
@@ -115,6 +117,17 @@ public class PathExecutor implements IPathExecutor, Helper {
                 return true;
             } else {
                 if (overshootRotation != null) {
+                    // Lookahead guard: the overshoot block was verified when the overshoot started,
+                    // but sprint momentum can carry past it mid-overshoot. Each tick, check the
+                    // block directly ahead (in the overshoot direction) of where the player is now;
+                    // if it's not safe to run into, cut the overshoot short.
+                    BlockPos ahead = ctx.playerFeet().offset(overshootOx, 0, overshootOz);
+                    BlockStateInterface bsiAhead = new BlockStateInterface(ctx);
+                    if (!MovementHelper.canWalkThrough(bsiAhead, ahead.getX(), ahead.getY(), ahead.getZ())
+                            || !MovementHelper.canWalkThrough(bsiAhead, ahead.getX(), ahead.getY() + 1, ahead.getZ())
+                            || !MovementHelper.canWalkOn(bsiAhead, ahead.getX(), ahead.getY() - 1, ahead.getZ())) {
+                        overshootTicksRemaining = Math.min(overshootTicksRemaining, 1);
+                    }
                     behavior.baritone.getLookBehavior().updateTarget(overshootRotation, true);
                 }
                 behavior.baritone.getInputOverrideHandler().clearAllKeys();
@@ -291,6 +304,8 @@ public class PathExecutor implements IPathExecutor, Helper {
                                     && MovementHelper.canWalkThrough(bsiTemp, overshootPos.getX(), overshootPos.getY() + 1, overshootPos.getZ())
                                     && MovementHelper.canWalkOn(bsiTemp, overshootPos.getX(), overshootPos.getY() - 1, overshootPos.getZ())) {
                                 overshootTicksRemaining = new java.util.Random().nextInt(3) + 2;
+                                overshootOx = ox;
+                                overshootOz = oz;
                                 // GCD-quantize the overshoot rotation so the deltas fed to the look
                                 // behavior (and hence the server) are always multiples of the mouse
                                 // GCD — anti-cheats flag non-GCD rotation deltas.

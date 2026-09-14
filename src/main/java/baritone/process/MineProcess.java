@@ -123,7 +123,8 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         if (shaft.isPresent() && ctx.player().onGround()) {
             BlockPos pos = shaft.get();
             BlockState state = baritone.bsi.get0(pos);
-            if (!MovementHelper.avoidBreaking(baritone.bsi, pos.getX(), pos.getY(), pos.getZ(), state)) {
+            if (!MovementHelper.avoidBreaking(baritone.bsi, pos.getX(), pos.getY(), pos.getZ(), state,
+                    Baritone.settings().mineIgnoreAdjacentLiquids.value)) {
                 Optional<Rotation> rot = RotationUtils.reachable(ctx, pos);
                 if (rot.isPresent() && isSafeToCancel) {
                     baritone.getLookBehavior().updateTarget(rot.get(), true);
@@ -489,7 +490,8 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         if (MovementHelper.getMiningDurationTicks(ctx, pos.getX(), pos.getY(), pos.getZ(), state, true) >= COST_INF) {
             return false;
         }
-        if (MovementHelper.avoidBreaking(ctx.bsi, pos.getX(), pos.getY(), pos.getZ(), state)) {
+        if (MovementHelper.avoidBreaking(ctx.bsi, pos.getX(), pos.getY(), pos.getZ(), state,
+                Baritone.settings().mineIgnoreAdjacentLiquids.value)) {
             return false;
         }
 
