@@ -36,6 +36,19 @@ public interface IAimProcessor {
     Rotation peekRotation(Rotation desired);
 
     /**
+     * Returns the rotation Baritone would apply for {@code desired}, without nudging the pitch to a
+     * normal level when {@code skipNudge} is set. Block-interact rotations (mining, building) must
+     * hold their exact pitch — the crosshair wander caused by nudging resets break progress.
+     *
+     * @param desired    The desired rotation to peek
+     * @param skipNudge  True to disable the pitch-leveling nudge
+     * @return The actual rotation
+     */
+    default Rotation peekRotation(Rotation desired, boolean skipNudge) {
+        return peekRotation(desired);
+    }
+
+    /**
      * Returns a copy of this {@link IAimProcessor} which has its own internal state and is manually tickable.
      *
      * @return The forked processor

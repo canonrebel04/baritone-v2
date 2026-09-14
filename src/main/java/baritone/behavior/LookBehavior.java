@@ -101,7 +101,16 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
         // GCD-quantize the requested target so the smoothing path, the silent rotation stream and
         // (via PathExecutor) overshoot rotations never contain angles a real mouse couldn't produce.
         final float gcdStep = MouseGCD.step(ctx);
+        // remainWithExistingLookDirection's hold-pitch marker (current pitch + 0.0001) must survive
+        // quantization: if it collapses into exact equality with the current pitch, nudgeToLevel
+        // re-activates and the camera drifts up from steep targets instead of holding — the mining
+        // look-drift loop. Re-inject the marker after quantizing.
+        final boolean holdPitchMarker = Math.abs(rotation.getPitch()
+                - (ctx.playerRotations().getPitch() + 0.0001f)) < 0.00005f;
         rotation = MouseGCD.quantize(rotation, gcdStep);
+        if (holdPitchMarker) {
+            rotation = new Rotation(rotation.getYaw(), ctx.playerRotations().getPitch() + 0.0001f);
+        }
         this.target = new Target(rotation, Target.Mode.resolve(ctx, blockInteract), blockInteract);
     }
 
@@ -157,7 +166,7 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
                 }
 
                 this.lastAppliedMode = targetMode;
-                final Rotation actual = this.processor.peekRotation(targetRotation);
+                final Rotation actual = this.processor.peekRotation(targetRotation, blockInteract);
 
                 if (targetMode == Target.Mode.SERVER) {
                     this.prevRotation = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
@@ -403,7 +412,8 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     public void onPlayerRotationMove(RotationMoveEvent event) {
         Rotation winning = getWinningRotation();
         if (winning != null) {
-            final Rotation actual = this.processor.peekRotation(winning);
+            final boolean blockInteract = this.target != null && this.target.blockInteract;
+            final Rotation actual = this.processor.peekRotation(winning, blockInteract);
             final float gcdStep = MouseGCD.step(ctx);
             event.setYaw(MouseGCD.quantize(actual.getYaw(), gcdStep));
             event.setPitch(MouseGCD.quantize(actual.getPitch(), gcdStep));
@@ -444,14 +454,20 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
         @Override
         public final Rotation peekRotation(final Rotation rotation) {
+            return this.peekRotation(rotation, false);
+        }
+
+        @Override
+        public final Rotation peekRotation(final Rotation rotation, final boolean skipNudge) {
             final Rotation prev = this.getPrevRotation();
 
             float desiredYaw = rotation.getYaw();
             float desiredPitch = rotation.getPitch();
 
             // In other words, the target doesn't care about the pitch, so it used playerRotations().getPitch()
-            // and it's safe to adjust it to a normal level
-            if (desiredPitch == prev.getPitch()) {
+            // and it's safe to adjust it to a normal level. Never nudge block-interact rotations: mining
+            // needs a steady stare — a wandering crosshair resets the server-side break progress.
+            if (!skipNudge && desiredPitch == prev.getPitch()) {
                 desiredPitch = nudgeToLevel(desiredPitch);
             }
 
