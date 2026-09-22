@@ -195,12 +195,19 @@ public class CalculationContext {
     private int cacheCenterY = Integer.MIN_VALUE;
     private int cacheCenterZ = Integer.MIN_VALUE;
     private final BlockState[] cubeCache = new BlockState[9 * 9 * 9];
+    private final int[] cubeGeneration = new int[9 * 9 * 9];
+    private int generation = 0;
 
     public void setCacheCenter(int x, int y, int z) {
         this.cacheCenterX = x;
         this.cacheCenterY = y;
         this.cacheCenterZ = z;
-        java.util.Arrays.fill(cubeCache, null);
+        // ⚡ Bolt Optimization: Replace O(N) Arrays.fill with O(1) generation ID validation
+        generation++;
+        if (generation == 0) { // handle overflow
+            java.util.Arrays.fill(cubeCache, null);
+            generation = 1;
+        }
     }
 
     public BlockState get(int x, int y, int z) {
@@ -210,11 +217,12 @@ public class CalculationContext {
         if (dx >= -4 && dx <= 4 && dy >= -4 && dy <= 4 && dz >= -4 && dz <= 4) {
             int index = (dx + 4) * 81 + (dy + 4) * 9 + (dz + 4);
             BlockState cached = cubeCache[index];
-            if (cached != null) {
+            if (cached != null && cubeGeneration[index] == generation) {
                 return cached;
             }
             BlockState state = bsi.get0(x, y, z);
             cubeCache[index] = state;
+            cubeGeneration[index] = generation;
             return state;
         }
         return bsi.get0(x, y, z); // laughs maniacally
