@@ -35,3 +35,10 @@
 ## 2026-09-06 - AbstractNodeCostSearch Bypass redundant map lookup
 **Learning:** In AStarPathFinder, when a neighbor node doesn't exist, calling `getNodeAtPosition` does a redundant `map.get()` lookup before inserting. By checking for null first (via `peekNodeAtPosition`), we can skip the extra lookup by introducing `createNodeAtPosition`.
 **Action:** Bypass redundant `map.get()` checks when inserting new nodes if the node's absence is already known.
+## 2025-05-21 - CalculationContext cache clearance optimization
+**Learning:** In Baritone's pathfinding `CalculationContext`, `Arrays.fill(cubeCache, null)` runs on every node evaluation to clear a 729-element array. This is an $O(N)$ memory write operation inside an incredibly hot loop.
+**Action:** Replaced the array clearing with an $O(1)$ epoch/generation ID validation pattern. A parallel `cubeCacheEpoch` array stores the `currentEpoch` ID, and resetting the cache simply increments `currentEpoch`. Lookups check if `cubeCacheEpoch[index] == currentEpoch`. This drastically reduces memory write overhead during high-frequency node evaluations.
+
+## 2026-09-25 - CalculationContext cache clearance optimization
+**Learning:** In Baritone's pathfinding `CalculationContext`, `Arrays.fill(cubeCache, null)` runs on every node evaluation to clear a 729-element array. This is an O(N) memory write operation inside an incredibly hot loop.
+**Action:** Replaced the array clearing with an O(1) epoch/generation ID validation pattern. A parallel `cubeCacheEpoch` array stores the `currentEpoch` ID, and resetting the cache simply increments `currentEpoch`. Lookups check if `cubeCacheEpoch[index] == currentEpoch`. This drastically reduces memory write overhead during high-frequency node evaluations.
