@@ -35,3 +35,6 @@
 ## 2026-09-06 - AbstractNodeCostSearch Bypass redundant map lookup
 **Learning:** In AStarPathFinder, when a neighbor node doesn't exist, calling `getNodeAtPosition` does a redundant `map.get()` lookup before inserting. By checking for null first (via `peekNodeAtPosition`), we can skip the extra lookup by introducing `createNodeAtPosition`.
 **Action:** Bypass redundant `map.get()` checks when inserting new nodes if the node's absence is already known.
+## 2026-10-06 - CalculationContext Cache O(1) Validation
+**Learning:** In Baritone's pathfinding cache operations, it uses an O(1) epoch/generation ID validation pattern with a parallel ID array instead of O(N) array clearing operations like `Arrays.fill()` to significantly reduce memory write overhead during high-frequency node evaluations.
+**Action:** Use an epoch validation pattern with a parallel integer array to avoid expensive O(N) cache clear operations in high-frequency loops.
