@@ -35,3 +35,6 @@
 ## 2026-09-06 - AbstractNodeCostSearch Bypass redundant map lookup
 **Learning:** In AStarPathFinder, when a neighbor node doesn't exist, calling `getNodeAtPosition` does a redundant `map.get()` lookup before inserting. By checking for null first (via `peekNodeAtPosition`), we can skip the extra lookup by introducing `createNodeAtPosition`.
 **Action:** Bypass redundant `map.get()` checks when inserting new nodes if the node's absence is already known.
+## 2026-10-18 - CalculationContext cache epoch optimization
+**Learning:** In Baritone's CalculationContext, when using an O(1) epoch/generation ID validation pattern with a parallel integer array instead of O(N) array clearing (Arrays.fill), we skip 729 redundant memory writes during millions of high-frequency path node evaluation cycles. Memory leaks do not occur since Minecraft BlockStates are interned singletons.
+**Action:** Use an O(1) epoch ID array check alongside cached objects in frequently wiped caches instead of sequentially nullifying the array.
