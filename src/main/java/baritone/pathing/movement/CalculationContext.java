@@ -195,12 +195,19 @@ public class CalculationContext {
     private int cacheCenterY = Integer.MIN_VALUE;
     private int cacheCenterZ = Integer.MIN_VALUE;
     private final BlockState[] cubeCache = new BlockState[9 * 9 * 9];
+    private final int[] cubeCacheEpoch = new int[9 * 9 * 9];
+    private int currentEpoch = 0;
 
     public void setCacheCenter(int x, int y, int z) {
         this.cacheCenterX = x;
         this.cacheCenterY = y;
         this.cacheCenterZ = z;
-        java.util.Arrays.fill(cubeCache, null);
+        currentEpoch++;
+        if (currentEpoch == 0) {
+            // Epoch overflowed
+            java.util.Arrays.fill(cubeCacheEpoch, 0);
+            currentEpoch = 1;
+        }
     }
 
     public BlockState get(int x, int y, int z) {
@@ -209,12 +216,13 @@ public class CalculationContext {
         int dz = z - cacheCenterZ;
         if (dx >= -4 && dx <= 4 && dy >= -4 && dy <= 4 && dz >= -4 && dz <= 4) {
             int index = (dx + 4) * 81 + (dy + 4) * 9 + (dz + 4);
-            BlockState cached = cubeCache[index];
-            if (cached != null) {
-                return cached;
+            // ⚡ Bolt Optimization: Use O(1) epoch validation instead of O(N) Arrays.fill()
+            if (cubeCacheEpoch[index] == currentEpoch) {
+                return cubeCache[index];
             }
             BlockState state = bsi.get0(x, y, z);
             cubeCache[index] = state;
+            cubeCacheEpoch[index] = currentEpoch;
             return state;
         }
         return bsi.get0(x, y, z); // laughs maniacally
