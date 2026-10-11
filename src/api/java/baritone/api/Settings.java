@@ -718,6 +718,13 @@ public final class Settings {
     public final Setting<Boolean> chatDebug = new Setting<>(false);
 
     /**
+     * Write Baritone's debug messages (pathing, elytra, mining, cache, ...) to the game log (latest.log)
+     * at INFO level with a [debug] marker. Independent of {@link #chatDebug}. Can also be forced on at
+     * launch with the JVM argument {@code -Dbaritone.debug=true}.
+     */
+    public final Setting<Boolean> debugLogging = new Setting<>(false);
+
+    /**
      * Allow chat based control of Baritone. Most likely should be disabled when Baritone is imported for use in
      * something else
      */

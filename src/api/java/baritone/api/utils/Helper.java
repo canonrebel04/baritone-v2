@@ -150,13 +150,24 @@ public interface Helper {
      */
     default void logDebug(String message) {
         if (!BaritoneAPI.getSettings().chatDebug.value) {
-            //System.out.println("Suppressed debug message:");
-            //System.out.println(message);
+            // Not shown in chat, but still recorded in the game log when debug logging is enabled
+            logChannel().debug(message);
             return;
         }
         // We won't log debug chat into toasts
         // Because only a madman would want that extreme spam -_-
+        // (logDirect also writes the message to the game log)
         logDirect(message, false);
+    }
+
+    /**
+     * The subsystem channel ({@code [Baritone/<tag>]}) that this object's chat and debug messages are written to
+     * in the game log. Override to tag messages from a specific subsystem.
+     *
+     * @return The log channel for this object
+     */
+    default BaritoneLog logChannel() {
+        return BaritoneLog.GENERAL;
     }
 
     /**
@@ -172,6 +183,12 @@ public interface Helper {
             component.append(Component.literal(" "));
         }
         Arrays.asList(components).forEach(component::append);
+        // Mirror everything shown to the user into the game log so it can be found in latest.log
+        StringBuilder plain = new StringBuilder();
+        for (Component c : components) {
+            plain.append(c.getString());
+        }
+        logChannel().info(plain);
         if (logAsToast) {
             logToast(getPrefix(), component);
         } else {
@@ -240,6 +257,6 @@ public interface Helper {
         HELPER.logDirect("An unhandled exception occurred. " +
                         "The error is in your game's log, please report this at https://github.com/cabaletta/baritone/issues",
                 ChatFormatting.RED);
-        exception.printStackTrace();
+        BaritoneLog.GENERAL.error("Unhandled exception", exception);
     }
 }
