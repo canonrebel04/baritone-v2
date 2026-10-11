@@ -17,6 +17,7 @@
 
 package baritone.cache;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.utils.BlockUtils;
 import baritone.pathing.movement.MovementHelper;
@@ -98,7 +99,7 @@ public final class ChunkPacker {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            BaritoneLog.CACHE.error("Exception in ChunkPacker", e);
         }
         //long end = System.nanoTime() / 1000000L;
         //System.out.println("Chunk packing took " + (end - start) + "ms for " + chunk.x + "," + chunk.z);

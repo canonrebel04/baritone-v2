@@ -72,6 +72,11 @@ import static baritone.api.pathing.movement.ActionCosts.COST_INF;
 
 public final class BuilderProcess extends BaritoneProcessHelper implements IBuilderProcess {
 
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.BUILD;
+    }
+
     private static final Set<Property<?>> ORIENTATION_PROPS =
             ImmutableSet.of(
                     RotatedPillarBlock.AXIS, HorizontalDirectionalBlock.FACING,
@@ -182,7 +187,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         try (FileInputStream in = new FileInputStream(schematic)) {
             parsed = format.get().parse(in);
         } catch (Exception e) {
-            e.printStackTrace();
+            BaritoneLog.BUILD.error("Exception in BuilderProcess", e);
             return false;
         }
         ISchematic schem = applyMapArtAndSelection(origin, parsed);

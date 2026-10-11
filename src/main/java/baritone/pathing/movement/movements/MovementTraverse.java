@@ -17,6 +17,7 @@
 
 package baritone.pathing.movement.movements;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.IBaritone;
 import baritone.api.pathing.movement.MovementStatus;
@@ -265,7 +266,7 @@ public class MovementTraverse extends Movement {
         if (feet.getY() != dest.getY() && !ladder) {
             logDebug("Wrong Y coordinate");
             if (feet.getY() < dest.getY() && !(MovementHelper.canStepUp(ctx) && ctx.player().onGround())) {
-                System.out.println("In movement traverse");
+                BaritoneLog.PATH.debug("In movement traverse");
                 return state.setInput(Input.JUMP, true);
             }
             return state;

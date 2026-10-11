@@ -53,6 +53,11 @@ import static baritone.api.pathing.movement.ActionCosts.COST_INF;
  */
 public final class MineProcess extends BaritoneProcessHelper implements IMineProcess {
 
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.MINE;
+    }
+
     private BlockOptionalMetaLookup filter;
     private List<BlockPos> knownOreLocations;
     private List<BlockPos> blacklist; // inaccessible

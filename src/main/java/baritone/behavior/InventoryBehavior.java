@@ -17,6 +17,7 @@
 
 package baritone.behavior;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.event.events.TickEvent;
 import baritone.api.utils.Helper;
@@ -45,6 +46,11 @@ import java.util.Random;
 import java.util.function.Predicate;
 
 public final class InventoryBehavior extends Behavior implements Helper {
+
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.INVENTORY;
+    }
 
     int ticksSinceLastInventoryMove;
     int[] lastTickRequestedMove; // not everything asks every tick, so remember the request while coming to a halt

@@ -68,6 +68,11 @@ import static baritone.pathing.precompute.Ternary.*;
  */
 public interface MovementHelper extends ActionCosts, Helper {
 
+    @Override
+    default BaritoneLog logChannel() {
+        return BaritoneLog.PATH;
+    }
+
     static boolean avoidBreaking(BlockStateInterface bsi, int x, int y, int z, BlockState state) {
         return avoidBreaking(bsi, x, y, z, state, false);
     }

@@ -17,6 +17,7 @@
 
 package baritone.process;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalComposite;
@@ -54,6 +55,11 @@ import java.util.*;
  * columns, resolved 3D-ly through the cave-exposure weighting.
  */
 public final class FrontierExplorerProcess extends BaritoneProcessHelper {
+
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.EXPLORE;
+    }
 
     /**
      * How many blocks of "air below surface" in a neighboring cached column count as cave

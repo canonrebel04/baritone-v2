@@ -17,6 +17,7 @@
 
 package baritone.event;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.event.events.*;
 import baritone.api.event.events.type.EventState;
@@ -57,7 +58,7 @@ public final class GameEventHandler implements IEventBus, Helper {
             try {
                 baritone.bsi = new BlockStateInterface(baritone.getPlayerContext(), true);
             } catch (Exception ex) {
-                ex.printStackTrace();
+                BaritoneLog.EVENT.error("Exception in GameEventHandler", ex);
                 baritone.bsi = null;
             }
         } else {

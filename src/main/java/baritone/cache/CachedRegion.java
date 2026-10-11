@@ -17,6 +17,7 @@
 
 package baritone.cache;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.cache.ICachedRegion;
 import baritone.api.utils.BlockUtils;
@@ -125,7 +126,7 @@ public final class CachedRegion implements ICachedRegion {
                 Files.createDirectories(path);
 
             }
-            System.out.println("Saving region " + x + "," + z + " to disk " + path);
+            BaritoneLog.CACHE.info("Saving region " + x + "," + z + " to disk " + path);
             Path regionFile = getRegionFile(path, this.x, this.z);
             Path tmpFile = regionFile.resolveSibling(regionFile.getFileName().toString() + ".tmp");
             try (
@@ -187,9 +188,9 @@ public final class CachedRegion implements ICachedRegion {
                 Files.move(tmpFile, regionFile, StandardCopyOption.REPLACE_EXISTING);
             }
             hasUnsavedChanges = false;
-            System.out.println("Saved region successfully");
+            BaritoneLog.CACHE.info("Saved region successfully");
         } catch (Exception ex) {
-            ex.printStackTrace();
+            BaritoneLog.CACHE.error("Exception in CachedRegion", ex);
         }
     }
 
@@ -205,7 +206,7 @@ public final class CachedRegion implements ICachedRegion {
                 return;
             }
 
-            System.out.println("Loading region " + x + "," + z + " from disk " + path);
+            BaritoneLog.CACHE.info("Loading region " + x + "," + z + " from disk " + path);
             long start = System.nanoTime() / 1000000L;
 
             try (
@@ -302,9 +303,9 @@ public final class CachedRegion implements ICachedRegion {
             removeExpired();
             hasUnsavedChanges = false;
             long end = System.nanoTime() / 1000000L;
-            System.out.println("Loaded region successfully in " + (end - start) + "ms");
+            BaritoneLog.CACHE.info("Loaded region successfully in " + (end - start) + "ms");
         } catch (Exception ex) { // corrupted files can cause NullPointerExceptions as well as IOExceptions
-            ex.printStackTrace();
+            BaritoneLog.CACHE.error("Exception in CachedRegion", ex);
         }
     }
 
@@ -318,7 +319,7 @@ public final class CachedRegion implements ICachedRegion {
         for (int x = 0; x < 32; x++) {
             for (int z = 0; z < 32; z++) {
                 if (this.chunks[x][z] != null && this.chunks[x][z].cacheTimestamp < oldestAcceptableAge) {
-                    System.out.println("Removing chunk " + (x + 32 * this.x) + "," + (z + 32 * this.z) + " because it was cached " + (now - this.chunks[x][z].cacheTimestamp) / 1000L + " seconds ago, and max age is " + expiry);
+                    BaritoneLog.CACHE.info("Removing chunk " + (x + 32 * this.x) + "," + (z + 32 * this.z) + " because it was cached " + (now - this.chunks[x][z].cacheTimestamp) / 1000L + " seconds ago, and max age is " + expiry);
                     this.chunks[x][z] = null;
                 }
             }

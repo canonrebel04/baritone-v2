@@ -215,7 +215,7 @@ public final class BlockOptionalMeta {
         try {
             return (VanillaPackResources) getVanillaServerPack.invoke(null);
         } catch (Exception e) {
-            e.printStackTrace();
+            BaritoneLog.GENERAL.error("Exception in BlockOptionalMeta", e);
         }
 
         return null;
@@ -243,7 +243,7 @@ public final class BlockOptionalMeta {
             getDrops(b, lv5).stream().map(ItemStack::getItem).forEach(items::add);
         } catch (Throwable e) {
             failed = true;
-            e.printStackTrace();
+            BaritoneLog.GENERAL.error("Exception in BlockOptionalMeta", e);
         }
         // A block with a loot table that resolved to nothing is not a stable answer: the integrated
         // server may not have been up yet, or generation failed. Retry next lookup instead of

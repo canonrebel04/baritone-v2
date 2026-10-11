@@ -17,6 +17,7 @@
 
 package baritone.process;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.cache.ICachedWorld;
 import baritone.api.pathing.goals.Goal;
@@ -41,6 +42,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 
 public final class ExploreProcess extends BaritoneProcessHelper implements IExploreProcess {
+
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.EXPLORE;
+    }
 
     private BlockPos explorationOrigin;
 
