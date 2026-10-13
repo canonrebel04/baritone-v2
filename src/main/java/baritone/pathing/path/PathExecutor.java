@@ -47,6 +47,11 @@ import static baritone.api.pathing.movement.MovementStatus.*;
  */
 public class PathExecutor implements IPathExecutor, Helper {
 
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.PATH;
+    }
+
     private static final double MAX_MAX_DIST_FROM_PATH = 3;
     private static final double MAX_DIST_FROM_PATH = 2;
 
@@ -174,7 +179,7 @@ public class PathExecutor implements IPathExecutor, Helper {
         Pair<Double, BlockPos> status = closestPathPos(path);
         if (possiblyOffPath(status, MAX_DIST_FROM_PATH)) {
             ticksAway++;
-            System.out.println("FAR AWAY FROM PATH FOR " + ticksAway + " TICKS. Current distance: " + status.first() + ". Threshold: " + MAX_DIST_FROM_PATH);
+            BaritoneLog.PATH.info("FAR AWAY FROM PATH FOR " + ticksAway + " TICKS. Current distance: " + status.first() + ". Threshold: " + MAX_DIST_FROM_PATH);
             if (ticksAway > MAX_TICKS_AWAY) {
                 logDebug("Too far away from path for too long, cancelling path");
                 cancel();

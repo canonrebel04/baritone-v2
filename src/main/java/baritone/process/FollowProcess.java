@@ -17,6 +17,7 @@
 
 package baritone.process;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalBlock;
@@ -46,6 +47,11 @@ import java.util.stream.Collectors;
  * @author leijurv
  */
 public final class FollowProcess extends BaritoneProcessHelper implements IFollowProcess {
+
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.FOLLOW;
+    }
 
     private Predicate<Entity> filter;
     private List<Entity> cache;

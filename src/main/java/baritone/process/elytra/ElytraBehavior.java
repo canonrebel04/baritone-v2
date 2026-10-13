@@ -71,6 +71,11 @@ import static baritone.utils.BaritoneMath.fastCeil;
 import static baritone.utils.BaritoneMath.fastFloor;
 
 public final class ElytraBehavior implements Helper {
+
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.ELYTRA;
+    }
     private final Baritone baritone;
     private final IPlayerContext ctx;
 
@@ -613,7 +618,7 @@ public final class ElytraBehavior implements Helper {
             while (!this.solverExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
             while (!this.pitchPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            BaritoneLog.ELYTRA.error("Exception in ElytraBehavior", e);
         }
     }
 

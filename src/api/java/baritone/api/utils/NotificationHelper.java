@@ -57,10 +57,10 @@ public class NotificationHelper {
 
                 trayIcon.displayMessage("Baritone", text, error ? TrayIcon.MessageType.ERROR : TrayIcon.MessageType.INFO);
             } catch (Exception e) {
-                e.printStackTrace();
+                BaritoneLog.GENERAL.error("Exception in NotificationHelper", e);
             }
         } else {
-            System.out.println("SystemTray is not supported");
+            BaritoneLog.GENERAL.info("SystemTray is not supported");
         }
     }
 
@@ -70,7 +70,7 @@ public class NotificationHelper {
         try {
             processBuilder.start();
         } catch (IOException e) {
-            e.printStackTrace();
+            BaritoneLog.GENERAL.error("Exception in NotificationHelper", e);
         }
     }
 
@@ -83,7 +83,7 @@ public class NotificationHelper {
         try {
             processBuilder.start();
         } catch (IOException e) {
-            e.printStackTrace();
+            BaritoneLog.GENERAL.error("Exception in NotificationHelper", e);
         }
     }
 }
