@@ -22,15 +22,16 @@ import baritone.api.Settings;
 import baritone.utils.accessor.IEntityRenderManager;
 import baritone.utils.accessor.IRenderPipelines;
 import baritone.utils.accessor.IRenderType;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.platform.BlendFactor;
-import com.mojang.blaze3d.PrimitiveTopology;
+import com.mojang.renderpearl.api.pipeline.BlendFunction;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.BlendFactor;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.StagedVertexBuffer;
@@ -154,7 +155,11 @@ public interface IRenderer {
         stagedVertexBuffer.upload();
         StagedVertexBuffer.ExecuteInfo info = stagedVertexBuffer.getExecuteInfo(draw[0]);
         if (info != null) {
-            renderType.prepare().drawFromBuffer(info);
+            com.mojang.blaze3d.pipeline.RenderTarget target = Minecraft.getInstance().gameRenderer.mainRenderTarget();
+            try (com.mojang.renderpearl.api.commands.RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(
+                    () -> "baritone", target.getColorTextureView(), java.util.Optional.empty(), target.getDepthTextureView(), java.util.OptionalDouble.empty())) {
+                renderType.prepare().drawFromBuffer(info, pass);
+            }
         }
         stagedVertexBuffer.endFrame();
     }

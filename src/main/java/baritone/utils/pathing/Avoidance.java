@@ -21,7 +21,7 @@ import baritone.Baritone;
 import baritone.api.utils.IPlayerContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.monster.EnderMan;
+import net.minecraft.world.entity.monster.Enderman;
 import net.minecraft.world.entity.monster.spider.Spider;
 import net.minecraft.world.entity.monster.zombie.ZombifiedPiglin;
 
@@ -78,7 +78,7 @@ public class Avoidance {
                     .filter(entity -> entity instanceof Mob)
                     .filter(entity -> (!(entity instanceof Spider)) || ctx.player().getLightLevelDependentMagicValue() < 0.5)
                     .filter(entity -> !(entity instanceof ZombifiedPiglin) || ((ZombifiedPiglin) entity).getLastHurtByMob() != null)
-                    .filter(entity -> !(entity instanceof EnderMan) || ((EnderMan) entity).isCreepy())
+                    .filter(entity -> !(entity instanceof Enderman) || ((Enderman) entity).isCreepy())
                     .forEach(entity -> res.add(new Avoidance(entity.blockPosition(), mobCoeff, Baritone.settings().mobAvoidanceRadius.value)));
         }
         return res;

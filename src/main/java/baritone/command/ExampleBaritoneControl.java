@@ -96,7 +96,7 @@ public class ExampleBaritoneControl extends Behavior implements Helper {
             return false;
         } else if (msg.trim().equalsIgnoreCase("orderpizza")) {
             try {
-                Util.getPlatform().openUri("https://www.dominos.com/en/pages/order/");
+                com.mojang.blaze3d.Blaze3D.openUri(java.net.URI.create("https://www.dominos.com/en/pages/order/"));
             } catch (Exception ignored) {}
             return false;
         }

@@ -5,9 +5,9 @@ name: CI Build
 
 on:
   push:
-    branches: [ "26.1", "main", "master" ]
+    branches: [ "26.1", "26.3", "main", "master" ]
   pull_request:
-    branches: [ "26.1", "main", "master" ]
+    branches: [ "26.1", "26.3", "main", "master" ]
 
 jobs:
   build:

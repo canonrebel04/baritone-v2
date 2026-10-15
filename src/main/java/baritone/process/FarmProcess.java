@@ -269,7 +269,7 @@ public final class FarmProcess extends BaritoneProcessHelper implements IFarmPro
             }
             if (state.getBlock() instanceof BonemealableBlock) {
                 BonemealableBlock ig = (BonemealableBlock) state.getBlock();
-                if (ig.isValidBonemealTarget(ctx.world(), pos, state) && ig.isBonemealSuccess(ctx.world(), ctx.world().getRandom(), pos, state)) {
+                if (ig.isValidBonemealTarget(ctx.world(), pos, state, net.minecraft.world.level.block.BonemealSource.INTERACTION) && ig.isBonemealSuccess(ctx.world(), ctx.world().getRandom(), pos, state, net.minecraft.world.level.block.BonemealSource.INTERACTION)) {
                     bonemealable.add(pos);
                 }
             }
