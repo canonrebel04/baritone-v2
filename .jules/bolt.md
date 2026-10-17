@@ -39,3 +39,7 @@
 ## 2026-10-11 - CalculationContext Epoch Validation
 **Learning:** In Baritone's pathfinding cache operations, clearing an array using `Arrays.fill()` inside high-frequency node evaluations causes significant memory write overhead. BlockState objects are singletons/interned, so holding stale references in pathfinding caches when using epoch validation patterns is safe and doesn't cause leaks.
 **Action:** Use an O(1) epoch/generation ID validation pattern with a parallel ID array instead of O(N) array clearing operations to reduce overhead.
+
+## 2025-05-21 - AStarPathFinder MutableMoveResult Allocation Bypass and Redundant getDistFromStartSq Calculation
+**Learning:** In AStarPathFinder's absolute innermost loop, static moves (Traverse and Ascend) were using `MutableMoveResult` just like dynamic moves. Calling `moves.apply` forced writes and reads to the shared `res` object. We also found a redundant calculation where `getDistFromStartSq(neighbor)` was computed up to 7 times for the same neighbor if it continuously improved heuristic metrics during a failure state.
+**Action:** Bypassed `MutableMoveResult` entirely for static movements by conditionally checking `!moves.dynamicXZ && !moves.dynamicY` and directly reading the offsets. Additionally, we extracted the `getDistFromStartSq` evaluation outside the heuristic loop, utilizing an `improvedBest` boolean.

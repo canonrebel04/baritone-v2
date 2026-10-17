@@ -121,10 +121,25 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                 if (currentNode.y + moves.yOffset > height || currentNode.y + moves.yOffset < minY) {
                     continue;
                 }
-                res.reset();
-                moves.apply(calcContext, currentNode.x, currentNode.y, currentNode.z, res);
+                // ⚡ Bolt Optimization: Bypass MutableMoveResult overhead for static movements
+                double actionCost;
+                int resX;
+                int resY;
+                int resZ;
+                if (!moves.dynamicXZ && !moves.dynamicY) {
+                    actionCost = moves.cost(calcContext, currentNode.x, currentNode.y, currentNode.z);
+                    resX = newX;
+                    resY = currentNode.y + moves.yOffset;
+                    resZ = newZ;
+                } else {
+                    res.reset();
+                    moves.apply(calcContext, currentNode.x, currentNode.y, currentNode.z, res);
+                    actionCost = res.cost;
+                    resX = res.x;
+                    resY = res.y;
+                    resZ = res.z;
+                }
                 numMovementsConsidered++;
-                double actionCost = res.cost;
                 if (actionCost >= ActionCosts.COST_INF) {
                     continue;
                 }
@@ -138,36 +153,36 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                             actionCost));
                 }
                 // check destination after verifying it's not COST_INF -- some movements return COST_INF without adjusting the destination
-                if (moves.dynamicXZ && !worldBorder.entirelyContains(res.x, res.z)) { // see issue #218
+                if (moves.dynamicXZ && !worldBorder.entirelyContains(resX, resZ)) { // see issue #218
                     continue;
                 }
-                if (!moves.dynamicXZ && (res.x != newX || res.z != newZ)) {
+                if (!moves.dynamicXZ && (resX != newX || resZ != newZ)) {
                     throw new IllegalStateException(String.format(
                             "%s from %s %s %s ended at x z %s %s instead of %s %s",
                             moves,
                             SettingsUtil.maybeCensor(currentNode.x),
                             SettingsUtil.maybeCensor(currentNode.y),
                             SettingsUtil.maybeCensor(currentNode.z),
-                            SettingsUtil.maybeCensor(res.x),
-                            SettingsUtil.maybeCensor(res.z),
+                            SettingsUtil.maybeCensor(resX),
+                            SettingsUtil.maybeCensor(resZ),
                             SettingsUtil.maybeCensor(newX),
                             SettingsUtil.maybeCensor(newZ)));
                 }
-                if (!moves.dynamicY && res.y != currentNode.y + moves.yOffset) {
+                if (!moves.dynamicY && resY != currentNode.y + moves.yOffset) {
                     throw new IllegalStateException(String.format(
                             "%s from %s %s %s ended at y %s instead of %s",
                             moves,
                             SettingsUtil.maybeCensor(currentNode.x),
                             SettingsUtil.maybeCensor(currentNode.y),
                             SettingsUtil.maybeCensor(currentNode.z),
-                            SettingsUtil.maybeCensor(res.y),
+                            SettingsUtil.maybeCensor(resY),
                             SettingsUtil.maybeCensor(currentNode.y + moves.yOffset)));
                 }
-                long hashCode = BetterBlockPos.longHash(res.x, res.y, res.z);
+                long hashCode = BetterBlockPos.longHash(resX, resY, resZ);
                 if (isFavoring) {
                     // see issue #18; avoidance spheres are evaluated lazily from the
                     // candidate coordinates instead of pre-rasterized on the main thread
-                    actionCost *= favoring.calculate(res.x, res.y, res.z, hashCode);
+                    actionCost *= favoring.calculate(resX, resY, resZ, hashCode);
                 }
                 // peek without allocating: only construct a PathNode (which runs the goal
                 // heuristic) once we know this candidate actually improves the node
@@ -175,7 +190,7 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                 double tentativeCost = currentNode.cost + actionCost;
                 if (neighbor == null || neighbor.cost - tentativeCost > minimumImprovement) {
                     if (neighbor == null) {
-                        neighbor = createNodeAtPosition(res.x, res.y, res.z, hashCode);
+                        neighbor = createNodeAtPosition(resX, resY, resZ, hashCode);
                     }
                     neighbor.previous = currentNode;
                     neighbor.cost = tentativeCost;
@@ -185,15 +200,18 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                     } else {
                         openSet.insert(neighbor);//dont double count, dont insert into open set if it's already there
                     }
+                    // ⚡ Bolt Optimization: Avoid recalculating getDistFromStartSq up to 7 times for the same neighbor
+                    boolean improvedBest = false;
                     for (int i = 0; i < COEFFICIENTS.length; i++) {
                         double heuristic = neighbor.estimatedCostToGoal + neighbor.cost * COEFFICIENTS_INV[i];
                         if (bestHeuristicSoFar[i] - heuristic > minimumImprovement) {
                             bestHeuristicSoFar[i] = heuristic;
                             bestSoFar[i] = neighbor;
-                            if (failing && getDistFromStartSq(neighbor) > MIN_DIST_PATH * MIN_DIST_PATH) {
-                                failing = false;
-                            }
+                            improvedBest = true;
                         }
+                    }
+                    if (improvedBest && failing && getDistFromStartSq(neighbor) > MIN_DIST_PATH * MIN_DIST_PATH) {
+                        failing = false;
                     }
                 }
             }
