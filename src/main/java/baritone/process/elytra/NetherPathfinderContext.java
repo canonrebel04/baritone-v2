@@ -486,7 +486,7 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
             return; // chunk never had ice; new ice appears on the next repack
         }
         final int bit = ChunkIceIndex.bitIndex(x, y - this.minY, z);
-        if (isPackedIce | isBlueIce) {
+        if (isPackedIce || isBlueIce) {
             if (isPackedIce) {
                 index.packedIce.set(bit);
             }
@@ -640,7 +640,7 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
                     else if (bs == Blocks.BLUE_ICE.defaultBlockState()) blueIceId = i;
                     else if (bs == Blocks.NETHER_PORTAL.defaultBlockState()) netherPortalId = i;
                 }
-                if (airId == -1 & caveAirId == -1) {
+                if (airId == -1 && caveAirId == -1) {
                     final long bytesInSection = SECTION_SIZE / 8;
                     UNSAFE.setMemory(chunkPtr + (y0 * bytesInSection), bytesInSection, (byte) 0xFF);
                     continue;
@@ -654,7 +654,7 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
                 long maxEntryValue = (1L << bitsPerEntry) - 1L;
 
                 final int yReal = y0 << 4;
-                final ChunkIceIndex iceIndex = (packedIceId != -1 | blueIceId != -1) ? freshIceIndex : null;
+                final ChunkIceIndex iceIndex = (packedIceId != -1 || blueIceId != -1) ? freshIceIndex : null;
                 for (int i = 0, idx = 0; i < longArray.length && idx < arraySize; ++i) {
                     long l = longArray[i];
                     for (int offset = 0; offset <= (64 - bitsPerEntry) && idx < arraySize; offset += bitsPerEntry, ++idx) {
@@ -685,7 +685,7 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
                         }
 
                         // Avoid unnecessary writes that may trigger a page allocation
-                        if (!(value == airId | value == caveAirId) & value != redMushroomId & value != brownMushroomId) {
+                        if (!(value == airId || value == caveAirId) && value != redMushroomId && value != brownMushroomId) {
                             Octree.setBlock(chunkPtr, x, y, z, true);
                         }
                     }
