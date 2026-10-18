@@ -20,6 +20,7 @@ package baritone.utils;
 import baritone.api.BaritoneAPI;
 import baritone.api.utils.IPlayerContext;
 import baritone.utils.accessor.IPlayerControllerMP;
+import net.minecraft.network.protocol.game.ServerboundPunchPacket;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -49,6 +50,14 @@ public final class BlockBreakHelper {
         }
     }
 
+    private void swingAndPunch() {
+        // 26.3: LocalPlayer#swing no longer sends the swing packet; vanilla sends
+        // ServerboundPunchPacket from Minecraft#continueAttack right after swinging.
+        // Baritone drives block breaking directly and bypasses that path, so mirror it.
+        ctx.player().swing(InteractionHand.MAIN_HAND, ctx.player().getMainHandItem().getAttackAnimation(), false);
+        ctx.player().connection.send(ServerboundPunchPacket.INSTANCE);
+    }
+
     public void tick(boolean isLeftClick) {
         if (breakDelayTimer > 0) {
             breakDelayTimer--;
@@ -62,10 +71,10 @@ public final class BlockBreakHelper {
             if (ctx.playerController().hasBrokenBlock()) {
                 ctx.playerController().syncHeldItem();
                 ctx.playerController().clickBlock(((BlockHitResult) trace).getBlockPos(), ((BlockHitResult) trace).getDirection());
-                ctx.player().swing(InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT, false);
+                swingAndPunch();
             } else {
                 if (ctx.playerController().onPlayerDamageBlock(((BlockHitResult) trace).getBlockPos(), ((BlockHitResult) trace).getDirection())) {
-                    ctx.player().swing(InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT, false);
+                    swingAndPunch();
                 }
                 if (ctx.playerController().hasBrokenBlock()) { // block broken this tick
                     // break delay timer only applies for multi-tick block breaks like vanilla
