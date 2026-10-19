@@ -1127,10 +1127,10 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     private BetterBlockPos checkLandingSpot(BlockPos pos, LongOpenHashSet checkedSpots) {
         BlockPos.MutableBlockPos mut = new BlockPos.MutableBlockPos(pos.getX(), pos.getY(), pos.getZ());
         while (mut.getY() >= ctx.world().dimensionType().minY()) {
-            if (checkedSpots.contains(mut.asLong())) {
+            if (checkedSpots.contains(BetterBlockPos.longHash(mut.getX(), mut.getY(), mut.getZ()))) {
                 return null;
             }
-            checkedSpots.add(mut.asLong());
+            checkedSpots.add(BetterBlockPos.longHash(mut.getX(), mut.getY(), mut.getZ()));
             Block block = ctx.world().getBlockState(mut).getBlock();
 
             if (isSafeBlock(block)) {
