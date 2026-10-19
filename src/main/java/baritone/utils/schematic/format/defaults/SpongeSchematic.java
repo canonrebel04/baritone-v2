@@ -17,6 +17,7 @@
 
 package baritone.utils.schematic.format.defaults;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.utils.schematic.StaticSchematic;
 import baritone.utils.type.VarInt;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
@@ -145,7 +146,7 @@ public final class SpongeSchematic extends StaticSchematic {
 
                 return new SerializedBlockState(identifier, propertiesMap);
             } catch (Exception e) {
-                e.printStackTrace();
+                BaritoneLog.BUILD.error("Exception in SpongeSchematic", e);
                 return null;
             }
         }

@@ -17,6 +17,7 @@
 
 package baritone.cache;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.cache.ICachedWorld;
 import baritone.api.cache.IWaypointCollection;
@@ -49,7 +50,7 @@ public class WorldData implements IWorldData {
 
     public void onClose() {
         Baritone.getExecutor().execute(() -> {
-            System.out.println("Started saving the world in a new thread");
+            BaritoneLog.CACHE.info("Started saving the world in a new thread");
             cache.save();
             cache.close();
         });

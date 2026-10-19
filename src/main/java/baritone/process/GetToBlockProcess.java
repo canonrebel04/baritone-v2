@@ -17,6 +17,7 @@
 
 package baritone.process;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.pathing.goals.*;
 import baritone.api.process.IGetToBlockProcess;
@@ -39,6 +40,11 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.*;
 
 public final class GetToBlockProcess extends BaritoneProcessHelper implements IGetToBlockProcess {
+
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.MINE;
+    }
 
     private BlockOptionalMeta gettingTo;
     private List<BlockPos> knownLocations;
@@ -216,7 +222,7 @@ public final class GetToBlockProcess extends BaritoneProcessHelper implements IG
                 baritone.getLookBehavior().updateTarget(reachable.get(), true);
                 if (knownLocations.contains(ctx.getSelectedBlock().orElse(null))) {
                     baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_RIGHT, true); // TODO find some way to right click even if we're in an ESC menu
-                    System.out.println(ctx.player().containerMenu);
+                    BaritoneLog.MINE.debug(ctx.player().containerMenu);
                     if (!(ctx.player().containerMenu instanceof InventoryMenu)) {
                         return true;
                     }

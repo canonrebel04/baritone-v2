@@ -17,6 +17,7 @@
 
 package baritone.command.defaults;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.IBaritone;
 import baritone.api.Settings;
@@ -173,7 +174,7 @@ public class SetCommand extends Command {
                 try {
                     SettingsUtil.parseAndApply(Baritone.settings(), arg, newValue);
                 } catch (Throwable t) {
-                    t.printStackTrace();
+                    BaritoneLog.COMMAND.error("Exception in SetCommand", t);
                     throw new CommandInvalidTypeException(args.consumed(), "a valid value", t);
                 }
             }

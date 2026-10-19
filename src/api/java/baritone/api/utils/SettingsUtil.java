@@ -100,14 +100,14 @@ public class SettingsUtil {
                     parseAndApply(settings, settingName, settingValue);
                 } catch (Exception ex) {
                     Helper.HELPER.logDirect("Unable to parse line " + line);
-                    ex.printStackTrace();
+                    BaritoneLog.SETTINGS.error("Exception in SettingsUtil", ex);
                 }
             });
         } catch (NoSuchFileException ignored) {
             Helper.HELPER.logDirect("Baritone settings file not found, resetting.");
         } catch (Exception ex) {
             Helper.HELPER.logDirect("Exception while reading Baritone settings, some settings may be reset to default values!");
-            ex.printStackTrace();
+            BaritoneLog.SETTINGS.error("Exception in SettingsUtil", ex);
         }
     }
 
@@ -118,7 +118,7 @@ public class SettingsUtil {
             }
         } catch (Exception ex) {
             Helper.HELPER.logDirect("Exception thrown while saving Baritone settings!");
-            ex.printStackTrace();
+            BaritoneLog.SETTINGS.error("Exception in SettingsUtil", ex);
         }
     }
 
@@ -130,7 +130,7 @@ public class SettingsUtil {
         List<Settings.Setting> modified = new ArrayList<>();
         for (Settings.Setting setting : settings.allSettings) {
             if (setting.value == null) {
-                System.out.println("NULL SETTING?" + setting.getName());
+                BaritoneLog.SETTINGS.info("NULL SETTING?" + setting.getName());
                 continue;
             }
             if (setting.isJavaOnly()) {

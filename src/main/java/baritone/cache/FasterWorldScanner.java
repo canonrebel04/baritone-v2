@@ -17,6 +17,7 @@
 
 package baritone.cache;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.api.cache.ICachedWorld;
 import baritone.api.cache.IWorldScanner;
 import baritone.api.utils.BetterBlockPos;
@@ -134,7 +135,7 @@ public enum FasterWorldScanner implements IWorldScanner {
             }
             return posStream.collect(Collectors.toList());
         } catch (Exception e) {
-            e.printStackTrace();
+            BaritoneLog.CACHE.error("Exception in FasterWorldScanner", e);
             throw e;
         }
     }

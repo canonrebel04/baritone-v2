@@ -215,7 +215,7 @@ public final class BlockOptionalMeta {
         try {
             return (VanillaPackResources) getVanillaServerPack.invoke(null);
         } catch (Exception e) {
-            e.printStackTrace();
+            BaritoneLog.GENERAL.error("Exception in BlockOptionalMeta", e);
         }
 
         return null;
@@ -237,7 +237,7 @@ public final class BlockOptionalMeta {
                         .withParameter(LootContextParams.TOOL, new ItemStack(Items.NETHERITE_PICKAXE, 1));
                     getDrops(block, lv5).stream().map(ItemStack::getItem).forEach(items::add);
                 } catch (Throwable e) {
-                    e.printStackTrace();
+                    BaritoneLog.GENERAL.error("Exception in BlockOptionalMeta", e);
                 }
                 return items;
             }

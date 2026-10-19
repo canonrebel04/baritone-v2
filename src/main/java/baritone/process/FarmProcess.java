@@ -17,6 +17,7 @@
 
 package baritone.process;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.BaritoneAPI;
 import baritone.api.pathing.goals.Goal;
@@ -66,6 +67,11 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 public final class FarmProcess extends BaritoneProcessHelper implements IFarmProcess {
+
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.FARM;
+    }
 
     private boolean active;
 

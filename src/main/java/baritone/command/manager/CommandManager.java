@@ -17,6 +17,7 @@
 
 package baritone.command.manager;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.IBaritone;
 import baritone.api.command.ICommand;
@@ -157,7 +158,7 @@ public class CommandManager implements ICommandManager {
             } catch (CommandException ignored) {
                 // NOP
             } catch (Throwable t) {
-                t.printStackTrace();
+                BaritoneLog.COMMAND.error("Exception in CommandManager", t);
             }
             return Stream.empty();
         }

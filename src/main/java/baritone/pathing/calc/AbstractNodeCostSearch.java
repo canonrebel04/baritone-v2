@@ -17,6 +17,7 @@
 
 package baritone.pathing.calc;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.pathing.calc.IPath;
 import baritone.api.pathing.calc.IPathFinder;
@@ -35,6 +36,11 @@ import java.util.Optional;
  * @author leijurv
  */
 public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
+
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.PATH;
+    }
 
     protected final BetterBlockPos realStart;
     protected final int startX;
@@ -131,7 +137,7 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
             }
         } catch (Exception e) {
             Helper.HELPER.logDirect("Pathing exception: " + e);
-            e.printStackTrace();
+            BaritoneLog.PATH.error("Exception in AbstractNodeCostSearch", e);
             return new PathCalculationResult(PathCalculationResult.Type.EXCEPTION);
         } finally {
             // this is run regardless of what exception may or may not be raised by calculate0
@@ -223,11 +229,11 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
             if (dist > limit * limit) { // square the comparison since distFromStartSq is squared
                 if (logInfo) {
                     if (COEFFICIENTS[i] >= 3) {
-                        System.out.println("Warning: cost coefficient is greater than three! Probably means that");
-                        System.out.println("the path I found is pretty terrible (like sneak-bridging for dozens of blocks)");
-                        System.out.println("But I'm going to do it anyway, because yolo");
+                        BaritoneLog.PATH.info("Warning: cost coefficient is greater than three! Probably means that");
+                        BaritoneLog.PATH.info("the path I found is pretty terrible (like sneak-bridging for dozens of blocks)");
+                        BaritoneLog.PATH.info("But I'm going to do it anyway, because yolo");
                     }
-                    System.out.println("Path goes for " + Math.sqrt(dist) + " blocks");
+                    BaritoneLog.PATH.info("Path goes for " + Math.sqrt(dist) + " blocks");
                     logDebug("A* cost coefficient " + COEFFICIENTS[i]);
                 }
                 return Optional.of(new Path(realStart, startNode, bestSoFar[i], numNodes, goal, context));

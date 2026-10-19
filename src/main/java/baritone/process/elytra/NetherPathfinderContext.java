@@ -17,6 +17,7 @@
 
 package baritone.process.elytra;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.event.events.BlockChangeEvent;
 import baritone.utils.accessor.IPalettedContainer;
@@ -532,7 +533,7 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
             while (!this.readExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
             while (!this.packExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            BaritoneLog.ELYTRA.error("Exception in NetherPathfinderContext", e);
         }
 
         NetherPathfinder.freeContext(this.context);
@@ -692,7 +693,7 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            BaritoneLog.ELYTRA.error("Exception in NetherPathfinderContext", e);
             throw new RuntimeException(e);
         }
     }
