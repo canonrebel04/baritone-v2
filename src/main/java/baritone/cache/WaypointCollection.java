@@ -64,7 +64,7 @@ public class WaypointCollection implements IWaypointCollection {
     private synchronized void load(Waypoint.Tag tag) {
         this.waypoints.put(tag, new HashSet<>());
 
-        Path fileName = this.directory.resolve(tag.name().toLowerCase() + ".bwp");
+        Path fileName = this.directory.resolve(tag.name().toLowerCase() + ".mp4");
         if (!Files.exists(fileName)) {
             return;
         }
@@ -92,7 +92,7 @@ public class WaypointCollection implements IWaypointCollection {
     }
 
     private synchronized void save(Waypoint.Tag tag) {
-        Path fileName = this.directory.resolve(tag.name().toLowerCase() + ".bwp");
+        Path fileName = this.directory.resolve(tag.name().toLowerCase() + ".mp4");
         try (
                 FileOutputStream fileOut = new FileOutputStream(fileName.toFile());
                 BufferedOutputStream bufOut = new BufferedOutputStream(fileOut);
