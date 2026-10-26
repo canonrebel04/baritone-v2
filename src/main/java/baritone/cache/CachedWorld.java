@@ -17,6 +17,7 @@
 
 package baritone.cache;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.BaritoneAPI;
 import baritone.api.IBaritone;
@@ -46,6 +47,11 @@ import java.util.concurrent.LinkedBlockingQueue;
  * @since 8/4/2018
  */
 public final class CachedWorld implements ICachedWorld, Helper {
+
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.CACHE;
+    }
 
     /**
      * The maximum number of regions in any direction from (0,0)
@@ -94,7 +100,7 @@ public final class CachedWorld implements ICachedWorld, Helper {
         this.directory = directory.toString();
         this.dimension = dimension;
         this.dimensionId = dimensionId;
-        System.out.println("Cached world directory: " + directory);
+        BaritoneLog.CACHE.info("Cached world directory: " + directory);
         this.packerThread = new Thread(new PackerThread(), "Baritone Packer");
         this.packerThread.setDaemon(true);
         this.packerThread.start();
@@ -185,7 +191,7 @@ public final class CachedWorld implements ICachedWorld, Helper {
     @Override
     public final void save() {
         if (!Baritone.settings().chunkCaching.value) {
-            System.out.println("Not saving to disk; chunk caching is disabled.");
+            BaritoneLog.CACHE.info("Not saving to disk; chunk caching is disabled.");
             allRegions().forEach(region -> {
                 if (region != null) {
                     region.removeExpired();
@@ -201,7 +207,7 @@ public final class CachedWorld implements ICachedWorld, Helper {
             }
         });
         long now = System.nanoTime() / 1000000L;
-        System.out.println("World save took " + (now - start) + "ms");
+        BaritoneLog.CACHE.info("World save took " + (now - start) + "ms");
         prune();
     }
 
@@ -278,7 +284,7 @@ public final class CachedWorld implements ICachedWorld, Helper {
             }
         });
         long now = System.nanoTime() / 1000000L;
-        System.out.println("World load took " + (now - start) + "ms");
+        BaritoneLog.CACHE.info("World load took " + (now - start) + "ms");
     }
 
     @Override
@@ -347,11 +353,11 @@ public final class CachedWorld implements ICachedWorld, Helper {
                     CachedWorld.this.updateCachedChunk(cached);
                     //System.out.println("Processed chunk at " + chunk.x + "," + chunk.z);
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    BaritoneLog.CACHE.error("Exception in CachedWorld", e);
                     break;
                 } catch (Throwable th) {
                     // in the case of an exception, keep consuming from the queue so as not to leak memory
-                    th.printStackTrace();
+                    BaritoneLog.CACHE.error("Exception in CachedWorld", th);
                 }
             }
         }

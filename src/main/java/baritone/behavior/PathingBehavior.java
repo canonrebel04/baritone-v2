@@ -17,6 +17,7 @@
 
 package baritone.behavior;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.behavior.IPathingBehavior;
 import baritone.api.event.events.*;
@@ -51,6 +52,11 @@ import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public final class PathingBehavior extends Behavior implements IPathingBehavior, Helper {
+
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.PATH;
+    }
 
     private PathExecutor current;
     private PathExecutor next;

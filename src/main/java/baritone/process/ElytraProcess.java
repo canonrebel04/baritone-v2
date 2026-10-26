@@ -17,6 +17,7 @@
 
 package baritone.process;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.IBaritone;
 import com.google.gson.Gson;
@@ -72,6 +73,11 @@ import java.nio.file.Path;
 import static baritone.api.pathing.movement.ActionCosts.COST_INF;
 
 public class ElytraProcess extends BaritoneProcessHelper implements IBaritoneProcess, IElytraProcess, AbstractGameEventListener {
+
+    @Override
+    public BaritoneLog logChannel() {
+        return BaritoneLog.ELYTRA;
+    }
     public State state;
     private boolean goingToLandingSpot;
     private BetterBlockPos landingSpot;

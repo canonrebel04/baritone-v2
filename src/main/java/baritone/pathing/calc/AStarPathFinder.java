@@ -17,6 +17,7 @@
 
 package baritone.pathing.calc;
 
+import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.pathing.calc.IPath;
 import baritone.api.pathing.goals.Goal;
@@ -219,10 +220,10 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
         if (cancelRequested) {
             return Optional.empty();
         }
-        System.out.println(numMovementsConsidered + " movements considered");
-        System.out.println("Open set size: " + openSet.size());
-        System.out.println("PathNode map size: " + mapSize());
-        System.out.println((int) (numNodes * 1.0 / ((System.currentTimeMillis() - startTime) / 1000F)) + " nodes per second");
+        BaritoneLog.PATH.info(numMovementsConsidered + " movements considered");
+        BaritoneLog.PATH.info("Open set size: " + openSet.size());
+        BaritoneLog.PATH.info("PathNode map size: " + mapSize());
+        BaritoneLog.PATH.info((int) (numNodes * 1.0 / ((System.currentTimeMillis() - startTime) / 1000F)) + " nodes per second");
         Optional<IPath> result = bestSoFar(true, numNodes);
         if (result.isPresent()) {
             logDebug("Took " + (System.currentTimeMillis() - startTime) + "ms, " + numMovementsConsidered + " movements considered");
