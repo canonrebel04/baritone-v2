@@ -39,7 +39,7 @@ public class SurfaceCommand extends Command {
     public void execute(String label, IArgConsumer args) throws CommandException {
         final BetterBlockPos playerPos = ctx.playerFeet();
         final int surfaceLevel = ctx.world().getSeaLevel();
-        final int worldHeight = ctx.world().getHeight();
+        final int maxWorldY = ctx.world().getMaxY();
 
         // Ensure this command will not run if you are above the surface level and the block above you is air
         // As this would imply that your are already on the open surface
@@ -50,7 +50,7 @@ public class SurfaceCommand extends Command {
 
         final int startingYPos = Math.max(playerPos.getY(), surfaceLevel);
 
-        for (int currentIteratedY = startingYPos; currentIteratedY < worldHeight; currentIteratedY++) {
+        for (int currentIteratedY = startingYPos; currentIteratedY <= maxWorldY; currentIteratedY++) {
             final BetterBlockPos newPos = new BetterBlockPos(playerPos.getX(), currentIteratedY, playerPos.getZ());
 
             if (!(ctx.world().getBlockState(newPos).getBlock() instanceof AirBlock) && newPos.getY() > playerPos.getY()) {

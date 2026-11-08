@@ -293,8 +293,10 @@ public class MovementDiagonal extends Movement {
         // of the OPEN cell instead -- an L-path that hugs the block side and flows around it.
         double midX;
         double midZ;
-        boolean cellAOpen = MovementHelper.canWalkThrough(ctx, new BetterBlockPos(src.x, src.y, dest.z));
-        boolean cellBOpen = MovementHelper.canWalkThrough(ctx, new BetterBlockPos(dest.x, src.y, src.z));
+        boolean cellAOpen = MovementHelper.canWalkThrough(ctx, new BetterBlockPos(src.x, src.y, dest.z))
+                && MovementHelper.canWalkThrough(ctx, new BetterBlockPos(src.x, src.y + 1, dest.z));
+        boolean cellBOpen = MovementHelper.canWalkThrough(ctx, new BetterBlockPos(dest.x, src.y, src.z))
+                && MovementHelper.canWalkThrough(ctx, new BetterBlockPos(dest.x, src.y + 1, src.z));
         if (cellAOpen && !cellBOpen) {
             // solid cell at (dest.x, src.z): go south/north through (src.x, dest.z) first
             midX = src.x + 0.5;
@@ -323,11 +325,11 @@ public class MovementDiagonal extends Movement {
         if (cellAOpen && !cellBOpen) {
             // solid at (dest.x, src.z): L-path travels along Z first (src.z -> dest.z)
             // through the open cell at (src.x, dest.z), then along X to dest.
-            reachedWaypoint = playerZ >= midZ - 0.2;
+            reachedWaypoint = (playerZ - midZ) * dz >= -0.2;
         } else if (cellBOpen && !cellAOpen) {
             // solid at (src.x, dest.z): L-path travels along X first (src.x -> dest.x)
             // through the open cell at (dest.x, src.z), then along Z to dest.
-            reachedWaypoint = playerX >= midX - 0.2;
+            reachedWaypoint = (playerX - midX) * dx >= -0.2;
         } else {
             reachedWaypoint = ((playerX - midX) * dx + (playerZ - midZ) * dz) >= 0;
         }

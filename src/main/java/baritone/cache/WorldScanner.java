@@ -97,7 +97,7 @@ public enum WorldScanner implements IWorldScanner {
 
         ClientChunkCache chunkProvider = (ClientChunkCache) ctx.world().getChunkSource();
         LevelChunk chunk = chunkProvider.getChunk(pos.x(), pos.z(), null, false);
-        int playerY = ctx.playerFeet().getY();
+        int playerY = ctx.playerFeet().getY() - ctx.world().dimensionType().minY();
 
         if (chunk == null || chunk.isEmpty()) {
             return Collections.emptyList();

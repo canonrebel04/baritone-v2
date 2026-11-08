@@ -307,19 +307,19 @@ public final class FrontierExplorerProcess extends BaritoneProcessHelper {
      * speed — a full scan is 320 blocks/column and the frontier pick runs on the game thread).
      */
     private double caveExposureOf(CachedWorld world, int chunkX, int chunkZ) {
-        var region = world.getRegion(chunkX >> 9, chunkZ >> 9);
+        var region = world.getRegion(chunkX >> 5, chunkZ >> 5);
         if (region == null) return 0;
 
         int caveAir = 0;
         int sampled = 0;
-        int baseX = chunkX << 4;
-        int baseZ = chunkZ << 4;
+        int regBlockX = (chunkX & 31) << 4;
+        int regBlockZ = (chunkZ & 31) << 4;
         int minY = ctx.world().dimensionType().minY();
         for (int y = minY; y < CAVE_Y_MAX; y += 4) {
             for (int x = 0; x < 16; x += 4) {
                 for (int z = 0; z < 16; z += 4) {
                     try {
-                        var state = region.getBlock(baseX + x, y, baseZ + z);
+                        var state = region.getBlock(regBlockX + x, y, regBlockZ + z);
                         if (state != null && state.isAir()) caveAir++;
                     } catch (Exception ignored) {
                     }

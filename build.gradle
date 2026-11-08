@@ -131,13 +131,13 @@ sourceSets {
         compileClasspath += api.output
         runtimeClasspath += api.output
     }
-    test {
-        compileClasspath += main.compileClasspath + main.runtimeClasspath + main.output
-        runtimeClasspath += main.compileClasspath + main.runtimeClasspath + main.output
-    }
     launch {
         compileClasspath += main.compileClasspath + main.runtimeClasspath + main.output
         runtimeClasspath += main.compileClasspath + main.runtimeClasspath + main.output
+    }
+    test {
+        compileClasspath += main.compileClasspath + main.runtimeClasspath + main.output + launch.output
+        runtimeClasspath += main.compileClasspath + main.runtimeClasspath + main.output + launch.output
     }
     schematica_api {
         compileClasspath += main.compileClasspath

@@ -147,7 +147,7 @@ public final class LitematicaSchematic extends CompositeSchematic implements ISt
      */
     private static long getVolume(CompoundTag subReg) {
         CompoundTag size = subReg.getCompound("Size").orElse(new CompoundTag());
-        return Math.abs(size.getInt("x").orElse(0) * size.getInt("y").orElse(0) * size.getInt("z").orElse(0));
+        return Math.abs((long) size.getInt("x").orElse(0) * size.getInt("y").orElse(0) * size.getInt("z").orElse(0));
     }
 
     /**

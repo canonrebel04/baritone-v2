@@ -81,10 +81,8 @@ public final class PathRenderer implements IRenderer {
         final float partialTicks = event.getPartialTicks();
         final Goal goal = behavior.getGoal();
 
-        final DimensionType thisPlayerDimension = ctx.world().dimensionType();
-        final DimensionType currentRenderViewDimension = BaritoneAPI.getProvider().getPrimaryBaritone().getPlayerContext().world().dimensionType();
-
-        if (thisPlayerDimension != currentRenderViewDimension) {
+        final IPlayerContext primaryCtx = BaritoneAPI.getProvider().getPrimaryBaritone().getPlayerContext();
+        if (primaryCtx.world() == null || !ctx.world().dimension().equals(primaryCtx.world().dimension())) {
             // this is a path for a bot in a different dimension, don't render it
             return;
         }
@@ -285,7 +283,7 @@ public final class PathRenderer implements IRenderer {
             boolean batch = Arrays.stream(((GoalComposite) goal).goals()).allMatch(IGoalRenderPos.class::isInstance);
             BufferBuilder buf = bufferBuilder;
             if (batch) {
-                buf = IRenderer.startLines(color, settings.goalRenderLineWidthPixels.value);
+                buf = IRenderer.startLines(color);
             }
             for (Goal g : ((GoalComposite) goal).goals()) {
                 drawGoal(buf, stack, ctx, g, partialTicks, color, !batch);

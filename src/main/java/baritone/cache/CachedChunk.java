@@ -195,7 +195,7 @@ public final class CachedChunk {
                 return Blocks.BEDROCK.defaultBlockState();
             }
 
-            if ((dimensionId == Level.OVERWORLD || dimensionId == Level.NETHER) && y < dimension.minY() + 5) {
+            if ((dimensionId == Level.OVERWORLD || dimensionId == Level.NETHER) && y < 5) {
                 // solid blocks below 5 are commonly bedrock
                 // however, returning bedrock always would be a little yikes
                 // discourage paths that include breaking blocks below 5 a little more heavily just so that it takes paths breaking what's known to be stone (at 5 or above) instead of what could maybe be bedrock (below 5)
@@ -214,7 +214,7 @@ public final class CachedChunk {
             for (int x = 0; x < 16; x++) {
                 int index = z << 4 | x;
                 heightMap[index] = 0;
-                for (int y = height; y >= 0; y--) {
+                for (int y = height - 1; y >= 0; y--) {
                     int i = getPositionIndex(x, y, z);
                     if (data.get(i) || data.get(i + 1)) {
                         heightMap[index] = y;

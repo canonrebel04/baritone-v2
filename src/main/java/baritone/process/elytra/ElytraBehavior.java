@@ -166,7 +166,7 @@ public final class ElytraBehavior implements Helper {
         final boolean clear;
         if (!ignoreLava) {
             // if start == dest then the cpp raytracer dies
-            clear = start.equals(dest) || this.context.raytrace(start, dest);
+            clear = start.equals(dest) || this.raytrace(start, dest);
         } else {
             clear = ctx.world().clip(new ClipContext(start, dest, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, ctx.player())).getType() == HitResult.Type.MISS;
         }
@@ -1376,7 +1376,7 @@ public final class ElytraBehavior implements Helper {
         // themselves since they are different threads from the caller.
         final boolean canParallel = !context.ignoreLava && pitchPool != null;
         if (canParallel && pitches.size() > 8) {
-            final List<PitchResult> results = new java.util.concurrent.CopyOnWriteArrayList<>();
+            final PitchResult[] results = new PitchResult[pitches.size()];
             final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(pitches.size());
             for (int i = 0; i < pitches.size(); i++) {
                 final int idx = i;
@@ -1390,7 +1390,7 @@ public final class ElytraBehavior implements Helper {
                                 final Vec3 last = displacement.get(displacement.size() - 1);
                                 double goodness = goalDirection.dot(last.normalize());
                                 if (landingMode) goodness = -goalDelta.subtract(last).length();
-                                results.add(idx, new PitchResult(pitch, goodness, displacement));
+                                results[idx] = new PitchResult(pitch, goodness, displacement);
                             }
                         } finally {
                             ElytraBehavior.this.context.releaseReadLock();
@@ -1408,6 +1408,9 @@ public final class ElytraBehavior implements Helper {
             }
             // Deterministic reduction in original pitch order (first-best wins, like the serial loop)
             for (final PitchResult result : results) {
+                if (result == null) {
+                    continue;
+                }
                 final PitchResult bestSoFar = bestResults.peek();
                 if (bestSoFar == null || result.dot > bestSoFar.dot) {
                     bestResults.push(result);

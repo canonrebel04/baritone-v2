@@ -326,7 +326,8 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
             this.tau = Math.max(1.0, smoothingTicks / 3.0); // 5 ticks -> tau ~1.67: responsive but eased
             this.yawPos = current.getYaw() / gcdStep;
             this.pitchPos = current.getPitch() / gcdStep;
-            this.yawTarget = target.getYaw() / gcdStep;
+            float wrappedYawTarget = current.getYaw() + net.minecraft.util.Mth.wrapDegrees(target.getYaw() - current.getYaw());
+            this.yawTarget = wrappedYawTarget / gcdStep;
             this.pitchTarget = target.getPitch() / gcdStep;
             this.yawVel = 0;
             this.pitchVel = 0;
@@ -334,7 +335,9 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
         /** Moves the set point; the spring state (position + velocity) is preserved. */
         void retarget(Rotation target, float gcdStep, float maxTurn, int smoothingTicks) {
-            this.yawTarget = target.getYaw() / gcdStep;
+            float currentYaw = (float) (this.yawPos * gcdStep);
+            float wrappedYawTarget = currentYaw + net.minecraft.util.Mth.wrapDegrees(target.getYaw() - currentYaw);
+            this.yawTarget = wrappedYawTarget / gcdStep;
             this.pitchTarget = target.getPitch() / gcdStep;
         }
 
@@ -541,7 +544,7 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
         }
 
         private float calculateMouseMove(float current, float target) {
-            final float delta = target - current;
+            final float delta = net.minecraft.util.Mth.wrapDegrees(target - current);
             final double deltaPx = angleToMouse(delta); // yes, even the mouse movements use double
             return current + mouseToAngle(deltaPx);
         }
