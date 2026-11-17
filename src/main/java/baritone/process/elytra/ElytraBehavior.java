@@ -293,8 +293,17 @@ public final class ElytraBehavior implements Helper {
             final List<BetterBlockPos> after = upToIncl.isPresent() ? this.path.subList(upToIncl.getAsInt() + 1, this.path.size()) : Collections.emptyList();
             final boolean complete = this.completePath;
 
-            return this.path0(ctx.playerFeet(), upToIncl.isPresent() ? fixDestination(this.path.get(upToIncl.getAsInt())) : destinationFixed(), segment -> segment.append(after.stream(), complete || (segment.isFinished() && !upToIncl.isPresent())))
-                    .whenComplete((result, ex) -> {
+            // path0's thenApply runs inline when the segment future is already complete.
+            // A throw there never reaches whenComplete, which would leave recalculating
+            // stuck and freeze every later replan on the bad segment.
+            final CompletableFuture<Void> calc;
+            try {
+                calc = this.path0(ctx.playerFeet(), upToIncl.isPresent() ? fixDestination(this.path.get(upToIncl.getAsInt())) : destinationFixed(), segment -> segment.append(after.stream(), complete || (segment.isFinished() && !upToIncl.isPresent())));
+            } catch (Throwable t) {
+                this.recalculating = false;
+                throw t;
+            }
+            return calc.whenComplete((result, ex) -> {
                         this.recalculating = false;
                         if (ex != null) {
                             final Throwable cause = ex.getCause();
@@ -317,8 +326,14 @@ public final class ElytraBehavior implements Helper {
             final long start = System.nanoTime();
             final BetterBlockPos pathStart = this.path.get(afterIncl);
 
-            this.path0(pathStart, destinationFixed(), segment -> segment.prepend(before.stream()))
-                    .thenRun(() -> {
+            final CompletableFuture<Void> calc;
+            try {
+                calc = this.path0(pathStart, destinationFixed(), segment -> segment.prepend(before.stream()));
+            } catch (Throwable t) {
+                this.recalculating = false;
+                throw t;
+            }
+            calc.thenRun(() -> {
                         final int recompute = this.path.size() - before.size() - 1;
                         final double distance = recompute > 0 ? this.path.get(0).distanceTo(this.path.get(recompute)) : 0;
 
@@ -999,16 +1014,25 @@ public final class ElytraBehavior implements Helper {
 
         final double elytraFireworkSpeed = Baritone.settings().elytraFireworkSpeed.value;
 
-        // Principled firework decision (replaces the old fixed ±5-block heuristics):
-        // boost when we can't coast to the target column within the simulation horizon
-        // at our current speed, or we're below the target and speed is dropping.
-        // Distance we can cover at current speed within elytraSimulationTicks:
+        // Boost when we can't coast to the target column within the simulation horizon
+        // at our current speed, or we're below a target that is actually closer to the
+        // destination. An aim point above us that does not close on the goal is an orbit
+        // node — boosting there burns rockets without progress.
         final double coastDistance = Math.sqrt(currentSpeed) * Baritone.settings().elytraSimulationTicks.value;
         final double horizontalDist = Math.sqrt(
                 (goingTo.x + 0.5 - ctx.player().getX()) * (goingTo.x + 0.5 - ctx.player().getX())
                         + (goingTo.z + 0.5 - ctx.player().getZ()) * (goingTo.z + 0.5 - ctx.player().getZ())
         );
-        final boolean cannotReachTarget = horizontalDist > coastDistance || ctx.player().position().y < goingTo.y - 5;
+        final BetterBlockPos goalColumn = destinationFixed();
+        final double goalX = goalColumn.x + 0.5;
+        final double goalZ = goalColumn.z + 0.5;
+        final double playerToGoal = (goalX - ctx.player().getX()) * (goalX - ctx.player().getX())
+                + (goalZ - ctx.player().getZ()) * (goalZ - ctx.player().getZ());
+        final double aimToGoal = (goalX - goingTo.x) * (goalX - goingTo.x)
+                + (goalZ - goingTo.z) * (goalZ - goingTo.z);
+        final boolean aimClosesOnGoal = aimToGoal < playerToGoal - 1.0;
+        final boolean cannotReachTarget = horizontalDist > coastDistance
+                || (ctx.player().position().y < goingTo.y - 5 && aimClosesOnGoal);
 
         if (this.remainingFireworkTicks <= 0 && (forceUseFirework || (!isBoosted
                 && useOnDescend

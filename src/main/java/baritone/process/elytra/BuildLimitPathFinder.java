@@ -26,12 +26,20 @@ import net.minecraft.core.Vec3i;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.Heightmap;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 public class BuildLimitPathFinder implements IElytraPathFinder {
+    /**
+     * Sustainable firework-elytra climb, blocks of altitude per block forward.
+     * Steeper than this stalls: the glider pitches up, loses horizontal speed, and orbits.
+     */
+    static final double MAX_CLIMB_RISE_PER_RUN = 1.0 / 3.0;
+    static final int CLIMB_STEP = 32;
+
     final int flightLevel;
     final IPlayerContext playerCtx;
     final NetherPathfinderContext netherCtx;
@@ -98,43 +106,74 @@ public class BuildLimitPathFinder implements IElytraPathFinder {
     }
 
     /**
-     * Attempts to find an open spot in the sky to transition up above the build limit so a simple direct path can be followed
-     * @param start
-     * @param destination
-     * @return A tuple containing the path that transitions above build limit and a boolean indicating if a transition was found
+     * Climb from the player's altitude to {@link #flightLevel} toward the destination.
+     * A departure that cannot be flown (near-vertical, or too short to finish the climb
+     * before the destination) is a failure so the caller paths to the real goal instead.
      */
-    public Pair<List<BetterBlockPos>,Boolean> generateTransitionUp(BetterBlockPos start, BetterBlockPos destination) {
+    public Pair<List<BetterBlockPos>, Boolean> generateTransitionUp(BetterBlockPos start, BetterBlockPos destination) {
+        final ChunkPos startChunk = new ChunkPos(start.x >> 4, start.z >> 4);
+        if (!isSkyClear(startChunk, start.y)) {
+            return new Pair<>(new LinkedList<>(), false);
+        }
+        final List<BetterBlockPos> climb = flyableClimb(start, destination, this.flightLevel, MAX_CLIMB_RISE_PER_RUN, CLIMB_STEP);
+        if (climb.isEmpty()) {
+            return new Pair<>(new LinkedList<>(), false);
+        }
+        return new Pair<>(climb, true);
+    }
+
+    /**
+     * Nodes from {@code start} toward {@code destination} until {@code targetY}, gaining at most
+     * {@code maxRisePerRun} blocks of altitude per block forward. Empty when the destination
+     * column is too close to finish that climb — committing to it would orbit an unreachable node.
+     */
+    static List<BetterBlockPos> flyableClimb(BetterBlockPos start, BetterBlockPos destination, int targetY, double maxRisePerRun, int stepDistance) {
+        if (start.y >= targetY) {
+            final List<BetterBlockPos> atLevel = new ArrayList<>();
+            atLevel.add(new BetterBlockPos(start.x, targetY, start.z));
+            return atLevel;
+        }
         final double deltaX = destination.getX() - start.getX();
         final double deltaZ = destination.getZ() - start.getZ();
         final double distance = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
-
-        final double scale = 8 / distance;
-        final double stepX = deltaX * scale;
-        final double stepZ = deltaZ * scale;
-
-        final int netherMaxHeight = netherCtx.getMaxHeight() + playerCtx.world().getMinY() - 1;
-
-        final ChunkPos startChunk = new ChunkPos(start.x >> 4, start.z >> 4);
-
-        if(!isSkyClear(startChunk, start.y)) {
-            return new Pair<>(new LinkedList<>(), false);
+        if (distance < 1.0 || maxRisePerRun <= 0.0 || stepDistance < 1) {
+            return List.of();
         }
-
-        LinkedList<BetterBlockPos> path = new LinkedList<>();
-
-        // Start with the middle block so the transition doesn't leave the only chunk we can confirm is clear
-        final BlockPos middlePos = startChunk.getMiddleBlockPosition(netherMaxHeight+4);
-
-        for(int i = 2; i <= 2; i++) {
-            BetterBlockPos next = new BetterBlockPos(
-                    (int) (middlePos.getX() + (stepX * i)),
-                    netherMaxHeight + (i * 8),
-                    (int) (middlePos.getZ() + (stepZ * i))
-            );
-            path.add(next);
+        final int rise = targetY - start.y;
+        final double horizontalNeeded = rise / maxRisePerRun;
+        if (distance + 1e-6 < horizontalNeeded) {
+            return List.of();
         }
-
-        return new Pair<>(path, true);
+        final double ux = deltaX / distance;
+        final double uz = deltaZ / distance;
+        final List<BetterBlockPos> path = new ArrayList<>();
+        double x = start.getX();
+        double z = start.getZ();
+        double traveled = 0.0;
+        int y = start.y;
+        while (y < targetY) {
+            int gain = Math.max(1, (int) Math.floor(stepDistance * maxRisePerRun));
+            int step = stepDistance;
+            if (y + gain >= targetY) {
+                gain = targetY - y;
+                step = (int) Math.ceil(gain / maxRisePerRun);
+                if (step < 1) {
+                    step = 1;
+                }
+            }
+            if (traveled + step > distance) {
+                return List.of();
+            }
+            traveled += step;
+            x += ux * step;
+            z += uz * step;
+            y += gain;
+            path.add(new BetterBlockPos((int) Math.round(x), y, (int) Math.round(z)));
+            if (path.size() > 512) {
+                return List.of();
+            }
+        }
+        return path;
     }
 
     /**
@@ -218,14 +257,18 @@ public class BuildLimitPathFinder implements IElytraPathFinder {
                 }
             }
 
-            // Failed to find a transition point so navigate a bit in the right direction and try
+            // A failed climb must not substitute an unreachable altitude midpoint for a
+            // destination the pathfinder can already reach. That midpoint is what the glider
+            // orbited, boosting the whole time, instead of closing on the goal.
+            if (!dstAboveSupportedHeight) {
+                return netherCtx.pathFindAsync(src, dst);
+            }
             final double deltaX = dst.getX() - src.getX();
             final double deltaZ = dst.getZ() - src.getZ();
-            final double scale = (maxDistance/2) / Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
+            final double scale = (maxDistance / 2) / Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
             final double stepX = deltaX * scale;
             final double stepZ = deltaZ * scale;
-            final BlockPos midDst = new BlockPos((int)(src.getX() + stepX), netherMaxHeight, (int)(src.getZ() + stepZ));
-
+            final BlockPos midDst = new BlockPos((int) (src.getX() + stepX), netherMaxHeight, (int) (src.getZ() + stepZ));
             return incompletePathfind(src, midDst);
         } else {
             if(srcAboveSupportedHeight) {

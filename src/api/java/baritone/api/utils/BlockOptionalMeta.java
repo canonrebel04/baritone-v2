@@ -222,26 +222,36 @@ public final class BlockOptionalMeta {
     }
 
     private static synchronized List<Item> drops(Block b) {
-        return drops.computeIfAbsent(b, block -> {
-            Optional<ResourceKey<LootTable>> optionalLootTableKey = block.getLootTable();
-            if (optionalLootTableKey.isEmpty()) {
-                return Collections.emptyList();
-            } else {
-                List<Item> items = new ArrayList<>();
-                try {
-                    ServerLevel lv2 = ServerLevelStub.fastCreate();
-
-                    LootParams.Builder lv5 = new LootParams.Builder(lv2)
-                        .withParameter(LootContextParams.ORIGIN, Vec3.ZERO)
-                        .withParameter(LootContextParams.BLOCK_STATE, b.defaultBlockState())
-                        .withParameter(LootContextParams.TOOL, new ItemStack(Items.NETHERITE_PICKAXE, 1));
-                    getDrops(block, lv5).stream().map(ItemStack::getItem).forEach(items::add);
-                } catch (Throwable e) {
-                    e.printStackTrace();
-                }
-                return items;
-            }
-        });
+        List<Item> cached = drops.get(b);
+        if (cached != null) {
+            return cached;
+        }
+        Optional<ResourceKey<LootTable>> optionalLootTableKey = b.getLootTable();
+        if (optionalLootTableKey.isEmpty()) {
+            List<Item> empty = Collections.emptyList();
+            drops.put(b, empty);
+            return empty;
+        }
+        List<Item> items = new ArrayList<>();
+        boolean failed = false;
+        try {
+            ServerLevelStub level = ServerLevelStub.fastCreate();
+            LootParams.Builder lv5 = new LootParams.Builder(level)
+                .withParameter(LootContextParams.ORIGIN, Vec3.ZERO)
+                .withParameter(LootContextParams.BLOCK_STATE, b.defaultBlockState())
+                .withParameter(LootContextParams.TOOL, new ItemStack(Items.NETHERITE_PICKAXE, 1));
+            getDrops(b, lv5).stream().map(ItemStack::getItem).forEach(items::add);
+        } catch (Throwable e) {
+            failed = true;
+            e.printStackTrace();
+        }
+        // A block with a loot table that resolved to nothing is not a stable answer: the integrated
+        // server may not have been up yet, or generation failed. Retry next lookup instead of
+        // pinning an empty drop set for the rest of the session.
+        if (!failed && !items.isEmpty()) {
+            drops.put(b, items);
+        }
+        return items;
     }
 
     private static List<ItemStack> getDrops(Block state, LootParams.Builder params) {
@@ -249,10 +259,13 @@ public final class BlockOptionalMeta {
         if (lv.isEmpty()) {
             return Collections.emptyList();
         } else {
+            // Stub only. A live ServerLevel would make createStackSplitter call enabledFeatures(),
+            // which reads MinecraftServer world data, and that is not legal off the server thread.
+            // RNG is a local seed below, so random sequences are not consulted.
             LootParams lv2 = params.withParameter(LootContextParams.BLOCK_STATE, state.defaultBlockState()).create(LootContextParamSets.BLOCK);
             ServerLevelStub lv3 = (ServerLevelStub) lv2.getLevel();
             LootTable lv4 = lv3.holder().getLootTable(lv.get());
-            return((ILootTable) lv4).invokeGetRandomItems(new LootContext.Builder(lv2).withOptionalRandomSeed(1).create(null));
+            return ((ILootTable) lv4).invokeGetRandomItems(new LootContext.Builder(lv2).withOptionalRandomSeed(1).create(null));
         }
     }
 
@@ -287,8 +300,15 @@ public final class BlockOptionalMeta {
             return registryAccess.join();
         }
 
+        // Loot tables are not networked, so the client level registry resolves every table to EMPTY
+        // and inventory quantity matching never sees the drops. Use the integrated server's registries
+        // (datapacks included); otherwise the vanilla reloadable layer loaded at startup.
         public ReloadableServerRegistries.Holder holder() {
-            return new ReloadableServerRegistries.Holder(registryAccess().freeze());
+            MinecraftServer server = client.getSingleplayerServer();
+            if (server != null && server.isRunning()) {
+                return server.reloadableRegistries();
+            }
+            return new ReloadableServerRegistries.Holder(ServerLevelStub.registryAccess.join().freeze());
         }
 
         public static Unsafe getUnsafe() {

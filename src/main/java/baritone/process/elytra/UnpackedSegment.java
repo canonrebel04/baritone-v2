@@ -20,11 +20,11 @@ package baritone.process.elytra;
 import baritone.api.utils.BetterBlockPos;
 import dev.babbaj.pathfinder.PathSegment;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -32,25 +32,39 @@ import java.util.stream.Stream;
  */
 public final class UnpackedSegment {
 
-    private final Stream<BetterBlockPos> path;
+    private final List<BetterBlockPos> positions;
     private final boolean finished;
 
     public UnpackedSegment(Stream<BetterBlockPos> path, boolean finished) {
-        this.path = path;
+        // A Stream is single-use. The path cache and segment splice both revisit the same
+        // segment, so materialize here — Stream.concat on a consumed stream is what stuck
+        // recalculation ("stream has already been operated upon or closed").
+        this.positions = new ArrayList<>();
+        path.forEach(this.positions::add);
+        this.finished = finished;
+    }
+
+    private UnpackedSegment(List<BetterBlockPos> positions, boolean finished) {
+        this.positions = positions;
         this.finished = finished;
     }
 
     public UnpackedSegment append(Stream<BetterBlockPos> other, boolean otherFinished) {
         // The new segment is only finished if the one getting added on is
-        return new UnpackedSegment(Stream.concat(this.path, other), otherFinished);
+        final List<BetterBlockPos> combined = new ArrayList<>(this.positions);
+        other.forEach(combined::add);
+        return new UnpackedSegment(combined, otherFinished);
     }
 
     public UnpackedSegment prepend(Stream<BetterBlockPos> other) {
-        return new UnpackedSegment(Stream.concat(other, this.path), this.finished);
+        final List<BetterBlockPos> combined = new ArrayList<>();
+        other.forEach(combined::add);
+        combined.addAll(this.positions);
+        return new UnpackedSegment(combined, this.finished);
     }
 
     public List<BetterBlockPos> collect() {
-        final List<BetterBlockPos> path = this.path.collect(Collectors.toList());
+        final List<BetterBlockPos> path = new ArrayList<>(this.positions);
 
         // Remove backtracks
         final Map<BetterBlockPos, Integer> positionFirstSeen = new HashMap<>();

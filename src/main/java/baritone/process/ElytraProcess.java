@@ -123,6 +123,8 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     private int landingColumnHeight = SHORT_LANDING_COLUMN_HEIGHT;
     private Set<BetterBlockPos> badLandingSpots = new HashSet<>();
     private LandingSearchState landingSearchState;
+    /** True after the current low-rocket/durability landing has already been announced. */
+    private boolean safetyLandingAnnounced;
 
     @Override
     public void onLostControl() {
@@ -131,6 +133,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
 
     public void onLostControl(boolean destroyNpf) {
         this.state = State.START_FLYING; // TODO: null state?
+        this.safetyLandingAnnounced = false;
         this.goingToLandingSpot = false;
         this.landingSpot = null;
         this.landingSearchState = null;
@@ -217,11 +220,17 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         boolean safetyLanding = false;
         if (ctx.player().isFallFlying() && shouldLandForSafety()) {
             if (Baritone.settings().elytraAllowEmergencyLand.value) {
-                logDirect("Emergency landing - almost out of elytra durability or fireworks");
+                if (!this.safetyLandingAnnounced) {
+                    logDirect("Emergency landing - almost out of elytra durability or fireworks");
+                    this.safetyLandingAnnounced = true;
+                }
                 safetyLanding = true;
-            } else {
+            } else if (!this.safetyLandingAnnounced) {
                 logDirect("almost out of elytra durability or fireworks, but I'm going to continue since elytraAllowEmergencyLand is false");
+                this.safetyLandingAnnounced = true;
             }
+        } else {
+            this.safetyLandingAnnounced = false;
         }
         if (ctx.player().isFallFlying() && this.state != State.LANDING && (this.behavior.pathManager.isComplete() || safetyLanding)) {
             final BetterBlockPos last = this.behavior.pathManager.path.getLast();
@@ -280,8 +289,13 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         }
 
         if (ctx.player().isFallFlying()) {
-            checkFireworkBurn();
+            // Already gliding is the flight, not takeoff. START_FLYING is only the jump-off
+            // phase; leaving it set made #proc stick on "Begin flying" for the whole glide.
+            if (this.state != State.LANDING) {
+                this.state = State.FLYING;
+            }
             behavior.landingMode = this.state == State.LANDING;
+            checkFireworkBurn();
             this.goal = null;
             baritone.getInputOverrideHandler().clearAllKeys();
             if (this.behavior.npfContext.tryAcquireReadLock()) {
@@ -508,6 +522,9 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             this.repackChunks();
         }
         this.behavior.pathTo();
+        if (ctx.player().isFallFlying()) {
+            this.state = State.FLYING;
+        }
     }
 
     /**
