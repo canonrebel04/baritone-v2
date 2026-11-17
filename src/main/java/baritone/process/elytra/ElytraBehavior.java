@@ -423,7 +423,8 @@ public final class ElytraBehavior implements Helper {
             // Lazy pack-on-demand (plan item 10): ensure the chunks for the immediately
             // upcoming path nodes are queued for packing, even if the 81x81 repack sweep
             // is still draining — the flight corridor must be in the native octree.
-            for (int i = rangeStartIncl; i < Math.min(rangeStartIncl + 8, rangeEndExcl); i++) {
+            // Must iterate past rangeEndExcl (which stops at the first unpacked chunk).
+            for (int i = rangeEndExcl; i < Math.min(rangeStartIncl + 16, path.size()); i++) {
                 final ChunkPos cp = ChunkPos.containing(path.get(i));
                 if (!context.hasChunk(cp)) {
                     final LevelChunk chunk = ctx.world().getChunkSource().getChunk(cp.x(), cp.z(), false);
@@ -451,7 +452,7 @@ public final class ElytraBehavior implements Helper {
                 return;
             }
 
-            if (ElytraBehavior.this.process.state != ElytraProcess.State.LANDING && this.ticksNearUnchanged > 100) {
+            if (ElytraBehavior.this.process.state != ElytraProcess.State.LANDING && this.ticksNearUnchanged > 100 && rangeEndExcl - 1 > rangeStartIncl) {
                 this.pathRecalcSegment(OptionalInt.of(rangeEndExcl - 1))
                         .thenRun(() -> {
                             logVerbose("Recalculating segment, no progress in last 100 ticks");
@@ -1406,18 +1407,16 @@ public final class ElytraBehavior implements Helper {
                 final int idx = i;
                 pitchPool.submit(() -> {
                     try {
+                        // Caller (tick / solverExecutor) already holds context.readLock across latch.await().
+                        // Re-acquiring readLock on pitchPool deadlocks ReentrantReadWriteLock whenever a
+                        // writeExecutor task queues for writeLock between caller lock and worker lock.
                         final float pitch = pitches.getFloat(idx);
-                        ElytraBehavior.this.context.acquireReadLock();
-                        try {
-                            final List<Vec3> displacement = this.simulate(context, goalDelta, pitch, ticks, ticksBoosted, ticksBoostDelay);
-                            if (displacement != null) {
-                                final Vec3 last = displacement.get(displacement.size() - 1);
-                                double goodness = goalDirection.dot(last.normalize());
-                                if (landingMode) goodness = -goalDelta.subtract(last).length();
-                                results[idx] = new PitchResult(pitch, goodness, displacement);
-                            }
-                        } finally {
-                            ElytraBehavior.this.context.releaseReadLock();
+                        final List<Vec3> displacement = this.simulate(context, goalDelta, pitch, ticks, ticksBoosted, ticksBoostDelay);
+                        if (displacement != null) {
+                            final Vec3 last = displacement.get(displacement.size() - 1);
+                            double goodness = goalDirection.dot(last.normalize());
+                            if (landingMode) goodness = -goalDelta.subtract(last).length();
+                            results[idx] = new PitchResult(pitch, goodness, displacement);
                         }
                     } finally {
                         latch.countDown();

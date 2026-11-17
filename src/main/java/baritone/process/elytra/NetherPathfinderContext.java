@@ -126,7 +126,7 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
         final BitSet blueIce = new BitSet(BITS);
 
         static int bitIndex(int x, int y, int z) {
-            return (y << 8) | (z << 4) | (x & 0xF);
+            return (y << 8) | ((z & 0xF) << 4) | (x & 0xF);
         }
     }
 
@@ -477,7 +477,10 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
     }
 
     /** Updates the highway ice index for a single block change. Called under the write lock. */
-    private void updateIceIndex(int x, int y, int z, BlockState newState) {
+    private void updateIceIndex(int x, int relY, int z, BlockState newState) {
+        if (relY < 0 || relY >= (ChunkIceIndex.BITS >> 8)) {
+            return;
+        }
         final boolean isPackedIce = newState == Blocks.PACKED_ICE.defaultBlockState();
         final boolean isBlueIce = newState == Blocks.BLUE_ICE.defaultBlockState();
         final long key = chunkKey(x >> 4, z >> 4);
@@ -485,7 +488,7 @@ public final class NetherPathfinderContext implements IElytraPathFinder {
         if (index == null) {
             return; // chunk never had ice; new ice appears on the next repack
         }
-        final int bit = ChunkIceIndex.bitIndex(x, y - this.minY, z);
+        final int bit = ChunkIceIndex.bitIndex(x, relY, z);
         if (isPackedIce | isBlueIce) {
             if (isPackedIce) {
                 index.packedIce.set(bit);

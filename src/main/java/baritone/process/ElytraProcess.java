@@ -366,7 +366,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                 return new PathingCommand(null, PathingCommandType.CANCEL_AND_SET_GOAL);
             }
             if (this.goal == null) {
-                this.goal = new GoalYLevel(getJumpOffYLevel());
+                this.goal = createJumpOffGoal();
             }
             final IPathExecutor executor = baritone.getPathingBehavior().getCurrent();
             if (executor != null && executor.getPath().getGoal() == this.goal) {
@@ -1068,14 +1068,29 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         Blocks.DIORITE, Blocks.ANDESITE, Blocks.TUFF, Blocks.DEEPSLATE
     );
 
-    private int getJumpOffYLevel() {
-        if (ctx.world().dimension() == Level.NETHER) {
-            return 31;
+    private Goal createJumpOffGoal() {
+        if (ctx.world().dimension() == Level.NETHER && ctx.playerFeet().y > 39) {
+            return new GoalYLevel(31);
         }
-        if (ctx.world().dimension() == Level.END) {
-            return 100;
-        }
-        return Math.min(ctx.world().getMaxY() - 16, 120);
+        // Any drop of at least WalkOffCalculationContext.minFallHeight (8 blocks) below the
+        // player's current Y is a valid cliff/overhang takeoff, regardless of world altitude.
+        final int maxY = Math.max(ctx.world().getMinY() + 1, ctx.playerFeet().y - 8);
+        return new Goal() {
+            @Override
+            public boolean isInGoal(int x, int y, int z) {
+                return y <= maxY;
+            }
+
+            @Override
+            public double heuristic(int x, int y, int z) {
+                return y > maxY ? GoalYLevel.calculate(maxY, y) : 0;
+            }
+
+            @Override
+            public String toString() {
+                return "GoalFallBelow{maxY=" + maxY + "}";
+            }
+        };
     }
 
     private static boolean isInBounds(Level dim, BlockPos pos) {

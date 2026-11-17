@@ -164,10 +164,12 @@ public interface IRenderer {
         stagedVertexBuffer.upload();
         StagedVertexBuffer.ExecuteInfo info = stagedVertexBuffer.getExecuteInfo(draw[0]);
         if (info != null) {
+            // Prepare textures before opening the render pass; lazy texture loading writes via the command encoder, which throws if a pass is active.
+            net.minecraft.client.renderer.rendertype.PreparedRenderType prepared = renderType.prepare();
             com.mojang.blaze3d.pipeline.RenderTarget target = Minecraft.getInstance().gameRenderer.mainRenderTarget();
             try (com.mojang.renderpearl.api.commands.RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(
                     () -> "baritone", target.getColorTextureView(), java.util.Optional.empty(), target.getDepthTextureView(), java.util.OptionalDouble.empty())) {
-                renderType.prepare().drawFromBuffer(info, pass);
+                prepared.drawFromBuffer(info, pass);
             }
         }
         stagedVertexBuffer.endFrame();
