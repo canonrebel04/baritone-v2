@@ -452,13 +452,19 @@ public final class ElytraBehavior implements Helper {
                 return;
             }
 
-            if (ElytraBehavior.this.process.state != ElytraProcess.State.LANDING && this.ticksNearUnchanged > 100 && rangeEndExcl - 1 > rangeStartIncl) {
-                this.pathRecalcSegment(OptionalInt.of(rangeEndExcl - 1))
-                        .thenRun(() -> {
-                            logVerbose("Recalculating segment, no progress in last 100 ticks");
-                        });
-                this.ticksNearUnchanged = 0;
-                return;
+            if (ElytraBehavior.this.process.state != ElytraProcess.State.LANDING && this.ticksNearUnchanged > 100) {
+                if (rangeEndExcl - 1 > rangeStartIncl) {
+                    this.pathRecalcSegment(OptionalInt.of(rangeEndExcl - 1))
+                            .thenRun(() -> {
+                                logVerbose("Recalculating segment, no progress in last 100 ticks");
+                            });
+                    this.ticksNearUnchanged = 0;
+                    return;
+                } else if (this.ticksNearUnchanged > 140) {
+                    this.pathToDestination();
+                    this.ticksNearUnchanged = 0;
+                    return;
+                }
             }
 
             boolean canSeeAny = false;

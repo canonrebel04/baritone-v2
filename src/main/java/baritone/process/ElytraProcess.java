@@ -125,6 +125,8 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     private LandingSearchState landingSearchState;
     /** True after the current low-rocket/durability landing has already been announced. */
     private boolean safetyLandingAnnounced;
+    private boolean soughtHighGround;
+    private int seekHighGroundTicks;
 
     @Override
     public void onLostControl() {
@@ -134,6 +136,8 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     public void onLostControl(boolean destroyNpf) {
         this.state = State.START_FLYING; // TODO: null state?
         this.safetyLandingAnnounced = false;
+        this.soughtHighGround = false;
+        this.seekHighGroundTicks = 0;
         this.goingToLandingSpot = false;
         this.landingSpot = null;
         this.landingSearchState = null;
@@ -308,7 +312,6 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             return new PathingCommand(null, PathingCommandType.CANCEL_AND_SET_GOAL);
         } else if (this.state == State.LANDING) {
             if (ctx.playerMotion().multiply(1, 0, 1).length() > 0.001) {
-                logDirect("Landed, but still moving, waiting for velocity to die down... ");
                 baritone.getInputOverrideHandler().setInputForceState(Input.SNEAK, true);
                 return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
             }
@@ -373,8 +376,10 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                 final IMovement fall = executor.getPath().movements().stream()
                         .filter(movement -> movement instanceof MovementFall)
                         .findFirst().orElse(null);
+                final boolean skyClearDrop = fall != null
+                        && (ctx.world().dimension() != Level.OVERWORLD || ctx.world().canSeeSky(fall.getDest()));
 
-                if (fall != null) {
+                if (fall != null && (skyClearDrop || this.soughtHighGround)) {
                     final BetterBlockPos from = new BetterBlockPos(
                             (fall.getSrc().x + fall.getDest().x) / 2,
                             (fall.getSrc().y + fall.getDest().y) / 2,
@@ -385,9 +390,26 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                             this.state = State.GET_TO_JUMP;
                             return;
                         }
+                        if (!this.soughtHighGround) {
+                            ctx.minecraft().execute(() -> {
+                                this.soughtHighGround = true;
+                                this.seekHighGroundTicks = 0;
+                                this.state = State.SEEK_HIGH_GROUND;
+                                this.goal = new GoalYLevel(Math.min(ctx.world().getMaxY() - 16, ctx.playerFeet().y + 10));
+                                logDirect("Takeoff spot blocked, climbing nearby high ground...");
+                            });
+                            return;
+                        }
                         onLostControl();
                     });
                     this.state = State.PAUSE;
+                } else if (!this.soughtHighGround) {
+                    this.soughtHighGround = true;
+                    this.seekHighGroundTicks = 0;
+                    this.state = State.SEEK_HIGH_GROUND;
+                    this.goal = new GoalYLevel(Math.min(ctx.world().getMaxY() - 16, ctx.playerFeet().y + 10));
+                    logDirect("No open cliff nearby, climbing nearby high ground...");
+                    return new PathingCommandContext(this.goal, PathingCommandType.SET_GOAL_AND_PATH, new WalkOffCalculationContext(baritone));
                 } else {
                     onLostControl();
                     logDirect(AUTO_JUMP_FAILURE_MSG);
@@ -395,6 +417,18 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                 }
             }
             return new PathingCommandContext(this.goal, PathingCommandType.SET_GOAL_AND_PAUSE, new WalkOffCalculationContext(baritone));
+        }
+
+        if (this.state == State.SEEK_HIGH_GROUND) {
+            this.seekHighGroundTicks++;
+            final boolean finished = this.seekHighGroundTicks > 200
+                    || (this.seekHighGroundTicks > 5 && !baritone.getPathingBehavior().isPathing());
+            if (finished) {
+                this.goal = null;
+                this.state = State.LOCATE_JUMP;
+                return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+            }
+            return new PathingCommandContext(this.goal, PathingCommandType.SET_GOAL_AND_PATH, new WalkOffCalculationContext(baritone));
         }
 
         // yucky
@@ -930,6 +964,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
 
     public enum State {
         NONE("None"),
+        SEEK_HIGH_GROUND("Moving to higher ground"),
         LOCATE_JUMP("Finding spot to jump off"),
         PAUSE("Waiting for elytra path"),
         GET_TO_JUMP("Walking to takeoff"),
