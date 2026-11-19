@@ -31,13 +31,15 @@ import java.util.*;
 /**
  * A24: take planned items from one of your unprotected containers. Picks the nearest usable container holding the
  * step's item and, while it's open, also takes the other items of the plan's withdrawal list that it holds (one
- * trip). Protected items are never clicked. Shift-click moves whole stacks, so it can take up to a stack more.
+ * trip). Protected items are never clicked. Whole stacks are shift-clicked; the last, partial one is split with
+ * {@link PartialTake} so exactly the planned count is taken (every click paced, S40).
  */
 public final class WithdrawTask extends ContainerTask {
     private final Map<String, Integer> want;
     private final Map<String, Integer> start = new HashMap<>();
     private final Set<String> protectedItems;
     private final String item;
+    private final Deque<PartialTake.Click> pending = new ArrayDeque<>();
 
     public WithdrawTask(Baritone baritone, GameData data, GetItemKnowledge knowledge, PlanStep step, BlockPos pos, Map<String, Integer> alsoTake) {
         super(baritone, data, knowledge, step, pos);
@@ -56,8 +58,20 @@ public final class WithdrawTask extends ContainerTask {
     }
 
     @Override
+    protected boolean busyWithCursor() {
+        return !pending.isEmpty();
+    }
+
+    @Override
     protected boolean work(AbstractContainerMenu m) {
         int size = containerSize(m);
+        if (!pending.isEmpty()) {
+            PartialTake.Click c = pending.peek();
+            if (!pacer.ready(c.slot, 9)) return false;
+            pending.poll();
+            ctx.playerController().windowClick(m.containerId, c.slot, c.button, ContainerInput.PICKUP, ctx.player());
+            return false;
+        }
         for (Map.Entry<String, Integer> e : want.entrySet()) {
             String k = e.getKey();
             if (protectedItems.contains(k) || taken(k) >= e.getValue()) continue;
@@ -68,6 +82,14 @@ public final class WithdrawTask extends ContainerTask {
                         setFailure("inventory full while taking " + k.replace("minecraft:", ""));
                         return true;
                     }
+                    int need = e.getValue() - taken(k);
+                    if (need < s.getCount() && Baritone.settings().getItemExactWithdraw.value) {
+                        int to = emptySlot(m, size);
+                        if (to >= 0) {
+                            pending.addAll(PartialTake.clicks(i, to, s.getCount(), need));
+                            return false;
+                        }
+                    }
                     if (!pacer.ready(i, 9)) return false; // S40: includes cursor travel to slot i
                     ctx.playerController().windowClick(m.containerId, i, 0, ContainerInput.QUICK_MOVE, ctx.player());
                     return false;
@@ -75,6 +97,12 @@ public final class WithdrawTask extends ContainerTask {
             }
         }
         return true;
+    }
+
+    private static int emptySlot(AbstractContainerMenu m, int size) {
+        // prefer the hotbar-less main inventory first, like a player dragging into the grid
+        for (int i = size; i < m.slots.size(); i++) if (m.getSlot(i).getItem().isEmpty()) return i;
+        return -1;
     }
 
     private static boolean hasRoom(AbstractContainerMenu m, int size, ItemStack s) {

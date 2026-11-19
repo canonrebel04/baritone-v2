@@ -2166,6 +2166,12 @@ public final class Settings {
     public final Setting<Integer> getItemClickDelayTicks = new Setting<>(-1);
 
     /**
+     * Get Item: take exactly the planned count from chests (splitting the last stack with a few extra clicks)
+     * instead of shift-clicking whole stacks.
+     */
+    public final Setting<Boolean> getItemExactWithdraw = new Setting<>(true);
+
+    /**
      * Get Item: prefer natural blocks seen near you when choosing what to mine (e.g. the log type that grows
      * here), by scanning loaded chunk palettes when a plan is made.
      */

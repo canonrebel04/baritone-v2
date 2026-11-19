@@ -60,6 +60,11 @@ abstract class ContainerTask extends StepTask {
         return m instanceof ChestMenu cm ? cm.getRowCount() * 9 : 27;
     }
 
+    /** True while the subclass is deliberately carrying a stack on the cursor (multi-click moves). */
+    protected boolean busyWithCursor() {
+        return false;
+    }
+
     /** One tick of work with the container open. Return true when finished (container is then closed). */
     protected abstract boolean work(AbstractContainerMenu m);
 
@@ -119,7 +124,7 @@ abstract class ContainerTask extends StepTask {
             ctx.player().closeContainer();
             return pause();
         }
-        if (!m.getCarried().isEmpty()) {
+        if (!m.getCarried().isEmpty() && !busyWithCursor()) {
             if (pacer.ready()) putCarriedBack(m);
             return pause();
         }
