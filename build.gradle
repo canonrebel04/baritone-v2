@@ -15,6 +15,17 @@
  * along with Baritone.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+// Unimined's run configs fetch https://files.betacraft.uk/launcher/assets/jsons/<version>.info, which CI runners
+// can't reach (connection timeout fails configuration). CI never launches the game, so pre-create the empty file
+// unimined itself writes when that lookup 404s.
+if (System.getenv("CI") != null) {
+    def mcInfo = new File(gradle.gradleUserHomeDir, "caches/unimined/net/minecraft/minecraft/${minecraft_version}/${minecraft_version}.info")
+    if (!mcInfo.exists()) {
+        mcInfo.parentFile.mkdirs()
+        mcInfo.createNewFile()
+    }
+}
+
 allprojects {
     apply plugin: 'java'
     apply plugin: 'eclipse'
