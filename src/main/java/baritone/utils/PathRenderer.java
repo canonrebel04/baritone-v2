@@ -133,6 +133,10 @@ public final class PathRenderer implements IRenderer {
     }
 
     public static void drawPath(PoseStack stack, List<BetterBlockPos> positions, int startIndex, Color color, boolean fadeOut, int fadeStart0, int fadeEnd0, double offset) {
+        if (settings.renderPathSmooth.value && positions.size() - startIndex >= 3) {
+            drawSmoothPath(stack, positions, startIndex, color, fadeOut, fadeStart0, fadeEnd0, offset);
+            return;
+        }
         BufferBuilder bufferBuilder = IRenderer.startLines(color);
 
         int fadeStart = fadeStart0 + startIndex;
@@ -170,6 +174,35 @@ public final class PathRenderer implements IRenderer {
             emitPathLine(bufferBuilder, stack, start.x, start.y, start.z, end.x, end.y, end.z, offset);
         }
 
+        IRenderer.endLines(bufferBuilder, settings.renderPathIgnoreDepth.value);
+    }
+
+    /** S66: the node chain drawn as a centripetal Catmull-Rom spline (corners rounded, no jagged steps). */
+    private static void drawSmoothPath(PoseStack stack, List<BetterBlockPos> positions, int startIndex, Color color, boolean fadeOut, int fadeStart0, int fadeEnd0, double offset) {
+        int fadeStart = fadeStart0 + startIndex;
+        int fadeEnd = fadeEnd0 + startIndex;
+        int last = fadeOut ? Math.min(positions.size() - 1, fadeEnd) : positions.size() - 1;
+        java.util.List<double[]> nodes = new java.util.ArrayList<>(last - startIndex + 1);
+        for (int i = startIndex; i <= last; i++) {
+            BetterBlockPos p = positions.get(i);
+            nodes.add(new double[]{p.x, p.y, p.z});
+        }
+        final int seg = 4;
+        java.util.List<double[]> pts = baritone.api.utils.smooth.PathSpline.smooth(nodes, seg);
+        BufferBuilder bufferBuilder = IRenderer.startLines(color);
+        double vpX = posX(), vpY = posY(), vpZ = posZ();
+        for (int k = 0; k + 1 < pts.size(); k++) {
+            if (fadeOut) {
+                int node = startIndex + k / seg;
+                float alpha = node <= fadeStart ? 0.4F : 0.4F * (1.0F - (float) (node - fadeStart) / (float) (fadeEnd - fadeStart));
+                IRenderer.glColor(color, Math.max(0, alpha));
+            }
+            double[] a = pts.get(k), b = pts.get(k + 1);
+            IRenderer.emitLine(bufferBuilder, stack,
+                    a[0] + offset - vpX, a[1] + offset - vpY, a[2] + offset - vpZ,
+                    b[0] + offset - vpX, b[1] + offset - vpY, b[2] + offset - vpZ,
+                    settings.pathRenderLineWidthPixels.value);
+        }
         IRenderer.endLines(bufferBuilder, settings.renderPathIgnoreDepth.value);
     }
 
