@@ -2236,6 +2236,56 @@ public final class Settings {
      */
     public final Setting<Integer> getItemMinToolDurability = new Setting<>(8);
 
+    // ---- Get Item M3 (A28-A30, A33-A42): world sources the planner may use, weighed by time against
+    // mining / crafting / your chests (A37). ----
+
+    /** Get Item (A28): buy from villagers whose trades you (or the bot) have seen, paying with what you have or can get. */
+    public final Setting<Boolean> getItemUseTrades = new Setting<>(true);
+
+    /** Get Item (A33/A39): harvest ripe crops on farms seen nearby (only what is ripe; replants via FarmProcess). */
+    public final Setting<Boolean> getItemUseFarms = new Setting<>(true);
+
+    /** Get Item (A29): fish for cod / salmon / pufferfish / tropical fish (crafts a rod if needed). */
+    public final Setting<Boolean> getItemUseFishing = new Setting<>(true);
+
+    /**
+     * Get Item (A30): hunt mobs seen nearby for their drops. Baritone only walks there: the kill itself is done by
+     * Meteor's Get Item module (it registers a kill handler); without one, hunting is never planned.
+     */
+    public final Setting<Boolean> getItemUseHunting = new Setting<>(true);
+
+    /** Get Item (A30): also hunt hostile mobs (creepers, endermen, blazes, ...), not just passive animals. */
+    public final Setting<Boolean> getItemHuntHostiles = new Setting<>(true);
+
+    /** Get Item (A35): shear sheep for wool and milk cows with a bucket. */
+    public final Setting<Boolean> getItemUseAnimals = new Setting<>(true);
+
+    /** Get Item (A34): grow trees from saplings when no wood is around. */
+    public final Setting<Boolean> getItemUseTrees = new Setting<>(true);
+
+    /** Get Item (A34): bone meal saplings so they grow at once (otherwise waiting for growth is a last resort). */
+    public final Setting<Boolean> getItemTreeBoneMeal = new Setting<>(true);
+
+    /** Get Item (A34): after chopping a grown tree, collect sapling drops and plant one back. */
+    public final Setting<Boolean> getItemTreeReplant = new Setting<>(true);
+
+    /**
+     * Get Item (A38): your mob farms / collection points, "x,y,z=item|item[@secondsPerItem]" (current dimension),
+     * e.g. "120,64,-40=gunpowder|bone|arrow@4". The bot stands there and picks up the drops.
+     */
+    public final Setting<List<String>> getItemMobFarms = new Setting<>(new ArrayList<>());
+
+    /** Get Item: how far (blocks) remembered villagers / farms may be to be used. */
+    public final Setting<Integer> getItemSourceRadius = new Setting<>(96);
+
+    /** Get Item (A41): after harvesting / collecting, put by-products the plan doesn't need into a nearby chest. */
+    public final Setting<Boolean> getItemStoreHarvest = new Setting<>(true);
+
+    /**
+     * A39: never path so that the player drops onto farmland (a fall onto farmland can trample it to dirt).
+     */
+    public final Setting<Boolean> avoidTramplingFarmland = new Setting<>(true);
+
     /**
      * Get Item (A45): eat food from the hotbar/inventory when hungry. Golden apples, chorus fruit, rotten flesh,
      * spider eyes, pufferfish and suspicious stew are never eaten. (Meteor turns this off while its AutoEat runs.)

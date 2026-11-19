@@ -31,6 +31,8 @@ import baritone.process.getitem.plan.*;
 import baritone.process.getitem.safety.BudgetGuard;
 import baritone.process.getitem.safety.SafetyMonitor;
 import baritone.process.getitem.tasks.*;
+import baritone.process.getitem.sources.SourceCatalog;
+import baritone.process.getitem.sources.Yields;
 import baritone.utils.BaritoneProcessHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
@@ -87,6 +89,12 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
     private List<Block> savedDisallow;
     private Boolean savedAvoidance;
     private int stashCooldown;
+    /** M3: world sources that failed this run ("KIND|ref"), not planned again. */
+    private final Set<String> sourceBlacklist = new HashSet<>();
+    /** A41: harvest by-products to put away after a gather step. */
+    private final Set<String> storeQueue = new HashSet<>();
+    /** A30: Meteor registers a kill handler; Baritone never attacks itself. */
+    private volatile boolean killHandler;
 
     public GetItemProcess(Baritone baritone) {
         super(baritone);
@@ -320,6 +328,7 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
         Set<String> pb = new HashSet<>();
         for (Block b : Baritone.settings().getItemProtectBlocks.value) pb.add(GameData.id(b));
         o.protectedBlocks = pb;
+        o.sources = sources(o.dimension);
         if (Baritone.settings().getItemPreferNearbyBlocks.value) {
             if (seenCache == null || seenAge++ > 20) {
                 seenCache = data.seenNaturalBlocks(data.planner().costs, 4);
@@ -331,6 +340,44 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
             o.seenBlocks = seen;
         }
         return o;
+    }
+
+    /** M3: world sources from what the knowledge has seen (trades, ripe farms, water, mobs, sheep, cows, mob farms). */
+    private List<Source> sources(String dim) {
+        if (ctx.player() == null) return Collections.emptyList();
+        BlockPos me = ctx.playerFeet();
+        int r = Baritone.settings().getItemSourceRadius.value;
+        List<Source> out = new ArrayList<>();
+        Census census = knowledge.census();
+        if (Baritone.settings().getItemUseTrades.value) {
+            out.addAll(SourceCatalog.trades(knowledge.base().villagers.all(), dim, me.getX(), me.getY(), me.getZ(), r));
+        }
+        if (Baritone.settings().getItemUseFarms.value) {
+            out.addAll(SourceCatalog.farms(knowledge.base().farms.all(), dim, me.getX(), me.getY(), me.getZ(), r));
+        }
+        if (Baritone.settings().getItemUseFishing.value) out.addAll(SourceCatalog.fishing(census.waterDist));
+        if (Baritone.settings().getItemUseHunting.value && killHandler) {
+            out.addAll(SourceCatalog.hunts(census.mobs, Baritone.settings().getItemHuntHostiles.value));
+        }
+        if (Baritone.settings().getItemUseAnimals.value) out.addAll(SourceCatalog.animals(census.sheep, census.cows));
+        if (Baritone.settings().getItemUseTrees.value) out.addAll(SourceCatalog.trees(Baritone.settings().getItemTreeBoneMeal.value));
+        out.addAll(SourceCatalog.mobFarms(Baritone.settings().getItemMobFarms.value, me.getX(), me.getY(), me.getZ()));
+        out.removeIf(x -> sourceBlacklist.contains(x.kind + "|" + x.ref) || data.protectedItems().contains(x.item));
+        return out;
+    }
+
+    @Override
+    public void setKillHandler(boolean available) {
+        killHandler = available;
+    }
+
+    public boolean hasKillHandler() {
+        return killHandler;
+    }
+
+    @Override
+    public int huntTargetId() {
+        return task instanceof AnimalTask at ? at.huntTarget() : -1;
     }
 
     private Plan makePlan(Goal g) {
@@ -461,6 +508,7 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
             }
             if (isPlanStep(t)) {
                 if (t.step.kind == PlanStep.Kind.MINE) t.step.blocks.forEach(blockFailures::remove);
+                if (t.step.kind == PlanStep.Kind.GATHER) queueHarvestStore(t.step);
                 stepsDone++;
                 stepFailures = 0;
             }
@@ -484,6 +532,7 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
             }
             PlanStep step = t.step;
             lastFailure = why;
+            if (step.kind == PlanStep.Kind.GATHER) sourceBlacklist.add(step.source.kind + "|" + step.source.ref);
             if (step.kind == PlanStep.Kind.MINE && why.startsWith("couldn't find") && explore(step)) {
                 return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
             }
@@ -500,6 +549,25 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
             return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
         }
         return cmd;
+    }
+
+    /** A41: by-products of a farm / tree / mob step (seeds, extra crops, drops) to store afterwards. */
+    private void queueHarvestStore(PlanStep step) {
+        if (!Baritone.settings().getItemStoreHarvest.value) return;
+        switch (step.source.kind) {
+            case HARVEST:
+            case TREE:
+            case MOB_FARM:
+            case HUNT:
+                break;
+            default:
+                return;
+        }
+        for (Object[] c : Yields.CROPS.values()) storeQueue.add((String) c[0]);
+        storeQueue.addAll(Arrays.asList("minecraft:wheat_seeds", "minecraft:beetroot_seeds", "minecraft:melon_seeds",
+                "minecraft:pumpkin_seeds", "minecraft:apple", "minecraft:poisonous_potato"));
+        for (Yields.Drop d : Yields.MOB_DROPS) storeQueue.add(d.item);
+        storeQueue.removeAll(goal.options);
     }
 
     private boolean isPlanStep(StepTask t) {
@@ -586,6 +654,21 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
             }
         }
         if (!peekQueue.isEmpty()) return new PeekTask(baritone, data, knowledge, peekQueue.poll());
+        // A41: put harvest by-products away
+        if (!storeQueue.isEmpty()) {
+            Set<String> items = new HashSet<>(storeQueue);
+            storeQueue.clear();
+            items.removeAll(neededItems());
+            items.removeAll(data.protectedItems());
+            items.removeIf(i -> data.inventory().getOrDefault(i, 0) <= 0);
+            if (!items.isEmpty() && Baritone.settings().getItemUseContainers.value) {
+                ContainerIndex.Container c = knowledge.base().containers.stashFor(items.iterator().next(), policy(), dim, me.getX(), me.getY(), me.getZ(),
+                        Math.min(32, Baritone.settings().getItemContainerRadius.value));
+                if (c != null && !ContainerIndex.ENDER_CHEST.equals(c.type)) {
+                    return new StashTask(baritone, data, knowledge, new BlockPos(c.x, c.y, c.z), items);
+                }
+            }
+        }
         // inventory space
         if (stashCooldown > 0) stashCooldown--;
         var inv = ctx.player().getInventory().getNonEquipmentItems();
@@ -706,6 +789,21 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
             }
             case TRAVEL:
                 return new TravelTask(baritone, data, step);
+            case GATHER:
+                switch (step.source.kind) {
+                    case TRADE:
+                        return new TradeTask(baritone, data, knowledge, step);
+                    case HARVEST:
+                        return new HarvestTask(baritone, data, step);
+                    case TREE:
+                        return new TreeTask(baritone, data, step);
+                    case FISH:
+                        return new FishTask(baritone, data, knowledge, step);
+                    case MOB_FARM:
+                        return new MobFarmTask(baritone, data, step);
+                    default:
+                        return new AnimalTask(baritone, data, step);
+                }
             default:
                 return new CraftTask(baritone, data, step, stationBlacklist);
         }

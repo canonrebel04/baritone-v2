@@ -102,4 +102,16 @@ public interface IGetItemProcess extends IBaritoneProcess {
     default List<String> knowledge() {
         return List.of();
     }
+
+    /**
+     * A30: an outside module (Meteor's Get Item) that performs attacks registers itself here. Without one, hunting
+     * is never planned: Baritone itself never attacks.
+     */
+    default void setKillHandler(boolean available) {
+    }
+
+    /** A30: entity id the kill handler should attack now (the hunt target in reach), or -1. */
+    default int huntTargetId() {
+        return -1;
+    }
 }
