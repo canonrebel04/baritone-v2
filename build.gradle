@@ -179,3 +179,10 @@ javadoc {
     source = sourceSets.api.allJava
     classpath += sourceSets.api.compileClasspath
 }
+
+// Plan A1: vanilla recipe / loot / tag dataset for Get Item, extracted from the Minecraft jar at build time
+def generateGetItemDataset = tasks.register('generateGetItemDataset', baritone.gradle.task.GetItemDatasetTask) {
+    minecraftClasspath.from(sourceSets.main.compileClasspath)
+    outputDir.set(layout.buildDirectory.dir('generated/getitem'))
+}
+sourceSets.main.resources.srcDir(generateGetItemDataset)
