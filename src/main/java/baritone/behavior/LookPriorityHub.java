@@ -36,6 +36,12 @@ public class LookPriorityHub implements ILookPriorityHub {
     private final List<LookRequest> requests = new CopyOnWriteArrayList<>();
 
     /**
+     * The request that won arbitration most recently. Among requests of equal priority the previous winner is
+     * kept (hysteresis), so two equal-priority owners never alternate tick by tick (plan S15).
+     */
+    private volatile LookRequest lastWinner;
+
+    /**
      * Advances the internal tick state of all active rotation requests.
      * Decrements lifetime counters and removes expired or released requests.
      */
@@ -86,15 +92,19 @@ public class LookPriorityHub implements ILookPriorityHub {
     @Override
     public Optional<ILookRequest> getHighestPriorityRequest() {
         LookRequest highest = null;
+        final LookRequest previous = this.lastWinner;
         for (LookRequest req : this.requests) {
-            if (req.isActive()) {
-                if (highest == null || req.getPriority() > highest.getPriority()) {
-                    if (req.getRotation() != null) {
-                        highest = req;
-                    }
+            if (!req.isActive()) {
+                continue;
+            }
+            if (highest == null || req.getPriority() > highest.getPriority()
+                    || (req == previous && req.getPriority() == highest.getPriority())) {
+                if (req.getRotation() != null) {
+                    highest = req;
                 }
             }
         }
+        this.lastWinner = highest;
         return Optional.ofNullable(highest);
     }
 
@@ -153,6 +163,8 @@ public class LookPriorityHub implements ILookPriorityHub {
         private int ticksRemaining;
         private Boolean smooth;
         private boolean silent;
+        private boolean camera;
+        private String owner;
         private volatile boolean released;
 
         public LookRequest(LookPriorityHub hub, double priority, Rotation rotation, Supplier<Rotation> rotationSupplier, boolean blockInteract, int ticksRemaining) {
@@ -248,6 +260,26 @@ public class LookPriorityHub implements ILookPriorityHub {
         @Override
         public void setSilent(boolean silent) {
             this.silent = silent;
+        }
+
+        @Override
+        public boolean isCamera() {
+            return this.camera;
+        }
+
+        @Override
+        public void setCamera(boolean camera) {
+            this.camera = camera;
+        }
+
+        @Override
+        public String getOwner() {
+            return this.owner;
+        }
+
+        @Override
+        public void setOwner(String owner) {
+            this.owner = owner;
         }
 
         @Override

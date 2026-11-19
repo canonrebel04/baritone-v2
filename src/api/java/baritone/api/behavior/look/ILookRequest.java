@@ -140,6 +140,43 @@ public interface ILookRequest {
     void setSilent(boolean silent);
 
     /**
+     * Returns whether this request drives the visible camera (client rotation) even when {@code freeLook} would
+     * otherwise make it silent or ignore it. Used by modules that deliberately turn the player's view (e.g. a
+     * combat camera), so the single rotation arbiter applies and smooths it instead of the module writing
+     * {@code setYRot}/{@code setXRot} itself and fighting Baritone.
+     *
+     * @return {@code true} if this request must move the client camera
+     */
+    default boolean isCamera() {
+        return false;
+    }
+
+    /**
+     * Sets whether this request drives the visible camera. See {@link #isCamera()}.
+     *
+     * @param camera {@code true} to force a visible client rotation
+     */
+    default void setCamera(boolean camera) {
+    }
+
+    /**
+     * A short human-readable owner tag (module/process name) used for arbitration hysteresis and debugging.
+     *
+     * @return the owner tag, or {@code null}
+     */
+    default String getOwner() {
+        return null;
+    }
+
+    /**
+     * Sets the owner tag. See {@link #getOwner()}.
+     *
+     * @param owner the owner tag
+     */
+    default void setOwner(String owner) {
+    }
+
+    /**
      * Returns whether this request is currently active (not released and not expired).
      *
      * @return {@code true} if active
