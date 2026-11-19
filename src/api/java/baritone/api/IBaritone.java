@@ -106,6 +106,12 @@ public interface IBaritone {
     IRestockProcess getRestockProcess();
 
     /**
+     * @return The {@link IGetItemProcess} instance
+     * @see IGetItemProcess
+     */
+    IGetItemProcess getGetItemProcess();
+
+    /**
      * @return The {@link IWorldProvider} instance
      * @see IWorldProvider
      */

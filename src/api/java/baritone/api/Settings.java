@@ -27,6 +27,7 @@ import net.minecraft.client.multiplayer.chat.GuiMessageTag;
 import net.minecraft.core.Vec3i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Mirror;
@@ -2045,6 +2046,50 @@ public final class Settings {
      * Enable movement debug telemetry logging (trajectory deviation, slip, and stuck diagnostics).
      */
     public final Setting<Boolean> movementDebugTelemetry = new Setting<>(false);
+
+    /**
+     * Get Item ({@code #get}, plan A5): items that are never consumed, used as tools or crafted away. Whatever
+     * stock of these you have when planning is kept; the planner gathers fresh ones instead.
+     */
+    public final Setting<List<Item>> getItemProtectItems = new Setting<>(new ArrayList<>(Arrays.asList(
+            Items.NETHERITE_PICKAXE, Items.NETHERITE_SWORD, Items.NETHERITE_AXE, Items.NETHERITE_SHOVEL,
+            Items.ELYTRA, Items.TOTEM_OF_UNDYING, Items.ENCHANTED_GOLDEN_APPLE, Items.NETHER_STAR,
+            Items.SHULKER_BOX, Items.DRAGON_EGG
+    )));
+
+    /**
+     * Get Item: allowed to place a crafting table / furnace / blast furnace / smoker from the inventory (crafting
+     * one first if needed) when none is within {@link #getItemStationSearchRadius}.
+     */
+    public final Setting<Boolean> getItemPlaceStations = new Setting<>(true);
+
+    /**
+     * Get Item: how far (blocks) to look for an existing crafting table / furnace before placing one.
+     */
+    public final Setting<Integer> getItemStationSearchRadius = new Setting<>(20);
+
+    /**
+     * Get Item: fill crafting grids with the recipe book (one server request per batch) when the recipe is known;
+     * otherwise, or when off, the grid is filled with individual legal clicks.
+     */
+    public final Setting<Boolean> getItemUseRecipeBook = new Setting<>(true);
+
+    /**
+     * Get Item: maximum prerequisite depth the planner explores (item -> ingredient -> tool -> ...).
+     */
+    public final Setting<Integer> getItemMaxPlanDepth = new Setting<>(16);
+
+    /**
+     * Get Item: ticks between inventory/GUI clicks. -1 derives it from {@link #lookProfile}
+     * (LEGIT_SMOOTH ~5 +/- 2, BALANCED ~3 +/- 1, FAST 1); jitter is deterministic per click.
+     */
+    public final Setting<Integer> getItemClickDelayTicks = new Setting<>(-1);
+
+    /**
+     * Get Item: prefer natural blocks seen near you when choosing what to mine (e.g. the log type that grows
+     * here), by scanning loaded chunk palettes when a plan is made.
+     */
+    public final Setting<Boolean> getItemPreferNearbyBlocks = new Setting<>(true);
 
     /**
      * A map of lowercase setting field names to their respective setting

@@ -71,6 +71,7 @@ public final class DefaultCommands {
                 new SelCommand(baritone),
                 new ElytraCommand(baritone),
                 new RestockCommand(baritone),
+                new GetItemCommand(baritone),
                 new PortalCommand(baritone),
                 new MoveDebugCommand(baritone)
         ));

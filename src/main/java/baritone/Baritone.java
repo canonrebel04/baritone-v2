@@ -84,6 +84,7 @@ public class Baritone implements IBaritone {
     private final InventoryPauserProcess inventoryPauserProcess;
     private final IElytraProcess elytraProcess;
     private final RestockProcess restockProcess;
+    private final GetItemProcess getItemProcess;
     public final PortalRouterProcess portalRouterProcess;
 
     private final PathingControlManager pathingControlManager;
@@ -130,6 +131,7 @@ public class Baritone implements IBaritone {
             this.inventoryPauserProcess  = this.registerProcess(InventoryPauserProcess::new);
             this.elytraProcess           = this.registerProcess(ElytraProcess::create);
             this.restockProcess          = this.registerProcess(RestockProcess::new);
+            this.getItemProcess          = this.registerProcess(GetItemProcess::new);
             this.portalRouterProcess     = this.registerProcess(PortalRouterProcess::new);
             this.registerProcess(BackfillProcess::new);
         }
@@ -256,6 +258,11 @@ public class Baritone implements IBaritone {
     @Override
     public IRestockProcess getRestockProcess() {
         return this.restockProcess;
+    }
+
+    @Override
+    public GetItemProcess getGetItemProcess() {
+        return this.getItemProcess;
     }
 
     @Override

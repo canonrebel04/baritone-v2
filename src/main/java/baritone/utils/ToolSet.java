@@ -39,6 +39,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.ToIntBiFunction;
 
 /**
  * A cached list of the best tools on the hotbar for any block
@@ -73,6 +75,14 @@ public class ToolSet {
         ItemTags.DIAMOND_TOOL_MATERIALS,
         ItemTags.NETHERITE_TOOL_MATERIALS
     );
+
+    /**
+     * Get Item hooks (plan A21). {@code excludedTools}: hotbar items never used to mine (the protect list).
+     * {@code dropPreference}: per block/tool score, below 0 avoids the tool (e.g. Silk Touch when the plan needs
+     * the block's normal drop), above 0 prefers it (e.g. Fortune on ores). Null when Get Item isn't running.
+     */
+    public static volatile Predicate<ItemStack> excludedTools;
+    public static volatile ToIntBiFunction<Block, ItemStack> dropPreference;
 
     public ToolSet(LocalPlayer player) {
         breakStrengthCache = new HashMap<>();
@@ -160,7 +170,20 @@ public class ToolSet {
             if (Baritone.settings().itemSaver.value && (itemStack.getDamageValue() + Baritone.settings().itemSaverThreshold.value) >= itemStack.getMaxDamage() && itemStack.getMaxDamage() > 1) {
                 continue;
             }
+            Predicate<ItemStack> excluded = excludedTools;
+            if (excluded != null && !itemStack.isEmpty() && excluded.test(itemStack)) {
+                continue;
+            }
             double speed = calculateSpeedVsBlock(itemStack, blockState);
+            ToIntBiFunction<Block, ItemStack> pref = dropPreference;
+            if (pref != null && speed > 0) {
+                int score = pref.applyAsInt(b, itemStack);
+                if (score < 0) {
+                    speed *= 0.2;
+                } else if (score > 0) {
+                    speed *= 1.15;
+                }
+            }
             boolean silkTouch = hasSilkTouch(itemStack);
             if (speed > highestSpeed) {
                 highestSpeed = speed;
