@@ -73,7 +73,8 @@ public final class DefaultCommands {
                 new RestockCommand(baritone),
                 new GetItemCommand(baritone),
                 new PortalCommand(baritone),
-                new MoveDebugCommand(baritone)
+                new MoveDebugCommand(baritone),
+                new PerfCommand(baritone)
         ));
         ExecutionControlCommands prc = new ExecutionControlCommands(baritone);
         commands.add(prc.pauseCommand);

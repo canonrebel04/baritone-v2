@@ -45,6 +45,9 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 
 import baritone.process.getitem.data.RecipeType;
+import baritone.process.getitem.data.GetItemDataset;
+import baritone.process.getitem.graph.RecipeGraph;
+import baritone.api.utils.perf.TickTelemetry;
 import baritone.process.getitem.advanced.*;
 import baritone.process.getitem.inventory.HotbarLayout;
 import baritone.process.getitem.sources.Compost;
@@ -124,6 +127,26 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
             }
             return out;
         };
+        if (Baritone.settings().getItemWarmUp.value) warmUp();
+    }
+
+    /** S98: class-load and parse the recipe dataset off the game thread so the first #get doesn't hitch. */
+    private static volatile boolean warmed;
+
+    private static void warmUp() {
+        if (warmed) return;
+        warmed = true;
+        Thread t = new Thread(() -> {
+            try {
+                GetItemDataset d = GetItemDataset.bundled();
+                new RecipeGraph(d);
+            } catch (Throwable ignored) {
+                // warm-up is best effort; the game thread loads it on demand
+            }
+        }, "Baritone Get Item warm-up");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        t.start();
     }
 
     public GameData data() {
@@ -451,7 +474,9 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
         o.sources = sources(o.dimension);
         if (Baritone.settings().getItemPreferNearbyBlocks.value) {
             if (seenCache == null || seenAge++ > 20) {
-                seenCache = data.seenNaturalBlocks(data.planner().costs, 4);
+                // S94: scan fewer chunks while this process is over its tick budget
+                boolean degrade = Baritone.settings().perfAutoDegrade.value && TickTelemetry.degraded(getClass().getSimpleName());
+                seenCache = data.seenNaturalBlocks(data.planner().costs, degrade ? 2 : 4);
                 seenAge = 0;
             }
             Set<String> seen = new HashSet<>(seenCache);
@@ -881,6 +906,7 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
             DropPicker.Drop d = DropPicker.pick(drops, needed, ctx.player().getX(), ctx.player().getY(), ctx.player().getZ(), r, 4);
             if (d != null && InventoryPlanner.freeSlots(slots, 36) > 0) {
                 ItemEntity ie = ents.get(d);
+                if (skippedDrops.size() > 1024) skippedDrops.clear(); // S99: bounded
                 skippedDrops.add(ie.getId()); // one attempt per entity
                 return new PickupTask(baritone, data, ie);
             }

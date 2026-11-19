@@ -18,6 +18,7 @@
 package baritone.utils;
 
 import baritone.Baritone;
+import baritone.api.utils.perf.TickTelemetry;
 import baritone.api.event.events.TickEvent;
 import baritone.api.event.listener.AbstractGameEventListener;
 import baritone.api.pathing.calc.IPathingControlManager;
@@ -212,7 +213,14 @@ public class PathingControlManager implements IPathingControlManager {
         while (iterator.hasNext()) {
             IBaritoneProcess proc = iterator.next();
 
+            boolean timed = Baritone.settings().perfTelemetry.value;
+            long t0 = timed ? System.nanoTime() : 0;
             PathingCommand exec = proc.onTick(Objects.equals(proc, inControlLastTick) && baritone.getPathingBehavior().calcFailedLastTick(), baritone.getPathingBehavior().isSafeToCancel());
+            if (timed) {
+                TickTelemetry t = TickTelemetry.of(proc.getClass().getSimpleName(), (long) (Baritone.settings().perfBudgetMs.value * 1e6));
+                t.setBudget((long) (Baritone.settings().perfBudgetMs.value * 1e6));
+                t.record(System.nanoTime() - t0);
+            }
             if (exec == null) {
                 if (proc.isActive()) {
                     throw new IllegalStateException(proc.displayName() + " actively returned null PathingCommand");

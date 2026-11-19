@@ -2244,6 +2244,28 @@ public final class Settings {
     public final Setting<List<String>> getItemHotbarLayout = new Setting<>(new ArrayList<>());
 
     /**
+     * Get Item (S98): load the recipe dataset and build the recipe graph on a background thread at startup, so the
+     * first {@code #get} doesn't stall the game thread.
+     */
+    public final Setting<Boolean> getItemWarmUp = new Setting<>(true);
+
+    /**
+     * S93: time every process tick (p50/p95/p99 per process, see {@code #perf}).
+     */
+    public final Setting<Boolean> perfTelemetry = new Setting<>(true);
+
+    /**
+     * S93: per-process tick budget in milliseconds; a process whose p95 exceeds it is marked degraded.
+     */
+    public final Setting<Double> perfBudgetMs = new Setting<>(1.0);
+
+    /**
+     * S94: degraded processes lower their own quality (Get Item scans fewer chunks for nearby blocks) until they
+     * are back under budget.
+     */
+    public final Setting<Boolean> perfAutoDegrade = new Setting<>(true);
+
+    /**
      * Get Item: prefer natural blocks seen near you when choosing what to mine (e.g. the log type that grows
      * here), by scanning loaded chunk palettes when a plan is made.
      */
