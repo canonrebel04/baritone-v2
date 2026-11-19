@@ -33,6 +33,8 @@ public final class FarmRegistry {
         public int x, y, z;
         public String dim;
         public int size;
+        /** Plants ready to harvest at the last scan (A39 growth-stage awareness). */
+        public int ready;
         public long seen;
     }
 
@@ -43,6 +45,11 @@ public final class FarmRegistry {
      * in {@code points} ({x,y,z}).
      */
     public synchronized void update(String type, boolean animals, List<int[]> points, String dim, int cx, int cz, int radius, long now) {
+        update(type, animals, points, null, dim, cx, cz, radius, now);
+    }
+
+    /** As above; {@code ripe} (same shape as points, may be null) are the positions ready to harvest. */
+    public synchronized void update(String type, boolean animals, List<int[]> points, List<int[]> ripe, String dim, int cx, int cz, int radius, long now) {
         farms.removeIf(f -> f.type.equals(type) && Objects.equals(f.dim, dim) && Math.abs(f.x - cx) <= radius && Math.abs(f.z - cz) <= radius);
         int link = animals ? 6 : 2;
         int min = animals ? MIN_ANIMALS : MIN_CROPS;
@@ -62,6 +69,11 @@ public final class FarmRegistry {
             f.z = (int) (sz / c.size());
             f.dim = dim;
             f.size = c.size();
+            if (ripe != null) {
+                Set<String> members = new HashSet<>();
+                for (int[] p : c) members.add(p[0] + "," + p[1] + "," + p[2]);
+                for (int[] p : ripe) if (members.contains(p[0] + "," + p[1] + "," + p[2])) f.ready++;
+            }
             f.seen = now;
             farms.add(f);
         }

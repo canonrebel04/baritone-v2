@@ -78,7 +78,12 @@ public final class GetItemKnowledge implements AbstractGameEventListener {
             Blocks.CHEST, Blocks.TRAPPED_CHEST, Blocks.BARREL, Blocks.ENDER_CHEST));
     private static final Set<Block> CROPS = new HashSet<>(Arrays.asList(
             Blocks.WHEAT, Blocks.CARROTS, Blocks.POTATOES, Blocks.BEETROOTS, Blocks.SUGAR_CANE, Blocks.PUMPKIN_STEM,
-            Blocks.MELON_STEM, Blocks.NETHER_WART, Blocks.SWEET_BERRY_BUSH));
+            Blocks.MELON_STEM, Blocks.NETHER_WART, Blocks.SWEET_BERRY_BUSH, Blocks.ATTACHED_MELON_STEM, Blocks.ATTACHED_PUMPKIN_STEM,
+            Blocks.COCOA, Blocks.BAMBOO, Blocks.CACTUS));
+    private volatile Census census = Census.EMPTY;
+    /** Last fishing-bobber splash heard (A29 bite detection): nanoTime and position. */
+    private volatile long splashNanos;
+    private volatile double splashX, splashY, splashZ;
 
     static {
         for (String s : GameData.STATIONS) STATION_BLOCKS.add(GameData.block(s));
@@ -91,6 +96,74 @@ public final class GetItemKnowledge implements AbstractGameEventListener {
 
     public KnowledgeBase base() {
         return kb;
+    }
+
+    public Census census() {
+        return census;
+    }
+
+    /** True when a bobber splash was heard after {@code sinceNanos} within {@code r} blocks of (x, y, z). */
+    public boolean splashSince(long sinceNanos, double x, double y, double z, double r) {
+        if (splashNanos <= sinceNanos) return false;
+        double dx = splashX - x, dy = splashY - y, dz = splashZ - z;
+        return dx * dx + dy * dy + dz * dz <= r * r;
+    }
+
+    @Override
+    public void onReceivePacket(baritone.api.event.events.PacketEvent event) {
+        if (event.getState() == EventState.PRE && event.getPacket() instanceof net.minecraft.network.protocol.game.ClientboundSoundPacket p
+                && p.getSound().value() == net.minecraft.sounds.SoundEvents.FISHING_BOBBER_SPLASH) {
+            splashX = p.getX();
+            splashY = p.getY();
+            splashZ = p.getZ();
+            splashNanos = System.nanoTime();
+        }
+    }
+
+    /** Farm type key for a crop block (attached stems count as their stem's farm). */
+    static String farmType(Block b) {
+        if (b == Blocks.ATTACHED_MELON_STEM) return "minecraft:melon_stem";
+        if (b == Blocks.ATTACHED_PUMPKIN_STEM) return "minecraft:pumpkin_stem";
+        return GameData.id(b);
+    }
+
+    /** A39 growth-stage awareness: is the plant at {@code p} ready to harvest now? */
+    private boolean ripe(BlockPos p, net.minecraft.world.level.block.state.BlockState st) {
+        Block b = st.getBlock();
+        if (b instanceof CropBlock crop) return crop.isMaxAge(st);
+        if (b == Blocks.NETHER_WART) return st.getValue(NetherWartBlock.AGE) >= 3;
+        if (b == Blocks.SWEET_BERRY_BUSH) return st.getValue(SweetBerryBushBlock.AGE) >= 2;
+        if (b == Blocks.COCOA) return st.getValue(CocoaBlock.AGE) >= 2;
+        if (b == Blocks.ATTACHED_MELON_STEM || b == Blocks.ATTACHED_PUMPKIN_STEM) return true;
+        if (b == Blocks.SUGAR_CANE || b == Blocks.BAMBOO || b == Blocks.CACTUS) return ctx.world().getBlockState(p.below()).getBlock() == b;
+        return false;
+    }
+
+    private void takeCensus(BlockPos me, long now) {
+        Map<String, double[]> mobs = new HashMap<>();
+        Map<String, double[]> sheep = new HashMap<>();
+        Map<String, double[]> cows = new HashMap<>();
+        for (Entity e : ctx.world().getEntities((Entity) null, new AABB(me).inflate(48), x -> x instanceof net.minecraft.world.entity.LivingEntity && x.isAlive())) {
+            if (e == ctx.player() || e instanceof net.minecraft.world.entity.player.Player) continue;
+            if (e instanceof net.minecraft.world.entity.AgeableMob am && am.isBaby()) continue;
+            double d = Math.sqrt(e.distanceToSqr(ctx.player()));
+            String type = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).toString();
+            Census.see(mobs, type, d);
+            if (e instanceof net.minecraft.world.entity.animal.sheep.Sheep sh && sh.readyForShearing()) {
+                Census.see(sheep, sh.getColor().getName(), d);
+            }
+            if (type.equals("minecraft:cow")) Census.see(cows, "cow", d);
+        }
+        double water = -1;
+        for (BlockPos w : baritone.getGetItemProcess().data().findBlocks(Collections.singleton(Blocks.WATER), 24)) {
+            if (!ctx.world().getFluidState(w).isSource() || !ctx.world().getBlockState(w.above()).isAir()) continue;
+            int open = 0;
+            for (BlockPos n : new BlockPos[]{w.north(), w.south(), w.east(), w.west()}) if (ctx.world().getFluidState(n).isSource()) open++;
+            if (open < 2) continue;
+            double d = Math.sqrt(w.distSqr(me));
+            if (water < 0 || d < water) water = d;
+        }
+        census = new Census(mobs, sheep, cows.get("cow"), water, now);
     }
 
     public ProtectPolicy policy() {
@@ -239,6 +312,7 @@ public final class GetItemKnowledge implements AbstractGameEventListener {
                 kb.markDirty();
             }
         }
+        takeCensus(me, now);
         // containers that were broken
         for (ContainerIndex.Container c : kb.containers.all()) {
             if (!Objects.equals(c.dim, dim) || c.dist2(me.getX(), me.getY(), me.getZ()) > 32 * 32 || !loaded(c.x, c.z)) continue;
@@ -251,10 +325,17 @@ public final class GetItemKnowledge implements AbstractGameEventListener {
             // farms (A18)
             List<BlockPos> crops = data.findBlocks(CROPS, 32);
             Map<String, List<int[]>> byType = new HashMap<>();
+            Map<String, List<int[]>> ripeByType = new HashMap<>();
             for (BlockPos p : crops.subList(0, Math.min(400, crops.size()))) {
-                byType.computeIfAbsent(GameData.id(ctx.world().getBlockState(p).getBlock()), k -> new ArrayList<>()).add(new int[]{p.getX(), p.getY(), p.getZ()});
+                var st = ctx.world().getBlockState(p);
+                String type = farmType(st.getBlock());
+                int[] xyz = {p.getX(), p.getY(), p.getZ()};
+                byType.computeIfAbsent(type, k -> new ArrayList<>()).add(xyz);
+                if (ripe(p, st)) ripeByType.computeIfAbsent(type, k -> new ArrayList<>()).add(xyz);
             }
-            for (Map.Entry<String, List<int[]>> e : byType.entrySet()) kb.farms.update(e.getKey(), false, e.getValue(), dim, me.getX(), me.getZ(), 32, now);
+            for (Map.Entry<String, List<int[]>> e : byType.entrySet()) {
+                kb.farms.update(e.getKey(), false, e.getValue(), ripeByType.getOrDefault(e.getKey(), Collections.emptyList()), dim, me.getX(), me.getZ(), 32, now);
+            }
             Map<String, List<int[]>> animals = new HashMap<>();
             for (Entity e : ctx.world().getEntities((Entity) null, new AABB(me).inflate(32), x -> x instanceof Animal)) {
                 animals.computeIfAbsent(net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).toString(), k -> new ArrayList<>())

@@ -23,7 +23,7 @@ import java.util.*;
 
 /** One executable step of a Get Item plan (plan 4.2 task queue). */
 public final class PlanStep {
-    public enum Kind { MINE, PLACE_STATION, CRAFT, SMELT, WITHDRAW, TRAVEL }
+    public enum Kind { MINE, PLACE_STATION, CRAFT, SMELT, WITHDRAW, TRAVEL, GATHER }
 
     public final Kind kind;
     /** Items this step produces (a MINE step for a tag goal may produce any of several). */
@@ -46,6 +46,8 @@ public final class PlanStep {
     public final int fuelCount;
     public final int depth;
     public final double seconds;
+    /** GATHER: the world source used (trade, farm, fishing, hunting, ...). */
+    public final Source source;
 
     private PlanStep(Kind kind, List<String> items, int count, List<String> blocks, int blockCount, String tool,
                      Recipe recipe, int batches, Map<String, Integer> inputs, String fuel, int fuelCount, int depth,
@@ -63,6 +65,29 @@ public final class PlanStep {
         this.fuelCount = fuelCount;
         this.depth = depth;
         this.seconds = seconds;
+        this.source = null;
+    }
+
+    private PlanStep(Source source, int count, int batches, Map<String, Integer> inputs, int depth, double seconds) {
+        this.kind = Kind.GATHER;
+        this.items = Collections.singletonList(source.item);
+        this.count = count;
+        this.blocks = Collections.emptyList();
+        this.blockCount = 0;
+        this.tool = source.tool;
+        this.recipe = null;
+        this.batches = batches;
+        this.inputs = Collections.unmodifiableMap(new LinkedHashMap<>(inputs));
+        this.fuel = null;
+        this.fuelCount = 0;
+        this.depth = depth;
+        this.seconds = seconds;
+        this.source = source;
+    }
+
+    /** Obtain {@code count} items from a world source in {@code batches} batches, consuming {@code inputs}. */
+    public static PlanStep gather(Source source, int count, int batches, Map<String, Integer> inputs, int depth, double seconds) {
+        return new PlanStep(source, count, batches, inputs, depth, seconds);
     }
 
     public static PlanStep mine(List<String> items, int count, List<String> blocks, int blockCount, String tool, int depth, double seconds) {
@@ -104,7 +129,7 @@ public final class PlanStep {
     }
 
     public String station() {
-        if (kind == Kind.TRAVEL || kind == Kind.WITHDRAW) return null;
+        if (kind == Kind.TRAVEL || kind == Kind.WITHDRAW || kind == Kind.GATHER) return null;
         return blocks.isEmpty() ? null : blocks.get(0);
     }
 
@@ -130,6 +155,16 @@ public final class PlanStep {
             case TRAVEL:
                 sb.append("Travel to ").append(dimensionName(blocks.get(0)));
                 break;
+            case GATHER: {
+                sb.append(source.label).append(" -> ").append(count).append("x ").append(shortId(items.get(0)));
+                if (!inputs.isEmpty()) {
+                    StringJoiner j = new StringJoiner(", ");
+                    inputs.forEach((k, v) -> j.add(v + "x " + shortId(k)));
+                    sb.append(" (uses ").append(j).append(")");
+                }
+                if (tool != null) sb.append(" [").append(shortId(tool)).append("]");
+                break;
+            }
             default:
                 sb.append(kind == Kind.SMELT ? "Smelt " : "Craft ").append(count).append("x ").append(shortId(recipe.output)).append(" from ");
                 StringJoiner j = new StringJoiner(", ");

@@ -71,14 +71,22 @@ public final class Planner {
         public boolean allowEnd = true;
         /** Blocks never broken as a mine source (A24: chests, spawners, ... and user-protected blocks). */
         public Set<String> protectedBlocks = Collections.emptySet();
+        /** M3 world sources: trades, farms, fishing, hunting, trees, mob farms (empty = mine/craft/chests only). */
+        public List<Source> sources = Collections.emptyList();
+
+        String sourcesKey() {
+            StringBuilder b = new StringBuilder();
+            for (Source x : sources) b.append(x.key()).append(';');
+            return b.toString();
+        }
 
         String key() {
             return types + "|" + new TreeSet<>(protectedItems) + "|" + new TreeSet<>(stations) + "|" + dimension + "|" + maxDepth + "|" + allowPlaceStations + "|" + (seenBlocks == null ? "-" : new TreeSet<>(seenBlocks).toString())
-                    + "|" + new TreeMap<>(containerStock) + "|" + new TreeMap<>(containerDistance) + "|" + defaultContainerDistance + "|" + allowNether + allowEnd + "|" + new TreeSet<>(protectedBlocks);
+                    + "|" + new TreeMap<>(containerStock) + "|" + new TreeMap<>(containerDistance) + "|" + defaultContainerDistance + "|" + allowNether + allowEnd + "|" + new TreeSet<>(protectedBlocks) + "|" + sourcesKey();
         }
 
         String unitKey() {
-            return types + "|" + dimension + "|" + (seenBlocks == null ? "-" : new TreeSet<>(seenBlocks).toString()) + "|" + allowNether + allowEnd + "|" + new TreeSet<>(protectedBlocks);
+            return types + "|" + dimension + "|" + (seenBlocks == null ? "-" : new TreeSet<>(seenBlocks).toString()) + "|" + allowNether + allowEnd + "|" + new TreeSet<>(protectedBlocks) + "|" + sourcesKey();
         }
 
         boolean dimensionAllowed(String dim) {
@@ -111,7 +119,16 @@ public final class Planner {
 
     /** Cost in seconds to get one of each item from scratch (no inventory), INF if unobtainable. */
     public synchronized Map<String, Double> unitCosts(Options o) {
-        String key = o.unitKey();
+        return unitCosts(o, true);
+    }
+
+    /** Unit costs ignoring world sources (what mining / crafting alone would cost). */
+    public synchronized Map<String, Double> baseUnitCosts(Options o) {
+        return unitCosts(o, false);
+    }
+
+    private Map<String, Double> unitCosts(Options o, boolean withSources) {
+        String key = (withSources ? "S|" : "B|") + o.unitKey();
         Map<String, Double> cached = unitCostCache.get(key);
         if (cached != null) return cached;
         if (unitCostCache.size() > 16) unitCostCache.clear();
@@ -135,6 +152,15 @@ public final class Planner {
                 if (c < unit.getOrDefault(r.output, CostModel.INF) - 1e-9) {
                     unit.put(r.output, c);
                     changed = true;
+                }
+            }
+            if (withSources) {
+                for (Source src : o.sources) {
+                    double c = sourceBatchCost(src, unit) / src.perBatch;
+                    if (c < unit.getOrDefault(src.item, CostModel.INF) - 1e-9) {
+                        unit.put(src.item, c);
+                        changed = true;
+                    }
                 }
             }
             if (!changed) break;
@@ -185,6 +211,16 @@ public final class Planner {
         return c;
     }
 
+    /** Steady-state seconds per batch of a source (setup amortised over a typical 8 batches). */
+    private static double sourceBatchCost(Source src, Map<String, Double> unit) {
+        double c = src.batchSeconds + src.setupSeconds / Math.max(1, Math.min(8, src.maxBatches));
+        for (Map.Entry<String, Integer> e : src.inputs.entrySet()) {
+            c += unit.getOrDefault(e.getKey(), CostModel.INF) * e.getValue();
+        }
+        if (src.tool != null) c += 0.2;
+        return c;
+    }
+
     private double recipeBatchCost(Recipe r, Map<String, Double> unit, double fuelPerSmelt) {
         double c = costs.craftSecondsPerBatch;
         if (r.type.cooking) c += costs.cookSeconds(r.cookTime) + fuelPerSmelt;
@@ -200,7 +236,7 @@ public final class Planner {
 
     /** Plan to have {@code goal.count} items of the goal in total. */
     public Plan plan(Goal goal, Map<String, Integer> inventory, Options o) {
-        Expansion e = new Expansion(goal, inventory, o, unitCosts(o));
+        Expansion e = new Expansion(goal, inventory, o, unitCosts(o), baseUnitCosts(o));
         return e.run();
     }
 
@@ -208,6 +244,9 @@ public final class Planner {
         final Goal goal;
         final Options o;
         final Map<String, Double> unit;
+        final Map<String, Double> baseUnit;
+        /** Batches of each capped source already planned (index into o.sources). */
+        TreeMap<Integer, Integer> sourceUsed = new TreeMap<>();
         TreeMap<String, Integer> inv = new TreeMap<>();
         TreeMap<String, Integer> reserved = new TreeMap<>();
         TreeSet<String> stations;
@@ -223,10 +262,11 @@ public final class Planner {
         /** Dimension the player is in at this point of the plan. */
         String dim;
 
-        Expansion(Goal goal, Map<String, Integer> inventory, Options o, Map<String, Double> unit) {
+        Expansion(Goal goal, Map<String, Integer> inventory, Options o, Map<String, Double> unit, Map<String, Double> baseUnit) {
             this.goal = goal;
             this.o = o;
             this.unit = unit;
+            this.baseUnit = baseUnit;
             inventory.forEach((k, v) -> { if (v > 0) inv.put(k, v); });
             stations = new TreeSet<>(o.stations);
             for (String p : o.protectedItems) if (inv.containsKey(p)) protectedStock.put(p, inv.get(p));
@@ -300,7 +340,7 @@ public final class Planner {
         }
 
         Object[] snapshot() {
-            return new Object[]{new TreeMap<>(inv), new TreeMap<>(reserved), new TreeSet<>(stations), steps.size(), seconds, new LinkedHashSet<>(risks), new TreeMap<>(chest), dim};
+            return new Object[]{new TreeMap<>(inv), new TreeMap<>(reserved), new TreeSet<>(stations), steps.size(), seconds, new LinkedHashSet<>(risks), new TreeMap<>(chest), dim, new TreeMap<>(sourceUsed)};
         }
 
         @SuppressWarnings("unchecked")
@@ -314,6 +354,7 @@ public final class Planner {
             risks.addAll((Set<String>) s[5]);
             chest = (TreeMap<String, Integer>) s[6];
             dim = (String) s[7];
+            sourceUsed = (TreeMap<Integer, Integer>) s[8];
         }
 
         boolean tripPlanned() {
@@ -406,7 +447,9 @@ public final class Planner {
                 return false;
             }
             if (stack.contains(item)) return false; // cycle
-            if (unit(item) == CostModel.INF && chest.getOrDefault(item, 0) < n - avail(item)) {
+            // INF unit cost can still be craftable from what's in hand (e.g. string you carry): check the recipes too
+            boolean noRoute = unit(item) == CostModel.INF && recipeEstimate(item, n - avail(item)) == CostModel.INF;
+            if (noRoute && chest.getOrDefault(item, 0) < n - avail(item)) {
                 if (chest.getOrDefault(item, 0) == 0) {
                     deadEnd = "no known way to obtain " + item;
                     return false;
@@ -419,7 +462,10 @@ public final class Planner {
                 double perItem = unit(item);
                 withdraw(item, need0, depth, perItem == CostModel.INF ? CostModel.INF : perItem);
                 if (avail(item) >= n) return true;
-                if (unit(item) == CostModel.INF) {
+                // M3: limited world sources (trade stock, ripe crops, mobs in sight) when they beat mining / crafting
+                useCappedSources(item, n, depth);
+                if (avail(item) >= n) return true;
+                if (noRoute) {
                     deadEnd = "only " + avail(item) + " of " + item + " in your chests and no other way to get it";
                     return false;
                 }
@@ -429,6 +475,10 @@ public final class Planner {
                 if (mine != null) routes.add(mine);
                 for (Recipe r : graph.producers(item)) {
                     if (usable(r)) routes.add(new RecipeRoute(r));
+                }
+                for (int si = 0; si < o.sources.size(); si++) {
+                    Source src = o.sources.get(si);
+                    if (src.item.equals(item) && !src.capped()) routes.add(new SourceRoute(si));
                 }
                 routes.removeIf(r -> r.estimate(missing) == CostModel.INF);
                 routes.sort(Comparator.comparingDouble(r -> r.estimate(missing)));
@@ -443,6 +493,103 @@ public final class Planner {
                 return false;
             } finally {
                 stack.pop();
+            }
+        }
+
+        int sourceLeft(int si) {
+            Source src = o.sources.get(si);
+            return src.capped() ? Math.max(0, src.maxBatches - sourceUsed.getOrDefault(si, 0)) : Integer.MAX_VALUE;
+        }
+
+        /** Seconds to take {@code items} from source {@code si}, buying missing inputs at unit cost. */
+        double sourceEstimate(int si, int items) {
+            Source src = o.sources.get(si);
+            int batches = src.batchesFor(items);
+            if (batches > sourceLeft(si)) return CostModel.INF;
+            double c = src.setupSeconds + batches * src.batchSeconds;
+            for (Map.Entry<String, Integer> e : src.inputs.entrySet()) {
+                int need = e.getValue() * batches;
+                int buy = Math.max(0, need - avail(e.getKey()));
+                if (buy > 0) c += costOf(e.getKey(), buy);
+            }
+            if (src.tool != null && !hasTool(src.tool)) c += costOf(src.tool, 1);
+            return c;
+        }
+
+        /** Seconds to get {@code k} more of an item: unit cost, or (if INF) a recipe from what's in hand. */
+        double costOf(String item, int k) {
+            double u = unit(item);
+            return u != CostModel.INF ? u * k : recipeEstimate(item, k);
+        }
+
+        /** Plan {@code items} from source {@code si} (inputs and tool obtained recursively). */
+        boolean applySource(int si, int items, int depth) {
+            Source src = o.sources.get(si);
+            int batches = src.batchesFor(items);
+            if (batches <= 0 || batches > sourceLeft(si)) return false;
+            if (src.tool != null) {
+                if (o.protectedItems.contains(src.tool) && count(src.tool) <= 0) return false;
+                if (!hasTool(src.tool) && !obtain(src.tool, 1, depth + 1)) return false;
+                if (reserved.getOrDefault(src.tool, 0) < 1) reserved.merge(src.tool, 1, Integer::sum);
+            }
+            Map<String, Integer> used = new LinkedHashMap<>();
+            for (Map.Entry<String, Integer> e : src.inputs.entrySet()) {
+                int need = e.getValue() * batches;
+                if (!obtain(e.getKey(), need, depth + 1)) return false;
+                consume(e.getKey(), need);
+                used.put(e.getKey(), need);
+            }
+            int produced = Math.max(items, (int) Math.floor(batches * src.perBatch + 1e-9));
+            add(src.item, produced);
+            if (src.capped()) sourceUsed.merge(si, batches, Integer::sum);
+            double s = src.setupSeconds + batches * src.batchSeconds;
+            seconds += s;
+            steps.add(PlanStep.gather(src, produced, batches, used, depth, s));
+            if (src.kind == Source.Kind.HUNT) risks.add("fights " + src.ref.replace("minecraft:", "") + " (attacks via Meteor)");
+            if (src.kind == Source.Kind.TREE && !src.inputs.containsKey("minecraft:bone_meal")) risks.add("waits for a sapling to grow");
+            return true;
+        }
+
+        /** A28/A33/A39: take what limited sources can give when cheaper per item than mining / crafting. */
+        void useCappedSources(String item, int n, int depth) {
+            List<Integer> idx = new ArrayList<>();
+            for (int si = 0; si < o.sources.size(); si++) {
+                Source src = o.sources.get(si);
+                if (src.item.equals(item) && src.capped() && sourceLeft(si) > 0) idx.add(si);
+            }
+            if (idx.isEmpty()) return;
+            idx.sort(Comparator.comparingDouble((Integer si) -> sourceEstimate(si, Math.min(Math.max(1, n - avail(item)),
+                    (int) Math.floor(sourceLeft(si) * o.sources.get(si).perBatch + 1e-9))) / Math.max(1, Math.min(n - avail(item),
+                    (int) Math.floor(sourceLeft(si) * o.sources.get(si).perBatch + 1e-9)))).thenComparing(si -> si));
+            double base = baseUnit.getOrDefault(item, CostModel.INF);
+            for (int si : idx) {
+                int missing = n - avail(item);
+                if (missing <= 0) return;
+                Source src = o.sources.get(si);
+                int take = Math.min(missing, (int) Math.floor(sourceLeft(si) * src.perBatch + 1e-9));
+                if (take <= 0) continue;
+                double est = sourceEstimate(si, take);
+                if (est == CostModel.INF || (base != CostModel.INF && est > base * take)) continue;
+                Object[] snap = snapshot();
+                if (!applySource(si, take, depth)) restore(snap);
+            }
+        }
+
+        final class SourceRoute implements Route {
+            final int si;
+
+            SourceRoute(int si) {
+                this.si = si;
+            }
+
+            @Override
+            public double estimate(int missing) {
+                return sourceEstimate(si, missing);
+            }
+
+            @Override
+            public boolean apply(int missing, int depth) {
+                return applySource(si, missing, depth);
             }
         }
 

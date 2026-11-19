@@ -70,6 +70,11 @@ public class GetItemPlannerTest {
                     break;
                 case TRAVEL:
                     break;
+                case GATHER:
+                    if (s.tool != null) assertTrue("tool " + s.tool + " missing for " + s, inv.getOrDefault(s.tool, 0) > 0);
+                    s.inputs.forEach((k, v) -> take(inv, k, v, s));
+                    inv.merge(s.items.get(0), s.count, Integer::sum);
+                    break;
                 default:
                     s.inputs.forEach((k, v) -> take(inv, k, v, s));
                     if (s.fuel != null) take(inv, s.fuel, s.fuelCount, s);
