@@ -39,6 +39,9 @@ import java.util.Map;
  */
 public final class InputOverrideHandler extends Behavior implements IInputOverrideHandler {
 
+    private int sneakHeld;
+    private Input lastClick;
+
     /**
      * Maps inputs to whether or not we are forcing their state down.
      */
@@ -136,11 +139,33 @@ public final class InputOverrideHandler extends Behavior implements IInputOverri
                 this.lastRawState.put(input, currentRaw);
             }
         }
-        if (isInputForcedDown(Input.CLICK_LEFT)) {
-            setInputForceState(Input.CLICK_RIGHT, false);
+        // S46: once pressed, sneak stays down a minimum number of ticks (on the ground, not while jumping)
+        boolean sneakRaw = this.inputForceStateMap.getOrDefault(Input.SNEAK, false);
+        int minSneak = Baritone.settings().sneakMinHoldTicks.value;
+        if (sneakRaw) {
+            sneakHeld++;
+        } else if (sneakHeld > 0 && sneakHeld < minSneak && ctx.player().onGround() && !isInputForcedDown(Input.JUMP)) {
+            setInputForceState(Input.SNEAK, true);
+            sneakHeld++;
+        } else {
+            sneakHeld = 0;
         }
-        blockBreakHelper.tick(isInputForcedDown(Input.CLICK_LEFT));
-        blockPlaceHelper.tick(isInputForcedDown(Input.CLICK_RIGHT));
+
+        // S47: attack and use are never held in the same tick; with the queue on, whichever was already held wins
+        boolean left = isInputForcedDown(Input.CLICK_LEFT);
+        boolean right = isInputForcedDown(Input.CLICK_RIGHT);
+        if (left && right) {
+            if (Baritone.settings().inputInteractionQueue.value && lastClick == Input.CLICK_RIGHT) {
+                left = false;
+                setInputForceState(Input.CLICK_LEFT, false);
+            } else {
+                right = false;
+                setInputForceState(Input.CLICK_RIGHT, false);
+            }
+        }
+        lastClick = left ? Input.CLICK_LEFT : right ? Input.CLICK_RIGHT : null;
+        blockBreakHelper.tick(left);
+        blockPlaceHelper.tick(right);
 
         if (inControl()) {
             if (ctx.player().input.getClass() != PlayerMovementInput.class) {

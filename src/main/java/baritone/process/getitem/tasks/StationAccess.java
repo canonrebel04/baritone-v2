@@ -83,7 +83,7 @@ public final class StationAccess {
                 return null;
             }
         }
-        Optional<Rotation> reach = RotationUtils.reachable(ctx, pos, ctx.playerController().getBlockReachDistance());
+        Optional<Rotation> reach = ContainerAccess.reachComfortably(baritone, pos, pathTicks);
         if (reach.isEmpty()) {
             if (++pathTicks > 1200) {
                 blacklist.add(pos);

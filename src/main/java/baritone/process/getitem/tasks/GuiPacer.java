@@ -18,52 +18,53 @@
 package baritone.process.getitem.tasks;
 
 import baritone.Baritone;
+import baritone.api.utils.pacing.GuiPacing;
+import baritone.api.utils.pacing.Jitter;
+import baritone.api.utils.pacing.LagModel;
+import baritone.api.utils.pacing.Pace;
 import baritone.behavior.look.LookProfile;
 
 /**
- * Paces inventory / container clicks (plan S40/S41 pacing for A22/A23): one click per interval, interval from
- * {@code getItemClickDelayTicks} or the look profile (LEGIT_SMOOTH 5 +/- 2 ticks, BALANCED 3 +/- 1, FAST 1),
- * with deterministic per-click jitter so bursts never look machine-regular.
+ * Get Item's click pacer: the shared {@link baritone.api.utils.pacing.GuiPacer} layer (plan S40/S41: Fitts
+ * cursor travel, jitter, open-read and close delays, server-lag stretch, one click per tick across all
+ * automations) with the {@code getItemClickDelayTicks} override.
  */
 public final class GuiPacer {
-    private int wait;
-    private long clicks;
+    private final baritone.api.utils.pacing.GuiPacer shared = new baritone.api.utils.pacing.GuiPacer(
+            () -> Pace.fromProfile(Baritone.settings().lookProfile.value), () -> LagModel.global().factor())
+            .withOverride(() -> Baritone.settings().getItemClickDelayTicks.value);
 
     /** Base/jitter for a profile (pure, for tests). */
     static int[] profileDelay(LookProfile p) {
-        switch (p) {
-            case FAST:
-                return new int[]{1, 0};
-            case BALANCED:
-                return new int[]{3, 1};
-            default:
-                return new int[]{5, 2};
-        }
+        return GuiPacing.base(Pace.fromProfile(p.name()));
     }
 
     /** Interval before click number {@code n}, given base and jitter (pure, deterministic). */
     static int interval(int base, int jitter, long n) {
-        if (jitter <= 0) return Math.max(1, base);
-        long h = n * 0x9E3779B97F4A7C15L;
-        h ^= (h >>> 31);
-        int j = (int) Math.floorMod(h, 2L * jitter + 1) - jitter;
-        return Math.max(1, base + j);
+        return Math.max(1, base + Jitter.of(n, 17, jitter));
     }
 
     /** Call once per tick; true when a click may be sent now (and starts the next interval). */
     public boolean ready() {
-        if (wait > 0) {
-            wait--;
-            return false;
-        }
-        int set = Baritone.settings().getItemClickDelayTicks.value;
-        int[] bj = set >= 0 ? new int[]{set, 0} : profileDelay(LookProfile.parse(Baritone.settings().lookProfile.value));
-        wait = interval(bj[0], bj[1], clicks++) - 1;
-        return true;
+        return shared.ready();
+    }
+
+    /** As {@link #ready()}, with the slot about to be clicked so cursor travel time is included. */
+    public boolean ready(int slot, int columns) {
+        return shared.ready(slot, columns);
     }
 
     /** Delay the next click (e.g. after opening a screen, a "reaction" pause). */
     public void delay(int ticks) {
-        wait = Math.max(wait, ticks);
+        shared.delay(ticks);
+    }
+
+    /** S41: a container just opened with this many stacks in view. */
+    public void opened(int stacks) {
+        shared.opened(stacks);
+    }
+
+    public int closeDelay() {
+        return shared.closeDelay();
     }
 }

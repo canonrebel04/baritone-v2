@@ -47,7 +47,7 @@ final class ContainerAccess {
 
     /** @return null once the right-click was sent (or on failure, see {@code failure}); otherwise the command. */
     PathingCommand approach(StringBuilder failure) {
-        Optional<Rotation> reach = RotationUtils.reachable(ctx, pos, ctx.playerController().getBlockReachDistance());
+        Optional<Rotation> reach = reachComfortably(baritone, pos, pathTicks);
         if (reach.isEmpty()) {
             if (++pathTicks > 1600) {
                 failure.append("couldn't reach the container at ").append(pos.toShortString());
@@ -70,6 +70,25 @@ final class ContainerAccess {
             return null;
         }
         return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+    }
+
+    /** S43: comfortable opening distance for a given full reach (never below 2 blocks). */
+    static double comfortReach(double full) {
+        return Math.max(2.0, Math.min(full - 0.8, 3.7));
+    }
+
+    /**
+     * S43: a rotation to {@code pos} within comfort reach; once we've pathed for a while and stopped (the goal
+     * is as close as the terrain allows), anything within legal reach is accepted.
+     */
+    static Optional<Rotation> reachComfortably(Baritone baritone, BlockPos pos, int pathTicks) {
+        IPlayerContext ctx = baritone.getPlayerContext();
+        double full = ctx.playerController().getBlockReachDistance();
+        if (!Baritone.settings().containerComfortReach.value) return RotationUtils.reachable(ctx, pos, full);
+        Optional<Rotation> r = RotationUtils.reachable(ctx, pos, comfortReach(full));
+        if (r.isPresent()) return r;
+        if (pathTicks > 20 && !baritone.getPathingBehavior().isPathing()) return RotationUtils.reachable(ctx, pos, full);
+        return Optional.empty();
     }
 
     int clicks() {

@@ -2022,6 +2022,86 @@ public final class Settings {
      */
     public final Setting<Boolean> movementContinuousSteering = new Setting<>(true);
 
+    // ---- PS2: locomotion + interaction smoothness (plan S16-S50). Pace follows lookProfile:
+    // LEGIT_SMOOTH (default) is the human-like rhythm, FAST keeps the old fixed rates. ----
+
+    /**
+     * S16/S17/S20: steer along a smoothed (Catmull-Rom, string-pulled) curve through the next path nodes with a
+     * speed-scaled horizontal lookahead instead of aiming at each block center. Never cuts past a node that has
+     * a drop, hazard or wall beside it: the curve is clamped to pass within 0.3 blocks of each destination.
+     */
+    public final Setting<Boolean> movementSplineHeading = new Setting<>(true);
+
+    /**
+     * S19: sprint hysteresis. Sprint is released when the heading error passes 28 degrees and only re-engaged
+     * once it is back under 18, so sprint doesn't flicker on gentle curves.
+     */
+    public final Setting<Boolean> movementSprintHysteresis = new Setting<>(true);
+
+    /**
+     * S18: speed profile. Let go of sprint a few ticks before a sharp (> 60 degree) turn that is within braking
+     * distance, so corners are taken at walking speed rather than with a skid.
+     */
+    public final Setting<Boolean> movementSpeedProfile = new Setting<>(true);
+
+    /**
+     * S34: drift gently sideways around mobs/players standing on the path ahead instead of shoving into them.
+     * Only on the ground, and only towards a side with solid, safe floor.
+     */
+    public final Setting<Boolean> movementCrowdSteer = new Setting<>(true);
+
+    /**
+     * S23: open a closed wooden door / fence gate on the next step while still walking up to it, instead of
+     * stopping in front of it first.
+     */
+    public final Setting<Boolean> movementDoorPreOpen = new Setting<>(true);
+
+    /**
+     * S36/S38: vary the gap between consecutive block breaks and placements around blockBreakSpeed /
+     * rightClickSpeed (LEGIT_SMOOTH +1..+4 ticks, BALANCED +0..+2, FAST unchanged).
+     */
+    public final Setting<Boolean> interactionRhythm = new Setting<>(true);
+
+    /**
+     * S39: switch hotbar slots the way a player does: scroll through neighbouring slots (LEGIT one per tick,
+     * BALANCED two) or a number key for far slots. FAST jumps directly.
+     */
+    public final Setting<Boolean> hotbarScroll = new Setting<>(true);
+
+    /**
+     * S43: walk to a comfortable distance (reach - 0.8, at most 3.7 blocks) before opening containers and
+     * crafting/smelting stations, rather than opening them from the edge of reach.
+     */
+    public final Setting<Boolean> containerComfortReach = new Setting<>(true);
+
+    /**
+     * S45: select the tool for the next movement's block while finishing the current one, so mining starts the
+     * moment you arrive instead of swapping on arrival.
+     */
+    public final Setting<Boolean> toolPreselect = new Setting<>(true);
+
+    /**
+     * S46: minimum ticks sneak stays held once pressed (0 disables); avoids single-tick sneak flicker.
+     */
+    public final Setting<Integer> sneakMinHoldTicks = new Setting<>(3);
+
+    /**
+     * S47: never hold attack and use in the same tick; the one already held wins until it is released.
+     */
+    public final Setting<Boolean> inputInteractionQueue = new Setting<>(true);
+
+    /**
+     * S50: stretch GUI click and break/place pacing by measured ping and server TPS (up to 3x) so actions don't
+     * arrive at a lagging server as bursts.
+     */
+    public final Setting<Boolean> lagAwarePacing = new Setting<>(true);
+
+    /**
+     * When a silent (server-side) rotation hands over to a camera rotation (e.g. walking then mining), ease the
+     * server rotation over instead of snapping it to the camera in one packet.
+     */
+    public final Setting<Boolean> lookSilentToCameraBlend = new Setting<>(true);
+
     /**
      * Re-verify the next N movements every tick for world changes and replan early before hitting an obstacle.
      */

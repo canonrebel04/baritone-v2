@@ -92,7 +92,7 @@ public final class CraftTask extends StepTask {
                 if (menu() != null) {
                     stage = Stage.FILL;
                     stageTicks = 0;
-                    pacer.delay(4); // "reaction" before the first click
+                    pacer.opened(0); // S41: "reaction" before the first click
                     return pause();
                 }
                 if (!table) {

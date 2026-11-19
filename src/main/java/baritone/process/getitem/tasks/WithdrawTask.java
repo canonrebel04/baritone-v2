@@ -57,7 +57,6 @@ public final class WithdrawTask extends ContainerTask {
 
     @Override
     protected boolean work(AbstractContainerMenu m) {
-        if (!pacer.ready()) return false;
         int size = containerSize(m);
         for (Map.Entry<String, Integer> e : want.entrySet()) {
             String k = e.getKey();
@@ -69,6 +68,7 @@ public final class WithdrawTask extends ContainerTask {
                         setFailure("inventory full while taking " + k.replace("minecraft:", ""));
                         return true;
                     }
+                    if (!pacer.ready(i, 9)) return false; // S40: includes cursor travel to slot i
                     ctx.playerController().windowClick(m.containerId, i, 0, ContainerInput.QUICK_MOVE, ctx.player());
                     return false;
                 }

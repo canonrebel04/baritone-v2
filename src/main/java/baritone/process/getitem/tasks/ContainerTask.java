@@ -41,6 +41,7 @@ abstract class ContainerTask extends StepTask {
     private boolean opened;
     private int openWait;
     private int closeWait = -1;
+    private int closeIn = -1;
     private boolean succeeded;
     private String closeFailure;
 
@@ -99,7 +100,11 @@ abstract class ContainerTask extends StepTask {
         if (!opened) {
             opened = true;
             openWait = 0;
-            pacer.delay(4);
+            int stacks = 0;
+            for (int i = 0; i < Math.min(containerSize(m), m.slots.size()); i++) {
+                if (!m.getSlot(i).getItem().isEmpty()) stacks++;
+            }
+            pacer.opened(stacks); // S41: time to "read" the container
         }
         if (openWait++ < 3) return pause(); // let contents sync
         Screen screen = ctx.minecraft().gui.screen();
@@ -118,7 +123,10 @@ abstract class ContainerTask extends StepTask {
             if (pacer.ready()) putCarriedBack(m);
             return pause();
         }
-        if (work(m)) {
+        if (closeIn < 0 && work(m)) {
+            closeIn = pacer.closeDelay(); // S41: a short beat before closing
+        }
+        if (closeIn >= 0 && closeIn-- == 0) {
             knowledge.indexContainer(access.pos, m, name);
             succeeded = succeeded();
             closeWait = 0;

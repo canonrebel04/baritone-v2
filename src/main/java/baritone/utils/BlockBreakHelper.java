@@ -36,6 +36,7 @@ public final class BlockBreakHelper {
     private final IPlayerContext ctx;
     private boolean wasHitting;
     private int breakDelayTimer = 0;
+    private long breaks;
 
     BlockBreakHelper(IPlayerContext ctx) {
         this.ctx = ctx;
@@ -78,7 +79,13 @@ public final class BlockBreakHelper {
                 }
                 if (ctx.playerController().hasBrokenBlock()) { // block broken this tick
                     // break delay timer only applies for multi-tick block breaks like vanilla
-                    breakDelayTimer = BaritoneAPI.getSettings().blockBreakSpeed.value - BASE_BREAK_DELAY;
+                    int base = BaritoneAPI.getSettings().blockBreakSpeed.value - BASE_BREAK_DELAY;
+                    // S36: a human-varied gap before the next block (FAST / interactionRhythm off: fixed base)
+                    breakDelayTimer = baritone.Baritone.settings().interactionRhythm.value
+                            ? baritone.api.utils.pacing.InteractionRhythm.breakGap(
+                            baritone.api.utils.pacing.Pace.fromProfile(baritone.Baritone.settings().lookProfile.value),
+                            base, breaks++, Math.min(1.5, baritone.api.utils.pacing.LagModel.global().factor()))
+                            : base;
                     // must reset controller's destroy delay to prevent the client from delaying itself unnecessarily
                     ((IPlayerControllerMP) ctx.minecraft().gameMode).setDestroyDelay(0);
                 }

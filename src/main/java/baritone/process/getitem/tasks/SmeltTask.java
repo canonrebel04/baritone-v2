@@ -83,7 +83,7 @@ public final class SmeltTask extends StepTask {
                 if (menu() != null) {
                     stage = Stage.CHECK;
                     stageTicks = 0;
-                    pacer.delay(4);
+                    pacer.opened(3); // S41: read the furnace slots
                     return pause();
                 }
                 if (access == null) access = new StationAccess(baritone, data, station, blacklist);

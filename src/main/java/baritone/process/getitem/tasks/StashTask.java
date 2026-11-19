@@ -41,7 +41,6 @@ public final class StashTask extends ContainerTask {
 
     @Override
     protected boolean work(AbstractContainerMenu m) {
-        if (!pacer.ready()) return false;
         int size = containerSize(m);
         boolean space = false;
         for (int i = 0; i < size; i++) if (m.getSlot(i).getItem().isEmpty()) space = true;
@@ -49,6 +48,7 @@ public final class StashTask extends ContainerTask {
         for (int i = size; i < m.slots.size(); i++) {
             ItemStack s = m.getSlot(i).getItem();
             if (!s.isEmpty() && items.contains(GameData.id(s.getItem()))) {
+                if (!pacer.ready(i, 9)) return false; // S40: includes cursor travel to slot i
                 ctx.playerController().windowClick(m.containerId, i, 0, ContainerInput.QUICK_MOVE, ctx.player());
                 moved++;
                 return false;

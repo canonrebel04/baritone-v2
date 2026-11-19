@@ -30,6 +30,7 @@ public class BlockPlaceHelper {
 
     private final IPlayerContext ctx;
     private int rightClickTimer;
+    private long places;
 
     BlockPlaceHelper(IPlayerContext playerContext) {
         this.ctx = playerContext;
@@ -44,7 +45,13 @@ public class BlockPlaceHelper {
         if (!rightClickRequested || ctx.player().isHandsBusy() || mouseOver == null || mouseOver.getType() != HitResult.Type.BLOCK) {
             return;
         }
-        rightClickTimer = Baritone.settings().rightClickSpeed.value - BASE_PLACE_DELAY;
+        int base = Baritone.settings().rightClickSpeed.value - BASE_PLACE_DELAY;
+        // S38: varied but consistent placement rhythm (FAST / interactionRhythm off: fixed base)
+        rightClickTimer = Baritone.settings().interactionRhythm.value
+                ? baritone.api.utils.pacing.InteractionRhythm.placeGap(
+                baritone.api.utils.pacing.Pace.fromProfile(Baritone.settings().lookProfile.value),
+                base, places++, Math.min(1.5, baritone.api.utils.pacing.LagModel.global().factor()))
+                : base;
         for (InteractionHand hand : InteractionHand.values()) {
             if (ctx.playerController().processRightClickBlock(ctx.player(), ctx.world(), hand, (BlockHitResult) mouseOver) == InteractionResult.SUCCESS) {
                 ctx.player().swing(hand, ctx.player().getItemInHand(hand).getInteractAnimation(), false);
