@@ -17,7 +17,6 @@
 
 package baritone.pathing.movement.movements;
 
-import baritone.api.utils.BaritoneLog;
 import baritone.Baritone;
 import baritone.api.IBaritone;
 import baritone.api.pathing.movement.MovementStatus;
@@ -30,7 +29,6 @@ import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.MovementState;
-import baritone.pathing.path.smooth.PathSmoother;
 import baritone.utils.BlockStateInterface;
 import com.google.common.collect.ImmutableSet;
 import net.minecraft.core.BlockPos;
@@ -90,37 +88,22 @@ public class MovementTraverse extends Movement {
             boolean sneaking = false;
             if (MovementHelper.isWater(pb0) || MovementHelper.isWater(pb1)) {
                 WC = context.waterWalkSpeed;
-                if (context.allowSwimSprint && context.canSprint) {
-                    WC *= 0.85;
-                }
                 water = true;
             } else {
-                // Enhancements #19, #32, #35: per-block friction, slow-block & speed-effect scaling
-                WC *= context.surfaceCostMultiplier(destOn, pb1);
-                if (frostWalker) {
+                if (destOn.getBlock() == Blocks.SOUL_SAND) {
+                    WC += (WALK_ONE_OVER_SOUL_SAND_COST - WALK_ONE_BLOCK_COST) / 2;
+                } else if (frostWalker) {
                     // with frostwalker we can walk on water without the penalty, if we are sure we won't be using jesus
                 } else if (destOn.getBlock() == Blocks.WATER) {
                     WC += context.walkOnWaterOnePenalty;
                 }
-                if (srcDownBlock == Blocks.SOUL_SAND && destOn.getBlock() != Blocks.SOUL_SAND) {
+                if (srcDownBlock == Blocks.SOUL_SAND) {
                     WC += (WALK_ONE_OVER_SOUL_SAND_COST - WALK_ONE_BLOCK_COST) / 2;
                 } else if (context.allowWalkOnMagmaBlocks && srcDownBlock.equals(Blocks.MAGMA_BLOCK)) {
                     sneaking = true;
                     WC += (SNEAK_ONE_BLOCK_COST - WALK_ONE_BLOCK_COST) / 2;
                 }
-                if (context.combatMode
-                        && Double.isFinite(context.combatBlastResistantFootingFavor)
-                        && context.combatBlastResistantFootingFavor > 0) {
-                    Block footing = destOn.getBlock();
-                    if (footing == Blocks.BEDROCK
-                            || footing == Blocks.OBSIDIAN
-                            || footing == Blocks.CRYING_OBSIDIAN
-                            || footing == Blocks.REINFORCED_DEEPSLATE) {
-                        WC *= context.combatBlastResistantFootingFavor;
-                    }
-                }
             }
-            WC += context.tightClearanceCost(destX, y, destZ);
             double hardness1 = MovementHelper.getMiningDurationTicks(context, destX, y, destZ, pb1, false);
             if (hardness1 >= COST_INF) {
                 return COST_INF;
@@ -267,7 +250,7 @@ public class MovementTraverse extends Movement {
         if (feet.getY() != dest.getY() && !ladder) {
             logDebug("Wrong Y coordinate");
             if (feet.getY() < dest.getY() && !(MovementHelper.canStepUp(ctx) && ctx.player().onGround())) {
-                BaritoneLog.PATH.debug("In movement traverse");
+                System.out.println("In movement traverse");
                 return state.setInput(Input.JUMP, true);
             }
             return state;
@@ -282,99 +265,23 @@ public class MovementTraverse extends Movement {
             }
             Block low = BlockStateInterface.get(ctx, src).getBlock();
             Block high = BlockStateInterface.get(ctx, src.above()).getBlock();
-            // Enhancement #28: Ladder/vine side-exit — only pause when significantly above src.y (climbing), not on side-entry/exit
-            if (ctx.player().position().y > src.y + 0.25D && !ctx.player().onGround() && (MovementHelper.isClimbable(low) || MovementHelper.isClimbable(high))) {
+            if (ctx.player().position().y > src.y + 0.1D && !ctx.player().onGround() && (MovementHelper.isClimbable(low) || MovementHelper.isClimbable(high))) {
                 // hitting W could cause us to climb the ladder instead of going forward
-                // wait until we're near the exit elevation
+                // wait until we're on the ground
                 return state;
             }
             BlockPos into = dest.subtract(src).offset(dest);
             BlockState intoBelow = BlockStateInterface.get(ctx, into);
             BlockState intoAbove = BlockStateInterface.get(ctx, into.above());
-            boolean inWater = MovementHelper.isLiquid(ctx, feet);
-            boolean inCobweb = low == Blocks.COBWEB || BlockStateInterface.get(ctx, dest).is(Blocks.COBWEB);
-            if (wasTheBridgeBlockAlwaysThere
-                    && !inCobweb
-                    && (!inWater || Baritone.settings().sprintInWater.value || Baritone.settings().allowSwimSprint.value)
-                    && (!MovementHelper.avoidWalkingInto(intoBelow) || MovementHelper.isWater(intoBelow))
-                    && !MovementHelper.avoidWalkingInto(intoAbove)) {
+            if (wasTheBridgeBlockAlwaysThere && (!MovementHelper.isLiquid(ctx, feet) || Baritone.settings().sprintInWater.value) && (!MovementHelper.avoidWalkingInto(intoBelow) || MovementHelper.isWater(intoBelow)) && !MovementHelper.avoidWalkingInto(intoAbove)) {
                 state.setInput(Input.SPRINT, true);
-            }
-
-            // Enhancement #29 & #30: Swim-sprint & water-edge exit jump / bubble column travel
-            if (inWater && Baritone.settings().allowSwimSprint.value) {
-                BlockState destState = BlockStateInterface.get(ctx, dest);
-                if (!MovementHelper.isWater(destState) && ctx.player().horizontalCollision) {
-                    state.setInput(Input.JUMP, true);
-                }
-            }
-            if (Baritone.settings().allowBubbleColumnTravel.value && BlockStateInterface.get(ctx, feet).is(Blocks.BUBBLE_COLUMN)) {
-                state.setInput(Input.JUMP, true);
-            }
-
-            // Enhancement #32: Powder snow / honey exit jump if colliding horizontally
-            if ((low == Blocks.POWDER_SNOW || fd == Blocks.HONEY_BLOCK) && ctx.player().horizontalCollision && ctx.player().onGround()) {
-                state.setInput(Input.JUMP, true);
             }
 
             BlockState destDown = BlockStateInterface.get(ctx, dest.below());
             if (feet.getY() != dest.getY() && ladder && MovementHelper.isClimbable(destDown.getBlock())) {
                 state.setInput(Input.JUMP, true);
             }
-
-            // Enhancements #1, #5, #41: Per-movement approach vector, corner pre-turn, and look-ahead aiming
-            Vec3 moveTarget = MovementHelper.safeBlockTarget(ctx, positionsToBreak[0]);
-            boolean narrowLedge = !MovementHelper.canWalkOn(ctx, dest.below().north())
-                    || !MovementHelper.canWalkOn(ctx, dest.below().south())
-                    || !MovementHelper.canWalkOn(ctx, dest.below().east())
-                    || !MovementHelper.canWalkOn(ctx, dest.below().west());
-            if (narrowLedge) {
-                // Never cut corners or sprint fast across a narrow ledge/bridge — stay dead-center on dest
-                state.setInput(Input.SPRINT, false);
-            }
-            double[] flat = (!narrowLedge && !isNextTurnSharp() && Baritone.settings().movementSplineHeading.value) ? upcomingFlat : null;
-            if (flat != null && flat.length >= 4 && !inWater && ctx.player().onGround()) {
-                // S16/S17/S20: pure-pursuit carrot along the upcoming flat nodes, never cutting a node by > 0.2
-                flat = flat.clone();
-                flat[0] = moveTarget.x;
-                flat[1] = moveTarget.z;
-                double speed = Math.hypot(ctx.player().getDeltaMovement().x, ctx.player().getDeltaMovement().z);
-                double[] c = PathSmoother.carrot(ctx.player().position().x, ctx.player().position().z, flat, PathSmoother.lookahead(speed));
-                moveTarget = new Vec3(c[0], moveTarget.y, c[1]);
-            } else if (!narrowLedge && nextMovement != null && Baritone.settings().movementLookAhead.value) {
-                double distToDest = Math.hypot((dest.x + 0.5) - ctx.player().position().x, (dest.z + 0.5) - ctx.player().position().z);
-                if (continuesStraight() && distToDest < 1.05) {
-                    Vec3 nextCenter = VecUtils.calculateBlockCenter(ctx.world(), nextMovement.getDest());
-                    moveTarget = moveTarget.lerp(nextCenter, 0.35);
-                } else if (Baritone.settings().movementCornerPreTurn.value && isNextTurnSharp() && distToDest < 0.65) {
-                    Vec3 nextCenter = VecUtils.calculateBlockCenter(ctx.world(), nextMovement.getDest());
-                    double speed = Math.hypot(ctx.player().getDeltaMovement().x, ctx.player().getDeltaMovement().z);
-                    double blend = Math.min(0.45, speed * 1.4);
-                    moveTarget = moveTarget.lerp(nextCenter, blend);
-                }
-            }
-            MovementHelper.moveTowards(ctx, state, moveTarget);
-
-            // Enhancements #3 & #4: Brake-to-stop prediction & sneak-edge lock before sharp turns/stops
-            MovementHelper.applyCornerAndBrakeControl(ctx, state, src, dest, isNextTurnSharp());
-            MovementHelper.applySpeedProfile(ctx, state, upcomingFlat);
-            if (!narrowLedge) {
-                MovementHelper.applyCrowdSteer(ctx, state, moveTarget);
-            }
-
-            preOpenDoorAhead(state);
-
-            // Enhancement #12: Chain-sprint-jump on long straight flat runs (opt-in for anticheat safety)
-            if (Baritone.settings().movementChainSprintJump.value
-                    && !inWater && !inCobweb
-                    && ctx.player().onGround()
-                    && state.getInputStates().getOrDefault(Input.SPRINT, false)
-                    && continuesStraight()
-                    && nextMovement instanceof MovementTraverse
-                    && MovementHelper.fullyPassable(ctx, src.above(2))
-                    && MovementHelper.fullyPassable(ctx, dest.above(2))) {
-                state.setInput(Input.JUMP, true);
-            }
+            MovementHelper.moveTowards(ctx, state, positionsToBreak[0]);
             return state;
         } else {
             wasTheBridgeBlockAlwaysThere = false;
@@ -466,67 +373,5 @@ public class MovementTraverse extends Movement {
             }
         }
         return super.prepared(state);
-    }
-
-    private BlockPos preOpened;
-    private int preOpenHold;
-
-    /**
-     * S23: the closed wooden door / fence gate this traverse would have to open, or null. Same rules as the
-     * stop-and-open handling in {@link #updateState}; iron doors are never "openable".
-     */
-    public BlockPos closedOpenable() {
-        BlockState pb0 = BlockStateInterface.get(ctx, positionsToBreak[0]);
-        BlockState pb1 = BlockStateInterface.get(ctx, positionsToBreak[1]);
-        if (Blocks.IRON_DOOR.equals(pb0.getBlock()) || Blocks.IRON_DOOR.equals(pb1.getBlock())) {
-            return null;
-        }
-        if (pb0.getBlock() instanceof DoorBlock && !MovementHelper.isDoorPassable(ctx, src, dest)) {
-            return positionsToBreak[0];
-        }
-        if (pb1.getBlock() instanceof DoorBlock && !MovementHelper.isDoorPassable(ctx, dest, src)) {
-            return positionsToBreak[1];
-        }
-        if (pb0.getBlock() instanceof FenceGateBlock && !MovementHelper.isGatePassable(ctx, positionsToBreak[0], src.above())) {
-            return positionsToBreak[0];
-        }
-        if (pb1.getBlock() instanceof FenceGateBlock && !MovementHelper.isGatePassable(ctx, positionsToBreak[1], src)) {
-            return positionsToBreak[1];
-        }
-        return null;
-    }
-
-    /** S23: while walking up to a closed door/gate on the next step, look at it and open it without stopping. */
-    private void preOpenDoorAhead(MovementState state) {
-        if (!Baritone.settings().movementDoorPreOpen.value || !(nextMovement instanceof MovementTraverse next)) {
-            return;
-        }
-        BlockPos door = next.closedOpenable();
-        if (door == null) {
-            preOpenHold = 0;
-            return;
-        }
-        if (door.equals(preOpened) && preOpenHold <= 0) {
-            return; // already clicked once for this door: never toggle it shut again; the next traverse takes over
-        }
-        double d = ctx.playerHead().distanceTo(Vec3.atCenterOf(door));
-        if (d > 2.8 || d < 0.9) {
-            return;
-        }
-        Optional<Rotation> rot = RotationUtils.reachable(ctx, door);
-        if (rot.isEmpty()) {
-            return;
-        }
-        state.setTarget(new MovementState.MovementTarget(rot.get(), true));
-        if (ctx.isLookingAt(door)) {
-            if (!door.equals(preOpened)) {
-                preOpened = door;
-                // two ticks covers a jitter-delayed press; one if clicks could repeat every tick
-                preOpenHold = Baritone.settings().rightClickSpeed.value > 2 ? 2 : 1;
-            }
-            if (preOpenHold-- > 0) {
-                state.setInput(Input.CLICK_RIGHT, true);
-            }
-        }
     }
 }

@@ -64,16 +64,6 @@ public abstract class Movement implements IMovement, MovementHelper {
 
     private Boolean calculatedWhileLoaded;
 
-    /**
-     * Enhancements #1 & #11: Next movement in the active path, supplied by PathExecutor
-     * so movements can compute approach vectors, pre-turn corners, and hand off momentum.
-     */
-    protected IMovement nextMovement;
-    private boolean prevForward;
-    private boolean prevBack;
-    private boolean prevLeft;
-    private boolean prevRight;
-
     protected Movement(IBaritone baritone, BetterBlockPos src, BetterBlockPos dest, BetterBlockPos[] toBreak, BetterBlockPos toPlace) {
         this.baritone = baritone;
         this.ctx = baritone.getPlayerContext();
@@ -141,52 +131,11 @@ public abstract class Movement implements IMovement, MovementHelper {
             currentState.setInput(Input.CLICK_LEFT, true);
         }
 
-        // Enhancement #42: Yaw/pitch decoupling — keep pitch steady/level during pure movement
-        // unless we are forcing rotations for mining, placing, or climbing.
-        currentState.getTarget().getRotation().ifPresent(rotation -> {
-            Rotation effective = rotation;
-            if (!currentState.getTarget().hasToForceRotations() && Baritone.settings().movementDecouplePitch.value) {
-                float currentPitch = ctx.playerRotations().getPitch();
-                float levelPitch = Math.max(-18.0f, Math.min(18.0f, currentPitch * 0.85f));
-                effective = rotation.withPitch(levelPitch);
-            }
-            baritone.getLookBehavior().updateTarget(
-                    effective,
-                    currentState.getTarget().hasToForceRotations());
-        });
-
-        // Enhancement #10: Input debouncing — avoid 1-tick opposite-key oscillation (W<->S, A<->D)
-        if (Baritone.settings().movementInputDebounce.value) {
-            Map<Input, Boolean> inputs = currentState.getInputStates();
-            boolean fwd = inputs.getOrDefault(Input.MOVE_FORWARD, false);
-            boolean back = inputs.getOrDefault(Input.MOVE_BACK, false);
-            boolean left = inputs.getOrDefault(Input.MOVE_LEFT, false);
-            boolean right = inputs.getOrDefault(Input.MOVE_RIGHT, false);
-            if (fwd && back) {
-                inputs.put(Input.MOVE_FORWARD, false);
-                inputs.put(Input.MOVE_BACK, false);
-                fwd = false;
-                back = false;
-            }
-            if (left && right) {
-                inputs.put(Input.MOVE_LEFT, false);
-                inputs.put(Input.MOVE_RIGHT, false);
-                left = false;
-                right = false;
-            }
-            if (left && prevRight) {
-                inputs.put(Input.MOVE_LEFT, false);
-                left = false;
-            } else if (right && prevLeft) {
-                inputs.put(Input.MOVE_RIGHT, false);
-                right = false;
-            }
-            prevForward = fwd;
-            prevBack = back;
-            prevLeft = left;
-            prevRight = right;
-        }
-
+        // If the movement target has to force the new rotations, or we aren't using silent move, then force the rotations
+        currentState.getTarget().getRotation().ifPresent(rotation ->
+                baritone.getLookBehavior().updateTarget(
+                        rotation,
+                        currentState.getTarget().hasToForceRotations()));
         baritone.getInputOverrideHandler().clearAllKeys();
         currentState.getInputStates().forEach((input, forced) -> {
             baritone.getInputOverrideHandler().setInputForceState(input, forced);
@@ -265,72 +214,6 @@ public abstract class Movement implements IMovement, MovementHelper {
     @Override
     public void reset() {
         currentState = new MovementState().setStatus(MovementStatus.PREPPING);
-        prevForward = false;
-        prevBack = false;
-        prevLeft = false;
-        prevRight = false;
-    }
-
-    public void setNextMovement(IMovement nextMovement) {
-        this.nextMovement = nextMovement;
-    }
-
-    /**
-     * S16/S20: centers {x0, z0, x1, z1, ...} of this movement's destination and the following flat, already
-     * clear walking nodes (same Y, nothing to break or place), supplied by the path executor; null if none.
-     */
-    protected double[] upcomingFlat;
-
-    public void setUpcomingFlat(double[] nodes) {
-        this.upcomingFlat = nodes;
-    }
-
-    public IMovement getNextMovement() {
-        return nextMovement;
-    }
-
-    /**
-     * Enhancement #11: Returns true if the next movement continues along the same horizontal heading.
-     */
-    public boolean continuesStraight() {
-        if (nextMovement == null) {
-            return false;
-        }
-        int dx1 = Integer.compare(dest.x, src.x);
-        int dz1 = Integer.compare(dest.z, src.z);
-        int dx2 = Integer.compare(nextMovement.getDest().x, nextMovement.getSrc().x);
-        int dz2 = Integer.compare(nextMovement.getDest().z, nextMovement.getSrc().z);
-        return dx1 == dx2 && dz1 == dz2 && (dx1 != 0 || dz1 != 0);
-    }
-
-    /**
-     * Returns true if the path ends after this movement or makes a >= 90-degree horizontal turn.
-     */
-    public boolean isNextTurnSharp() {
-        if (nextMovement == null) {
-            return true;
-        }
-        int dx1 = Integer.compare(dest.x, src.x);
-        int dz1 = Integer.compare(dest.z, src.z);
-        int dx2 = Integer.compare(nextMovement.getDest().x, nextMovement.getSrc().x);
-        int dz2 = Integer.compare(nextMovement.getDest().z, nextMovement.getSrc().z);
-        if (dx1 == 0 && dz1 == 0) {
-            return true;
-        }
-        if (dx2 == 0 && dz2 == 0) {
-            return true;
-        }
-        return (dx1 * dx2 + dz1 * dz2) <= 0;
-    }
-
-    /**
-     * Enhancement #11: Expected horizontal exit speed (blocks/tick) handed off to the next movement.
-     */
-    public double expectedExitSpeed() {
-        if (continuesStraight()) {
-            return Baritone.settings().allowSprint.value ? 0.28 : 0.21;
-        }
-        return isNextTurnSharp() ? 0.0 : 0.16;
     }
 
     /**

@@ -68,11 +68,6 @@ import static baritone.pathing.precompute.Ternary.*;
  */
 public interface MovementHelper extends ActionCosts, Helper {
 
-    @Override
-    default BaritoneLog logChannel() {
-        return BaritoneLog.PATH;
-    }
-
     static boolean avoidBreaking(BlockStateInterface bsi, int x, int y, int z, BlockState state) {
         return avoidBreaking(bsi, x, y, z, state, false);
     }
@@ -736,19 +731,11 @@ public interface MovementHelper extends ActionCosts, Helper {
             }
 
             if (executionTick != -1 && currentTick >= executionTick) {
-                int now = ctx.player().getInventory().getSelectedSlot();
-                // S39: scroll through neighbouring slots / number key, per pace, instead of an instant jump
-                int next = Baritone.settings().hotbarScroll.value
-                        ? baritone.api.utils.pacing.HotbarScroll.next(now, targetSlot,
-                        baritone.api.utils.pacing.Pace.fromProfile(Baritone.settings().lookProfile.value))
-                        : targetSlot;
-                if (now != next) {
-                    ctx.player().getInventory().setSelectedSlot(next);
+                if (ctx.player().getInventory().getSelectedSlot() != targetSlot) {
+                    ctx.player().getInventory().setSelectedSlot(targetSlot);
                 }
-                if (next == targetSlot) {
-                    targetSlot = -1;
-                    executionTick = -1;
-                }
+                targetSlot = -1;
+                executionTick = -1;
             }
         }
     }
@@ -772,199 +759,16 @@ public interface MovementHelper extends ActionCosts, Helper {
     }
 
     static void moveTowards(IPlayerContext ctx, MovementState state, Vec3 pos) {
-        Rotation targetRot = RotationUtils.calcRotationFromVec3d(ctx.playerHead(),
-                pos,
-                ctx.playerRotations()).withPitch(ctx.playerRotations().getPitch());
-        // Wrapped signed yaw error in [-180, +180]: positive = target is RIGHT, negative = target is LEFT
-        float signedTargetRight = Mth.wrapDegrees(targetRot.getYaw() - ctx.playerRotations().getYaw());
-        float yawDiff = Math.abs(signedTargetRight);
-        state.setTarget(new MovementTarget(targetRot, false));
-
-        if (Baritone.settings().movementContinuousSteering.value) {
-            // Only pause forward on extreme reversals (> 80 deg) while grounded;
-            // drop sprint above 18 deg so corners are always taken at controlled walk speed
-            // without ever stalling or jumping in place.
-            if (yawDiff > 80.0f && ctx.player().onGround()) {
-                state.setInput(Input.MOVE_FORWARD, false);
-                state.setInput(Input.SPRINT, false);
-            } else if (yawDiff > 18.0f) {
-                state.setInput(Input.MOVE_FORWARD, true);
-                state.setInput(Input.SPRINT, false);
-            } else {
-                state.setInput(Input.MOVE_FORWARD, true);
-                // Enhancement #2: Lateral PD velocity damping to lock onto the target axis
-                if (Baritone.settings().movementLateralPDControl.value && ctx.player().onGround()) {
-                    double dx = pos.x - ctx.player().position().x;
-                    double dz = pos.z - ctx.player().position().z;
-                    double dist = Math.hypot(dx, dz);
-                    if (dist > 0.15) {
-                        double fx = dx / dist;
-                        double fz = dz / dist;
-                        // Right-hand perpendicular vector relative to forward (fx, fz) in MC (+X east, +Z south)
-                        double rx = -fz;
-                        double rz = fx;
-                        double vx = ctx.player().getDeltaMovement().x;
-                        double vz = ctx.player().getDeltaMovement().z;
-                        double latVel = vx * rx + vz * rz;
-                        // Damp lateral drift velocity > 0.055 b/t with opposing strafe
-                        if (latVel > 0.055) {
-                            state.setInput(Input.MOVE_LEFT, true);
-                        } else if (latVel < -0.055) {
-                            state.setInput(Input.MOVE_RIGHT, true);
-                        }
-                    }
-                }
-            }
-            if (Baritone.settings().movementSprintHysteresis.value) {
-                // S19: sprint drops above 28 degrees of heading error and only comes back under 18
-                SprintLatch.latched = baritone.pathing.path.smooth.PathSmoother.sprintLatch(SprintLatch.latched, yawDiff);
-                if (!SprintLatch.latched) {
-                    state.setInput(Input.SPRINT, false);
-                }
-            }
-        } else {
-            if (yawDiff > 80.0f && ctx.player().onGround()) {
-                state.setInput(Input.MOVE_FORWARD, false);
-                state.setInput(Input.SPRINT, false);
-            } else {
-                state.setInput(Input.MOVE_FORWARD, true);
-                if (yawDiff > 18.0f) {
-                    state.setInput(Input.SPRINT, false);
-                }
-            }
-        }
-    }
-
-    /**
-     * Enhancement #8: Hitbox-aware centering — nudges the target away from adjacent walls/fences
-     * so the 0.6-wide player AABB stays centered inside the walkable clearance.
-     */
-    static Vec3 safeBlockTarget(IPlayerContext ctx, BlockPos pos) {
-        Vec3 center = VecUtils.calculateBlockCenter(ctx.world(), pos);
-        double offsetX = 0.0;
-        double offsetZ = 0.0;
-        boolean solidPosX = !canWalkThrough(ctx, new BetterBlockPos(pos.getX() + 1, pos.getY(), pos.getZ()));
-        boolean solidNegX = !canWalkThrough(ctx, new BetterBlockPos(pos.getX() - 1, pos.getY(), pos.getZ()));
-        boolean solidPosZ = !canWalkThrough(ctx, new BetterBlockPos(pos.getX(), pos.getY(), pos.getZ() + 1));
-        boolean solidNegZ = !canWalkThrough(ctx, new BetterBlockPos(pos.getX(), pos.getY(), pos.getZ() - 1));
-        if (solidPosX && !solidNegX) offsetX -= 0.08;
-        else if (solidNegX && !solidPosX) offsetX += 0.08;
-        if (solidPosZ && !solidNegZ) offsetZ -= 0.08;
-        else if (solidNegZ && !solidPosZ) offsetZ += 0.08;
-        return (offsetX == 0.0 && offsetZ == 0.0) ? center : center.add(offsetX, 0.0, offsetZ);
-    }
-
-    /**
-     * Enhancements #3 & #4: Brake-to-stop prediction & sneak-edge lock before sharp turns or stops.
-     */
-    static void applyCornerAndBrakeControl(IPlayerContext ctx, MovementState state, BlockPos src, BlockPos dest, boolean isNextTurnSharp) {
-        if (!isNextTurnSharp || !ctx.player().onGround()) {
-            return;
-        }
-        double px = ctx.player().position().x;
-        double pz = ctx.player().position().z;
-        double vx = ctx.player().getDeltaMovement().x;
-        double vz = ctx.player().getDeltaMovement().z;
-        double distToDest = Math.hypot((dest.getX() + 0.5) - px, (dest.getZ() + 0.5) - pz);
-
-        Block below = BlockStateInterface.getBlock(ctx, ctx.playerFeet().below());
-        double slip = baritone.pathing.movement.sim.PlayerPhysics.BASE_GROUND_SLIPPERINESS;
-        if (below == Blocks.BLUE_ICE) slip = baritone.pathing.movement.sim.PlayerPhysics.BLUE_ICE_SLIPPERINESS;
-        else if (below == Blocks.ICE || below == Blocks.PACKED_ICE || below == Blocks.FROSTED_ICE) slip = baritone.pathing.movement.sim.PlayerPhysics.ICE_SLIPPERINESS;
-        else if (below == Blocks.SLIME_BLOCK) slip = baritone.pathing.movement.sim.PlayerPhysics.SLIME_SLIPPERINESS;
-
-        if (Baritone.settings().movementBrakePrediction.value) {
-            double stopDist = baritone.pathing.movement.sim.MovementSimulator.predictStoppingDistance(vx, vz, true, slip);
-            // Drop sprint ahead of a sharp turn/stop, but NEVER release MOVE_FORWARD before crossing into dest
-            if (distToDest <= stopDist + 0.35 && distToDest < 1.35) {
-                state.setInput(Input.SPRINT, false);
-            }
-        }
-
-        if (Baritone.settings().movementSneakEdgeLock.value && distToDest < 0.85) {
-            int dx = Integer.compare(dest.getX(), src.getX());
-            int dz = Integer.compare(dest.getZ(), src.getZ());
-            if (dx != 0 || dz != 0) {
-                BetterBlockPos beyond = new BetterBlockPos(dest.getX() + dx, dest.getY() - 1, dest.getZ() + dz);
-                if (!canWalkOn(ctx, beyond) && !canWalkOn(ctx, beyond.below())) {
-                    // Lethal or deep drop immediately past the corner — micro-sneak to prevent overshooting off
-                    state.setInput(Input.SPRINT, false);
-                    state.setInput(Input.SNEAK, true);
-                }
-            }
-        }
+        state.setTarget(new MovementTarget(
+                RotationUtils.calcRotationFromVec3d(ctx.playerHead(),
+                        pos,
+                        ctx.playerRotations()).withPitch(ctx.playerRotations().getPitch()),
+                false
+        )).setInput(Input.MOVE_FORWARD, true);
     }
 
     static void moveTowards(IPlayerContext ctx, MovementState state, BlockPos pos) {
-        moveTowards(ctx, state, safeBlockTarget(ctx, pos));
-    }
-
-    /** S19 sprint latch (one local player). */
-    class SprintLatch {
-        static boolean latched = true;
-    }
-
-    /**
-     * S18: let go of sprint ahead of a sharp (> 60 degree) turn on the upcoming flat nodes once it's within about
-     * braking distance, so the corner is taken at walking speed.
-     */
-    static void applySpeedProfile(IPlayerContext ctx, MovementState state, double[] nodes) {
-        if (!Baritone.settings().movementSpeedProfile.value || nodes == null || nodes.length < 6 || !ctx.player().onGround()) {
-            return;
-        }
-        double speed = Math.hypot(ctx.player().getDeltaMovement().x, ctx.player().getDeltaMovement().z);
-        double d = baritone.pathing.path.smooth.PathSmoother.distanceToTurn(ctx.player().position().x, ctx.player().position().z, nodes, 60);
-        if (baritone.pathing.path.smooth.PathSmoother.releaseSprintForTurn(d, speed)) {
-            state.setInput(Input.SPRINT, false);
-        }
-    }
-
-    /**
-     * S34: drift sideways around a living entity standing on the line ahead, only on the ground and only towards
-     * a side whose floor is solid and safe and whose two blocks are passable.
-     */
-    static void applyCrowdSteer(IPlayerContext ctx, MovementState state, Vec3 target) {
-        if (!Baritone.settings().movementCrowdSteer.value || !ctx.player().onGround()
-                || state.getInputStates().getOrDefault(Input.MOVE_LEFT, false)
-                || state.getInputStates().getOrDefault(Input.MOVE_RIGHT, false)
-                || state.getInputStates().getOrDefault(Input.SNEAK, false)) {
-            return;
-        }
-        double px = ctx.player().position().x;
-        double pz = ctx.player().position().z;
-        double hx = target.x - px;
-        double hz = target.z - pz;
-        double len = Math.hypot(hx, hz);
-        if (len < 0.3) {
-            return;
-        }
-        hx /= len;
-        hz /= len;
-        java.util.List<net.minecraft.world.entity.Entity> near = ctx.world().getEntities(ctx.player(),
-                ctx.player().getBoundingBox().inflate(2.5, 1.0, 2.5),
-                e -> e instanceof net.minecraft.world.entity.LivingEntity && e.isAlive() && !e.isSpectator());
-        if (near.isEmpty()) {
-            return;
-        }
-        double[] rel = new double[near.size() * 2];
-        for (int i = 0; i < near.size(); i++) {
-            rel[2 * i] = near.get(i).getX() - px;
-            rel[2 * i + 1] = near.get(i).getZ() - pz;
-        }
-        int side = baritone.pathing.path.smooth.PathSmoother.crowdSide(hx, hz, rel);
-        if (side == 0) {
-            return;
-        }
-        double rx = -hz * side;
-        double rz = hx * side;
-        BetterBlockPos feet = ctx.playerFeet();
-        BetterBlockPos to = Math.abs(rx) >= Math.abs(rz)
-                ? new BetterBlockPos(feet.x + (int) Math.signum(rx), feet.y, feet.z)
-                : new BetterBlockPos(feet.x, feet.y, feet.z + (int) Math.signum(rz));
-        if (canWalkOn(ctx, to.below()) && canWalkThrough(ctx, to) && canWalkThrough(ctx, to.above())
-                && !avoidWalkingInto(ctx.world().getBlockState(to)) && !avoidWalkingInto(ctx.world().getBlockState(to.below()))) {
-            state.setInput(side > 0 ? Input.MOVE_RIGHT : Input.MOVE_LEFT, true);
-        }
+        moveTowards(ctx, state, VecUtils.calculateBlockCenter(ctx.world(), pos));
     }
 
     static void moveTowardsWithoutRotation(IPlayerContext ctx, MovementState state, float idealYaw) {

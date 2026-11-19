@@ -17,7 +17,6 @@
 
 package baritone.pathing.movement.movements;
 
-import baritone.Baritone;
 import baritone.api.IBaritone;
 import baritone.api.pathing.movement.MovementStatus;
 import baritone.api.utils.BetterBlockPos;
@@ -154,15 +153,6 @@ public class MovementFall extends Movement {
                 }
             } else {
                 waterSettleTicks = 0;
-                // Enhancement #7: Landing snap — damp horizontal velocity on touchdown
-                if (Baritone.settings().movementLandingSnap.value) {
-                    double hSpeed = Math.hypot(ctx.player().getDeltaMovement().x, ctx.player().getDeltaMovement().z);
-                    if (hSpeed > 0.14 && isNextTurnSharp()) {
-                        state.setInput(Input.MOVE_FORWARD, false);
-                        state.setInput(Input.SPRINT, false);
-                        state.setInput(Input.SNEAK, true);
-                    }
-                }
                 return state.setStatus(MovementStatus.SUCCESS);
             }
         } else {
