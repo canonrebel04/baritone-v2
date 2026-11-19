@@ -273,12 +273,6 @@ public class MovementDiagonal extends Movement {
         } else if (!playerInValidPosition() && !(MovementHelper.isLiquid(ctx, src) && getValidPositions().contains(ctx.playerFeet().above()))) {
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
-        if (dest.y > src.y && ctx.player().position().y < src.y + 0.1 && ctx.player().horizontalCollision
-                && !(MovementHelper.canStepUp(ctx) && ctx.player().onGround())) {
-            // P2-13: with STEP_HEIGHT >= 1.0 and the player grounded, auto-step carries the
-            // player up the 1-block step, so the bump-jump is not needed
-            state.setInput(Input.JUMP, true);
-        }
         if (sprint()) {
             state.setInput(Input.SPRINT, true);
         }

@@ -781,11 +781,13 @@ public interface MovementHelper extends ActionCosts, Helper {
         state.setTarget(new MovementTarget(targetRot, false));
 
         if (Baritone.settings().movementContinuousSteering.value) {
-            // Strict block-locked steering: never walk/strafe off a ledge while camera is still turning.
-            if (yawDiff > 35.0f) {
+            // Only pause forward on extreme reversals (> 80 deg) while grounded;
+            // drop sprint above 18 deg so corners are always taken at controlled walk speed
+            // without ever stalling or jumping in place.
+            if (yawDiff > 80.0f && ctx.player().onGround()) {
                 state.setInput(Input.MOVE_FORWARD, false);
                 state.setInput(Input.SPRINT, false);
-            } else if (yawDiff > 15.0f) {
+            } else if (yawDiff > 18.0f) {
                 state.setInput(Input.MOVE_FORWARD, true);
                 state.setInput(Input.SPRINT, false);
             } else {
@@ -814,19 +816,19 @@ public interface MovementHelper extends ActionCosts, Helper {
                 }
             }
             if (Baritone.settings().movementSprintHysteresis.value) {
-                // S19: sprint drops above 16 degrees of heading error and only comes back under 10
+                // S19: sprint drops above 28 degrees of heading error and only comes back under 18
                 SprintLatch.latched = baritone.pathing.path.smooth.PathSmoother.sprintLatch(SprintLatch.latched, yawDiff);
                 if (!SprintLatch.latched) {
                     state.setInput(Input.SPRINT, false);
                 }
             }
         } else {
-            if (yawDiff > 35.0f) {
+            if (yawDiff > 80.0f && ctx.player().onGround()) {
                 state.setInput(Input.MOVE_FORWARD, false);
                 state.setInput(Input.SPRINT, false);
             } else {
                 state.setInput(Input.MOVE_FORWARD, true);
-                if (yawDiff > 16.0f) {
+                if (yawDiff > 18.0f) {
                     state.setInput(Input.SPRINT, false);
                 }
             }
@@ -873,15 +875,13 @@ public interface MovementHelper extends ActionCosts, Helper {
 
         if (Baritone.settings().movementBrakePrediction.value) {
             double stopDist = baritone.pathing.movement.sim.MovementSimulator.predictStoppingDistance(vx, vz, true, slip);
-            if (distToDest <= stopDist + 0.25 && distToDest < 1.35) {
+            // Drop sprint ahead of a sharp turn/stop, but NEVER release MOVE_FORWARD before crossing into dest
+            if (distToDest <= stopDist + 0.35 && distToDest < 1.35) {
                 state.setInput(Input.SPRINT, false);
-                if (distToDest <= stopDist + 0.05 && distToDest < 0.65) {
-                    state.setInput(Input.MOVE_FORWARD, false);
-                }
             }
         }
 
-        if (Baritone.settings().movementSneakEdgeLock.value && distToDest < 0.95) {
+        if (Baritone.settings().movementSneakEdgeLock.value && distToDest < 0.85) {
             int dx = Integer.compare(dest.getX(), src.getX());
             int dz = Integer.compare(dest.getZ(), src.getZ());
             if (dx != 0 || dz != 0) {

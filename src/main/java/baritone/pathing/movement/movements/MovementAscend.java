@@ -208,8 +208,6 @@ public class MovementAscend extends Movement {
         // Enhancement #13: Ascend->Traverse flow — keep sprint active when continuing straight onto a flat traverse
         if (Baritone.settings().movementFlowChaining.value && continuesStraight() && nextMovement instanceof MovementTraverse) {
             state.setInput(Input.SPRINT, true);
-        } else {
-            MovementHelper.applyCornerAndBrakeControl(ctx, state, src, dest, isNextTurnSharp());
         }
 
         state.setInput(Input.SNEAK, Baritone.settings().allowWalkOnMagmaBlocks.value && jumpingOnto.is(Blocks.MAGMA_BLOCK));
