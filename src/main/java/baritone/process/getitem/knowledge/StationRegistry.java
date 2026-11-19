@@ -88,7 +88,7 @@ public final class StationRegistry {
     public synchronized List<Station> near(String block, String dim, double px, double py, double pz, double radius) {
         List<Station> out = new ArrayList<>();
         for (Station s : byKey.values()) {
-            if (Objects.equals(s.block, block) && Objects.equals(s.dim, dim) && s.dist2(px, py, pz) <= radius * radius) out.add(s);
+            if ((block == null || Objects.equals(s.block, block)) && Objects.equals(s.dim, dim) && s.dist2(px, py, pz) <= radius * radius) out.add(s);
         }
         out.sort(Comparator.comparingDouble(s -> s.dist2(px, py, pz)));
         return out;

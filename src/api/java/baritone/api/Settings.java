@@ -2092,6 +2092,188 @@ public final class Settings {
     public final Setting<Boolean> getItemPreferNearbyBlocks = new Setting<>(true);
 
     /**
+     * Get Item (A11/A24): take items from your own chests, barrels and shulker boxes when that's cheaper than making
+     * them. Containers are remembered when you (or the bot) open them; see {@link #getItemProtectChestNames}.
+     */
+    public final Setting<Boolean> getItemUseContainers = new Setting<>(true);
+
+    /**
+     * Get Item (A24): containers whose custom name contains any of these (case-insensitive) are never opened for
+     * withdrawal or deposit and their contents never count as stock. Rename a chest in an anvil to protect it.
+     */
+    public final Setting<List<String>> getItemProtectChestNames = new Setting<>(new ArrayList<>(Arrays.asList(
+            "protect", "private", "keep", "nobot", "no bot", "do not touch"
+    )));
+
+    /**
+     * Get Item (A24): container positions ("x,y,z") that are never touched, in addition to protected names.
+     */
+    public final Setting<List<String>> getItemProtectChestPositions = new Setting<>(new ArrayList<>());
+
+    /**
+     * Get Item: how far (blocks) a remembered container may be to be used.
+     */
+    public final Setting<Integer> getItemContainerRadius = new Setting<>(64);
+
+    /**
+     * Get Item: allow taking from / stashing into the ender chest (off: the ender chest is protected).
+     */
+    public final Setting<Boolean> getItemUseEnderChest = new Setting<>(false);
+
+    /**
+     * Get Item (A11): when a goal starts, peek into a few nearby containers that were never opened, to learn
+     * what they hold. Protected-named ones are closed again untouched.
+     */
+    public final Setting<Boolean> getItemScanNearbyContainers = new Setting<>(true);
+
+    /**
+     * Get Item (A43): when the inventory is too full, stash items the plan doesn't need in a nearby unprotected
+     * container (after dropping junk).
+     */
+    public final Setting<Boolean> getItemStashOverflow = new Setting<>(true);
+
+    /**
+     * Get Item (A43): free inventory slots to keep while working.
+     */
+    public final Setting<Integer> getItemMinFreeSlots = new Setting<>(2);
+
+    /**
+     * Get Item (A43): drop {@link #getItemJunkItems} the plan doesn't need when the inventory is too full.
+     */
+    public final Setting<Boolean> getItemDropJunk = new Setting<>(true);
+
+    /**
+     * Get Item (A43): items that may be thrown away when space is needed (never if the plan needs them).
+     */
+    public final Setting<List<Item>> getItemJunkItems = new Setting<>(new ArrayList<>(Arrays.asList(
+            Items.ROTTEN_FLESH, Items.POISONOUS_POTATO, Items.GRANITE, Items.DIORITE, Items.ANDESITE, Items.TUFF,
+            Items.COBBLED_DEEPSLATE, Items.NETHERRACK, Items.GRAVEL, Items.DIRT
+    )));
+
+    /**
+     * Get Item (A44): tools with this many uses left or fewer are not planned with (a replacement is made instead);
+     * Mending tools are also spared below 15% so they can be repaired.
+     */
+    public final Setting<Integer> getItemMinToolDurability = new Setting<>(8);
+
+    /**
+     * Get Item (A45): eat food from the hotbar/inventory when hungry. Golden apples, chorus fruit, rotten flesh,
+     * spider eyes, pufferfish and suspicious stew are never eaten. (Meteor turns this off while its AutoEat runs.)
+     */
+    public final Setting<Boolean> getItemAutoEat = new Setting<>(true);
+
+    /**
+     * Get Item (A45): food level at or below which to eat.
+     */
+    public final Setting<Integer> getItemMinFood = new Setting<>(6);
+
+    /**
+     * Get Item (A45): health below which work pauses until regenerated (eating first when possible).
+     */
+    public final Setting<Integer> getItemMinHealth = new Setting<>(8);
+
+    /**
+     * Get Item (A46): what to do when hostile mobs come close: "flee" (run away, then resume), "pause" (stand
+     * still; Meteor's CombatBrain may fight) or "ignore".
+     */
+    public final Setting<String> getItemHostileAction = new Setting<>("flee");
+
+    /**
+     * Get Item (A46): hostile mobs closer than this trigger {@link #getItemHostileAction}.
+     */
+    public final Setting<Integer> getItemHostileRadius = new Setting<>(8);
+
+    /**
+     * Get Item (A45): pause while it's night and the sky is visible.
+     */
+    public final Setting<Boolean> getItemAvoidNight = new Setting<>(false);
+
+    /**
+     * Get Item (A20): remember lava, spawners and mob hotspots and prefer veins/spots away from them.
+     */
+    public final Setting<Boolean> getItemAvoidHazards = new Setting<>(true);
+
+    /**
+     * Get Item (A16): walk over dropped items the plan needs.
+     */
+    public final Setting<Boolean> getItemPickupDrops = new Setting<>(true);
+
+    /**
+     * Get Item (A16): how far to go for a needed dropped item.
+     */
+    public final Setting<Integer> getItemDropRadius = new Setting<>(12);
+
+    /**
+     * Get Item (A15): explore in a spiral (at the best Y for ores) when a needed block isn't known nearby.
+     */
+    public final Setting<Boolean> getItemExplore = new Setting<>(true);
+
+    /**
+     * Get Item (A15): how many exploration waypoints to visit before giving up on a block.
+     */
+    public final Setting<Integer> getItemExploreMaxWaypoints = new Setting<>(12);
+
+    /**
+     * Get Item (decision 9): allow plans that travel to the Nether through a known portal.
+     */
+    public final Setting<Boolean> getItemAllowNether = new Setting<>(true);
+
+    /**
+     * Get Item (decision 9): allow plans that travel to the End through a known end portal.
+     */
+    public final Setting<Boolean> getItemAllowEnd = new Setting<>(true);
+
+    /**
+     * Get Item: after the goal is done in another dimension, go back through the portal used to get there.
+     */
+    public final Setting<Boolean> getItemReturnHome = new Setting<>(true);
+
+    /**
+     * Get Item (A12): break and pick up crafting tables / furnaces the bot placed itself when the goal is done.
+     */
+    public final Setting<Boolean> getItemPickupStations = new Setting<>(false);
+
+    /**
+     * Get Item (A49): stop after this many minutes (0 = no limit).
+     */
+    public final Setting<Integer> getItemMaxMinutes = new Setting<>(0);
+
+    /**
+     * Get Item (A49): stop when this many blocks (horizontally) from where the goal started (0 = no limit).
+     */
+    public final Setting<Integer> getItemMaxDistance = new Setting<>(0);
+
+    /**
+     * Get Item (A49): never go below this Y (-9999 = no limit).
+     */
+    public final Setting<Integer> getItemMinY = new Setting<>(-9999);
+
+    /**
+     * Get Item (A24): blocks that are never mined as a resource and never broken while working.
+     */
+    public final Setting<List<Block>> getItemProtectBlocks = new Setting<>(new ArrayList<>(Arrays.asList(
+            Blocks.CHEST, Blocks.TRAPPED_CHEST, Blocks.BARREL, Blocks.ENDER_CHEST, Blocks.SHULKER_BOX, Blocks.SPAWNER,
+            Blocks.BEACON
+    )));
+
+    /**
+     * Get Item (A50): resume an unfinished goal after reconnecting / rejoining the world.
+     */
+    public final Setting<Boolean> getItemResume = new Setting<>(true);
+
+    /**
+     * Get Item (A47): while you run another Baritone command (#goto, #mine, #follow, #explore, #build, #farm),
+     * Get Item waits and continues afterwards instead of fighting over control.
+     */
+    public final Setting<Boolean> getItemYieldToManual = new Setting<>(true);
+
+    /**
+     * Get Item (A19): remember containers, stations, villagers, farms and hazards per world, saved next to the
+     * Baritone cache.
+     */
+    public final Setting<Boolean> getItemKnowledge = new Setting<>(true);
+
+    /**
      * A map of lowercase setting field names to their respective setting
      */
     public final Map<String, Setting<?>> byLowerName;

@@ -33,7 +33,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.*;
 
 /** Walk to a station block, look at it and open it (legal reach + line of sight, paced like a player). */
-final class StationAccess {
+public final class StationAccess {
+    /** Remembered station positions (A12) by block id near a point, used when none is loaded in range. */
+    public static java.util.function.BiFunction<String, BlockPos, List<BlockPos>> knownStations = (b, p) -> Collections.emptyList();
+
     private final Baritone baritone;
     private final IPlayerContext ctx;
     private final GameData data;
@@ -58,12 +61,21 @@ final class StationAccess {
             failure.append("unknown station");
             return null;
         }
-        if (pos == null || ctx.world().getBlockState(pos).getBlock() != station) {
+        if (pos == null || ctx.world().getChunkSource().hasChunk(pos.getX() >> 4, pos.getZ() >> 4) && ctx.world().getBlockState(pos).getBlock() != station) {
             pos = null;
             for (BlockPos p : data.findBlocks(Collections.singleton(station), Baritone.settings().getItemStationSearchRadius.value)) {
                 if (!blacklist.contains(p)) {
                     pos = p;
                     break;
+                }
+            }
+            if (pos == null) {
+                for (BlockPos p : knownStations.apply(GameData.id(station), ctx.playerFeet())) {
+                    boolean loaded = ctx.world().getChunkSource().hasChunk(p.getX() >> 4, p.getZ() >> 4);
+                    if (!blacklist.contains(p) && (!loaded || ctx.world().getBlockState(p).getBlock() == station)) {
+                        pos = p;
+                        break;
+                    }
                 }
             }
             if (pos == null) {

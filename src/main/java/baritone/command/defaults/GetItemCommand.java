@@ -56,6 +56,30 @@ public class GetItemCommand extends Command {
                 args.requireMax(0);
                 proc.why().forEach(this::logDirect);
                 return;
+            case "pause":
+                args.requireMax(0);
+                proc.pause();
+                logDirect("Get Item paused (#get resume to continue)");
+                return;
+            case "resume":
+                args.requireMax(0);
+                proc.resume();
+                logDirect("Get Item resumed");
+                return;
+            case "where":
+            case "trades": {
+                String item = args.getString();
+                args.requireMax(0);
+                List<String> lines = proc.where(item);
+                if (first.equalsIgnoreCase("trades")) lines = lines.stream().filter(l -> l.startsWith("Trade: ")).toList();
+                if (lines.isEmpty()) logDirect("No known trades for " + item);
+                lines.forEach(this::logDirect);
+                return;
+            }
+            case "knowledge":
+                args.requireMax(0);
+                proc.knowledge().forEach(this::logDirect);
+                return;
             case "plan": {
                 String item = args.getString();
                 int amount = args.hasAny() ? args.getAs(Integer.class) : 1;
@@ -79,14 +103,14 @@ public class GetItemCommand extends Command {
         if (args.hasExactlyOne()) {
             String prefix = args.getString();
             return new TabCompleteHelper()
-                    .append("plan", "status", "cancel", "why")
+                    .append("plan", "status", "cancel", "why", "pause", "resume", "where", "trades", "knowledge")
                     .append(BuiltInRegistries.ITEM.keySet().stream().map(Object::toString))
                     .append(BuiltInRegistries.ITEM.getTags().map(t -> "#" + t.key().location()))
                     .filterPrefixNamespaced(prefix)
                     .sortAlphabetically()
                     .stream();
         }
-        if (args.hasExactly(2) && args.peekString().equalsIgnoreCase("plan")) {
+        if (args.hasExactly(2) && (args.peekString().equalsIgnoreCase("plan") || args.peekString().equalsIgnoreCase("where") || args.peekString().equalsIgnoreCase("trades"))) {
             args.get();
             return new TabCompleteHelper()
                     .append(BuiltInRegistries.ITEM.keySet().stream().map(Object::toString))
@@ -107,14 +131,23 @@ public class GetItemCommand extends Command {
         return Arrays.asList(
                 "Plans the cheapest way to have the requested amount of an item (or any item of a tag) and does it:",
                 "mines with the right tool tier, places/uses crafting tables and furnaces, crafts and smelts with paced clicks,",
-                "re-planning from your inventory after every step. Items in getItemProtectItems are never used up.",
+                "re-planning from your inventory after every step. Takes items from your own chests when that's quicker,",
+                "travels to the Nether/End through known portals, eats, flees mobs and keeps inventory space.",
                 "",
                 "Usage:",
                 "> get <item|#tag> [amount] - Get items (total amount to have, default 1)",
                 "> get plan <item|#tag> [amount] - Show the plan, ETA and risks without doing anything",
                 "> get status - Current goal and step",
                 "> get why - Last plan / failure explained",
-                "> get cancel - Stop"
+                "> get pause / resume - Pause and continue the current goal",
+                "> get where <item> - Where the item is known to be (your chests, villagers, ore depth)",
+                "> get trades <item> - Remembered villager trades selling it",
+                "> get knowledge - What Get Item remembers about this world",
+                "> get cancel - Stop",
+                "",
+                "Your chests are used automatically (getItemUseContainers). Containers named with getItemProtectChestNames",
+                "(\"protect\", \"private\", \"keep\", \"nobot\", ...) or listed in getItemProtectChestPositions are never",
+                "touched; getItemProtectItems are never taken, used or stashed. Get Item waits while you run #goto/#mine/..."
         );
     }
 }

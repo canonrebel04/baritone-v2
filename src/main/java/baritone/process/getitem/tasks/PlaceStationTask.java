@@ -24,6 +24,7 @@ import baritone.api.utils.Rotation;
 import baritone.api.utils.RotationUtils;
 import baritone.process.getitem.GameData;
 import baritone.process.getitem.plan.PlanStep;
+import baritone.process.getitem.safety.StationSpotPicker;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -39,6 +40,7 @@ public final class PlaceStationTask extends StepTask {
     private BetterBlockPos spot;
     private int attempts;
     private int stageTicks;
+    private BlockPos placed;
 
     public PlaceStationTask(Baritone baritone, GameData data, PlanStep step) {
         super(baritone, data, step);
@@ -49,9 +51,12 @@ public final class PlaceStationTask extends StepTask {
     @Override
     protected PathingCommand onTick() {
         if (block == null) return fail("unknown station " + step.blocks.get(0));
-        if (spot != null && ctx.world().getBlockState(spot).getBlock() == block) return finish();
+        if (spot != null && ctx.world().getBlockState(spot).getBlock() == block) {
+            placed = spot;
+            return finish();
+        }
         if (baritone.getPathingBehavior().isPathing()) return pause();
-        if (spot == null || !ctx.world().getBlockState(spot).isAir()) {
+        if (spot == null || !ctx.world().getBlockState(spot).isAir() && !ctx.world().getBlockState(spot).canBeReplaced()) {
             spot = findSpot();
             stageTicks = 0;
             if (spot == null) return fail("no free spot to place " + step.blocks.get(0).replace("minecraft:", ""));
@@ -77,20 +82,41 @@ public final class PlaceStationTask extends StepTask {
         return pause();
     }
 
+    /** A32: scored spot (solid floor, two free blocks, away from hazards and not in the way ahead). */
     private BetterBlockPos findSpot() {
         BetterBlockPos feet = ctx.playerFeet();
-        for (int ring = 1; ring <= 2; ring++) {
-            for (Direction dir : Direction.Plane.HORIZONTAL) {
-                for (int dy = 0; dy >= -1; dy--) {
-                    BetterBlockPos c = new BetterBlockPos(feet.relative(dir, ring).above(dy));
-                    if (ctx.world().getBlockState(c).isAir() && ctx.world().getBlockState(c.above()).isAir()
-                            && ctx.world().getBlockState(c.below()).isSolidRender()) {
-                        return c;
+        var world = ctx.world();
+        float yaw = ctx.playerRotations().getYaw();
+        Direction facing = Direction.fromYRot(yaw);
+        int[] spotXYZ = StationSpotPicker.pick(feet.getX(), feet.getY(), feet.getZ(), new int[]{facing.getStepX(), facing.getStepZ()},
+                new StationSpotPicker.Probe() {
+                    @Override
+                    public boolean free(int x, int y, int z) {
+                        var st = world.getBlockState(new BlockPos(x, y, z));
+                        return st.isAir() || st.canBeReplaced() && st.getFluidState().isEmpty();
                     }
-                }
-            }
-        }
-        return null;
+
+                    @Override
+                    public boolean solid(int x, int y, int z) {
+                        return world.getBlockState(new BlockPos(x, y, z)).isSolidRender();
+                    }
+
+                    @Override
+                    public double hazard(int x, int y, int z) {
+                        double h = 0;
+                        for (Direction d : Direction.values()) {
+                            var f = world.getBlockState(new BlockPos(x, y, z).relative(d)).getFluidState();
+                            if (!f.isEmpty()) h += 2;
+                        }
+                        return h;
+                    }
+                });
+        return spotXYZ == null ? null : new BetterBlockPos(spotXYZ[0], spotXYZ[1], spotXYZ[2]);
+    }
+
+    /** Where the station ended up (for the station registry), or null. */
+    public BlockPos placedAt() {
+        return placed;
     }
 
     @Override

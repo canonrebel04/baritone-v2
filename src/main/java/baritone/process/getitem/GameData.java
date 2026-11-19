@@ -223,6 +223,31 @@ public final class GameData {
         return out;
     }
 
+    /**
+     * Inventory for planning (A44): like {@link #inventory()} but tools that are nearly broken (or Mending tools
+     * worth repairing) are left out, so the planner makes a replacement instead of relying on them.
+     */
+    public Map<String, Integer> planningInventory(int minRemaining) {
+        Map<String, Integer> out = new HashMap<>();
+        if (ctx.player() == null) return out;
+        List<ItemStack> stacks = new ArrayList<>(ctx.player().getInventory().getNonEquipmentItems());
+        stacks.add(ctx.player().getOffhandItem());
+        for (ItemStack s : stacks) {
+            if (s.isEmpty()) continue;
+            if (s.isDamageableItem() && !baritone.process.getitem.inventory.ToolDurability.usable(s.getDamageValue(), s.getMaxDamage(),
+                    hasMending(s), minRemaining, 0.15)) continue;
+            out.merge(id(s.getItem()), s.getCount(), Integer::sum);
+        }
+        return out;
+    }
+
+    private static boolean hasMending(ItemStack s) {
+        for (var h : s.getEnchantments().keySet()) {
+            if (h.is(net.minecraft.world.item.enchantment.Enchantments.MENDING)) return true;
+        }
+        return false;
+    }
+
     public int count(Collection<String> items) {
         Map<String, Integer> inv = inventory();
         int n = 0;

@@ -55,4 +55,51 @@ public interface IGetItemProcess extends IBaritoneProcess {
      * Stop and release control.
      */
     void cancel();
+
+    /**
+     * @return a short progress line for HUDs ("iron_pickaxe 0/1 · step 3/9 · mining iron_ore · ETA 2m"), or null
+     * when idle (plan A50)
+     */
+    default String progressLine() {
+        return null;
+    }
+
+    /**
+     * Pause the current goal (it stays active and continues on {@link #resume()}).
+     */
+    default void pause() {
+    }
+
+    default void resume() {
+    }
+
+    /**
+     * @return why Get Item is currently not working (user pause, yielding to #goto, fleeing mobs, eating, ...),
+     * or null when it's working / idle
+     */
+    default String pauseReason() {
+        return null;
+    }
+
+    /**
+     * @return true while hostiles made Get Item pause (getItemHostileAction "pause"); used by Meteor's combat
+     * hand-off
+     */
+    default boolean isPausedForHostiles() {
+        return false;
+    }
+
+    /**
+     * @return where the item is known to be: containers (protected ones marked), villagers selling it
+     */
+    default List<String> where(String item) {
+        return List.of();
+    }
+
+    /**
+     * @return a summary of what Get Item remembers about this world (containers, stations, farms, ...)
+     */
+    default List<String> knowledge() {
+        return List.of();
+    }
 }
