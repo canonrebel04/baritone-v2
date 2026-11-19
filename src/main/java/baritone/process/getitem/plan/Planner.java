@@ -61,9 +61,31 @@ public final class Planner {
         public boolean allowPlaceStations = true;
         /** Natural blocks seen near the player (null = unknown); unseen blocks cost more, so nearby wood/ores win. */
         public Set<String> seenBlocks = null;
+        /** Items in the user's usable (unprotected) containers nearby (A11/A24); protected items already removed. */
+        public Map<String, Integer> containerStock = Collections.emptyMap();
+        /** Distance in blocks to the nearest container holding each item (missing = {@link #defaultContainerDistance}). */
+        public Map<String, Double> containerDistance = Collections.emptyMap();
+        public double defaultContainerDistance = 32;
+        /** Dimensions the run may enter (decision 9: Nether/End allowed). The current one is always allowed. */
+        public boolean allowNether = true;
+        public boolean allowEnd = true;
+        /** Blocks never broken as a mine source (A24: chests, spawners, ... and user-protected blocks). */
+        public Set<String> protectedBlocks = Collections.emptySet();
 
         String key() {
-            return types + "|" + new TreeSet<>(protectedItems) + "|" + new TreeSet<>(stations) + "|" + dimension + "|" + maxDepth + "|" + allowPlaceStations + "|" + (seenBlocks == null ? "-" : new TreeSet<>(seenBlocks).toString());
+            return types + "|" + new TreeSet<>(protectedItems) + "|" + new TreeSet<>(stations) + "|" + dimension + "|" + maxDepth + "|" + allowPlaceStations + "|" + (seenBlocks == null ? "-" : new TreeSet<>(seenBlocks).toString())
+                    + "|" + new TreeMap<>(containerStock) + "|" + new TreeMap<>(containerDistance) + "|" + defaultContainerDistance + "|" + allowNether + allowEnd + "|" + new TreeSet<>(protectedBlocks);
+        }
+
+        String unitKey() {
+            return types + "|" + dimension + "|" + (seenBlocks == null ? "-" : new TreeSet<>(seenBlocks).toString()) + "|" + allowNether + allowEnd + "|" + new TreeSet<>(protectedBlocks);
+        }
+
+        boolean dimensionAllowed(String dim) {
+            if (dim == null || dim.equals(dimension)) return true;
+            if (CostModel.NETHER.equals(dim)) return allowNether;
+            if (CostModel.END.equals(dim)) return allowEnd;
+            return true;
         }
     }
 
@@ -89,7 +111,7 @@ public final class Planner {
 
     /** Cost in seconds to get one of each item from scratch (no inventory), INF if unobtainable. */
     public synchronized Map<String, Double> unitCosts(Options o) {
-        String key = o.types + "|" + o.dimension + "|" + (o.seenBlocks == null ? "-" : new TreeSet<>(o.seenBlocks).toString());
+        String key = o.unitKey();
         Map<String, Double> cached = unitCostCache.get(key);
         if (cached != null) return cached;
         if (unitCostCache.size() > 16) unitCostCache.clear();
@@ -97,7 +119,7 @@ public final class Planner {
         for (String item : graph.items()) {
             double best = CostModel.INF;
             for (RecipeGraph.MineSource s : graph.mineSources(item)) {
-                double c = costs.blockSeconds(s.block, o.dimension, o.seenBlocks);
+                double c = mineCost(s.block, o);
                 if (!tools.acceptableTools(s.block).isEmpty()) c += 0.5; // tool wear
                 best = Math.min(best, c / s.expected);
             }
@@ -120,6 +142,30 @@ public final class Planner {
         Map<String, Double> result = Collections.unmodifiableMap(unit);
         unitCostCache.put(key, result);
         return result;
+    }
+
+    /** Per-block mine cost under the options: INF for protected blocks and for dimensions the run may not enter. */
+    double mineCost(String block, Options o) {
+        if (o.protectedBlocks.contains(block)) return CostModel.INF;
+        if (!o.dimensionAllowed(requiredDimension(block, o.dimension))) return CostModel.INF;
+        return costs.blockSeconds(block, o.dimension, o.seenBlocks);
+    }
+
+    /** Dimension a block must be mined in, given where the player is now. */
+    String requiredDimension(String block, String here) {
+        String only = costs.exclusiveDimension(block);
+        if (only != null) return only;
+        String h = here == null ? CostModel.OVERWORLD : here;
+        if (CostModel.OVERWORLD.equals(h)) return h;
+        if (CostModel.NETHER.equals(h) && block.contains("gravel")) return h;
+        if (CostModel.END.equals(h) && block.contains("obsidian")) return h;
+        return CostModel.OVERWORLD;
+    }
+
+    /** Seconds to take {@code count} of an item from a container {@code dist} blocks away. */
+    double withdrawSeconds(int count, double dist, boolean tripPlanned) {
+        double trip = tripPlanned ? 0 : 3 + dist / 4.3;
+        return trip + 0.6 * ceilDiv(Math.max(1, count), 64);
     }
 
     private double fuelCostPerSmelt(Map<String, Double> unit) {
@@ -172,6 +218,10 @@ public final class Planner {
         String deadEnd;
         int expansions;
         final Map<String, Integer> protectedStock = new HashMap<>();
+        /** Container stock not yet planned for withdrawal. */
+        TreeMap<String, Integer> chest = new TreeMap<>();
+        /** Dimension the player is in at this point of the plan. */
+        String dim;
 
         Expansion(Goal goal, Map<String, Integer> inventory, Options o, Map<String, Double> unit) {
             this.goal = goal;
@@ -180,6 +230,8 @@ public final class Planner {
             inventory.forEach((k, v) -> { if (v > 0) inv.put(k, v); });
             stations = new TreeSet<>(o.stations);
             for (String p : o.protectedItems) if (inv.containsKey(p)) protectedStock.put(p, inv.get(p));
+            o.containerStock.forEach((k, v) -> { if (v > 0 && !o.protectedItems.contains(k)) chest.put(k, v); });
+            dim = o.dimension == null ? CostModel.OVERWORLD : o.dimension;
         }
 
         Plan run() {
@@ -197,7 +249,27 @@ public final class Planner {
                 if (extra > 0) leftovers.put(k, extra);
             });
             leftovers.keySet().removeAll(goal.options);
-            return new Plan(goal, true, steps, seconds, new ArrayList<>(risks), null, leftovers);
+            return new Plan(goal, true, hoistWithdrawals(steps), seconds, new ArrayList<>(risks), null, leftovers);
+        }
+
+        /** All chest withdrawals happen first, merged per item, so the bot makes one trip to the chests. */
+        List<PlanStep> hoistWithdrawals(List<PlanStep> in) {
+            Map<String, int[]> counts = new LinkedHashMap<>();
+            Map<String, Double> secs = new HashMap<>();
+            List<PlanStep> rest = new ArrayList<>();
+            for (PlanStep s : in) {
+                if (s.kind == PlanStep.Kind.WITHDRAW) {
+                    counts.computeIfAbsent(s.items.get(0), k -> new int[1])[0] += s.count;
+                    secs.merge(s.items.get(0), s.seconds, Double::sum);
+                } else {
+                    rest.add(s);
+                }
+            }
+            if (counts.isEmpty()) return in;
+            List<PlanStep> out = new ArrayList<>();
+            counts.forEach((item, c) -> out.add(PlanStep.withdraw(item, c[0], 0, secs.get(item))));
+            out.addAll(rest);
+            return out;
         }
 
         // --- state helpers
@@ -228,7 +300,7 @@ public final class Planner {
         }
 
         Object[] snapshot() {
-            return new Object[]{new TreeMap<>(inv), new TreeMap<>(reserved), new TreeSet<>(stations), steps.size(), seconds, new LinkedHashSet<>(risks)};
+            return new Object[]{new TreeMap<>(inv), new TreeMap<>(reserved), new TreeSet<>(stations), steps.size(), seconds, new LinkedHashSet<>(risks), new TreeMap<>(chest), dim};
         }
 
         @SuppressWarnings("unchecked")
@@ -240,6 +312,38 @@ public final class Planner {
             seconds = (double) s[4];
             risks.clear();
             risks.addAll((Set<String>) s[5]);
+            chest = (TreeMap<String, Integer>) s[6];
+            dim = (String) s[7];
+        }
+
+        boolean tripPlanned() {
+            for (PlanStep s : steps) if (s.kind == PlanStep.Kind.WITHDRAW) return true;
+            return false;
+        }
+
+        /** Take up to {@code missing} of {@code item} from the user's containers when that beats the other routes. */
+        int withdraw(String item, int missing, int depth, double otherRoutePerItem) {
+            int stock = chest.getOrDefault(item, 0);
+            if (stock <= 0 || missing <= 0) return 0;
+            int take = Math.min(stock, missing);
+            double s = withdrawSeconds(take, o.containerDistance.getOrDefault(item, o.defaultContainerDistance), tripPlanned());
+            if (otherRoutePerItem != CostModel.INF && s > otherRoutePerItem * take) return 0;
+            if (take == stock) chest.remove(item);
+            else chest.put(item, stock - take);
+            add(item, take);
+            seconds += s;
+            steps.add(PlanStep.withdraw(item, take, depth, s));
+            return take;
+        }
+
+        /** Emit a travel step when the next action needs another dimension. */
+        void travelTo(String target, int depth) {
+            if (target == null || target.equals(dim)) return;
+            double s = 60 * (CostModel.END.equals(target) || CostModel.END.equals(dim) ? 3 : 1);
+            seconds += s;
+            steps.add(PlanStep.travel(target, depth, s));
+            risks.add("travels to " + PlanStep.dimensionName(target) + " (needs a known portal)");
+            dim = target;
         }
 
         double unit(String item) {
@@ -249,6 +353,13 @@ public final class Planner {
         // --- goal
 
         boolean obtainGoal(int missing) {
+            if (goal.options.size() > 1) {
+                for (String opt : goal.options) {
+                    if (missing <= 0) return true;
+                    missing -= withdraw(opt, missing, 0, unit(opt));
+                }
+                if (missing <= 0) return true;
+            }
             if (goal.options.size() == 1) return obtain(goal.options.get(0), count(goal.options.get(0)) + missing, 0);
             // tag goal: options that are best mined become one combined MINE step ("any log")
             List<String> byCost = new ArrayList<>(goal.options);
@@ -295,13 +406,24 @@ public final class Planner {
                 return false;
             }
             if (stack.contains(item)) return false; // cycle
-            if (unit(item) == CostModel.INF) {
-                deadEnd = "no known way to obtain " + item;
-                return false;
+            if (unit(item) == CostModel.INF && chest.getOrDefault(item, 0) < n - avail(item)) {
+                if (chest.getOrDefault(item, 0) == 0) {
+                    deadEnd = "no known way to obtain " + item;
+                    return false;
+                }
             }
-            int missing = n - avail(item);
             stack.push(item);
             try {
+                // A24: the user's own chests first when it's cheaper than making/mining it
+                int need0 = n - avail(item);
+                double perItem = unit(item);
+                withdraw(item, need0, depth, perItem == CostModel.INF ? CostModel.INF : perItem);
+                if (avail(item) >= n) return true;
+                if (unit(item) == CostModel.INF) {
+                    deadEnd = "only " + avail(item) + " of " + item + " in your chests and no other way to get it";
+                    return false;
+                }
+                int missing = n - avail(item);
                 List<Route> routes = new ArrayList<>();
                 MineRoute mine = mineRoute(item, Collections.singletonList(item));
                 if (mine != null) routes.add(mine);
@@ -361,14 +483,14 @@ public final class Planner {
             List<RecipeGraph.MineSource> sources = new ArrayList<>();
             for (String item : items) {
                 for (RecipeGraph.MineSource s : graph.mineSources(item)) {
-                    if (costs.isNatural(s.block)) sources.add(s);
+                    if (costs.isNatural(s.block) && mineCost(s.block, o) != CostModel.INF) sources.add(s);
                 }
             }
             if (sources.isEmpty()) return null;
-            sources.sort(Comparator.comparingDouble((RecipeGraph.MineSource s) -> costs.blockSeconds(s.block, o.dimension, o.seenBlocks) / s.expected)
+            sources.sort(Comparator.comparingDouble((RecipeGraph.MineSource s) -> mineCost(s.block, o) / s.expected)
                     .thenComparing(s -> s.block));
             RecipeGraph.MineSource best = sources.get(0);
-            double bestCost = costs.blockSeconds(best.block, o.dimension, o.seenBlocks) / best.expected;
+            double bestCost = mineCost(best.block, o) / best.expected;
             // the tool for the best block decides which of the others are also fine (same tier, similar cost)
             List<String> tierTools = tools.acceptableTools(best.block);
             String tool = null;
@@ -383,7 +505,8 @@ public final class Planner {
             List<String> blocks = new ArrayList<>();
             double expected = 0;
             for (RecipeGraph.MineSource s : sources) {
-                double c = costs.blockSeconds(s.block, o.dimension, o.seenBlocks) / s.expected;
+                double c = mineCost(s.block, o) / s.expected;
+                if (!requiredDimension(s.block, o.dimension).equals(requiredDimension(best.block, o.dimension))) continue;
                 if (c > bestCost * 2.5 || blocks.contains(s.block)) continue;
                 if (tool == null ? tools.requiresTool(s.block) : tools.requiresTool(s.block) && !tools.canHarvest(tool, s.block)) continue;
                 blocks.add(s.block);
@@ -421,6 +544,7 @@ public final class Planner {
                     if (reserved.getOrDefault(tool, 0) < 1) reserved.merge(tool, 1, Integer::sum);
                 }
                 int blockCount = (int) Math.ceil(missing / expected - 1e-9);
+                travelTo(requiredDimension(blocks.get(0), o.dimension), depth);
                 double s = perItem * missing;
                 seconds += s;
                 add(primary, missing);
@@ -428,7 +552,7 @@ public final class Planner {
                 String b = blocks.get(0);
                 String only = costs.exclusiveDimension(b);
                 if (only != null && !only.equals(o.dimension)) {
-                    risks.add("needs " + b.substring(b.indexOf(':') + 1) + " from " + (CostModel.NETHER.equals(only) ? "the Nether" : "the End") + " (travel there first)");
+                    risks.add("needs " + b.substring(b.indexOf(':') + 1) + " from " + PlanStep.dimensionName(only));
                 }
                 if (b.contains("diamond") || b.contains("redstone") || b.contains("lapis") || b.contains("ancient_debris") || b.contains("emerald") || (b.contains("gold") && !b.contains("nether"))) {
                     risks.add("deep mining for " + b.substring(b.indexOf(':') + 1) + " (lava, caves, mobs)");

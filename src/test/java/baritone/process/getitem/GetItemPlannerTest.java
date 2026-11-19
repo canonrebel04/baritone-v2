@@ -65,6 +65,11 @@ public class GetItemPlannerTest {
                 case PLACE_STATION:
                     take(inv, s.blocks.get(0), 1, s);
                     break;
+                case WITHDRAW:
+                    inv.merge(s.items.get(0), s.count, Integer::sum);
+                    break;
+                case TRAVEL:
+                    break;
                 default:
                     s.inputs.forEach((k, v) -> take(inv, k, v, s));
                     if (s.fuel != null) take(inv, s.fuel, s.fuelCount, s);

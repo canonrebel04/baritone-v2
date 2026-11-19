@@ -23,14 +23,14 @@ import java.util.*;
 
 /** One executable step of a Get Item plan (plan 4.2 task queue). */
 public final class PlanStep {
-    public enum Kind { MINE, PLACE_STATION, CRAFT, SMELT }
+    public enum Kind { MINE, PLACE_STATION, CRAFT, SMELT, WITHDRAW, TRAVEL }
 
     public final Kind kind;
     /** Items this step produces (a MINE step for a tag goal may produce any of several). */
     public final List<String> items;
     /** How many items the step produces. */
     public final int count;
-    /** MINE: blocks to break (any of them), cheapest first. PLACE_STATION: the station block. */
+    /** MINE: blocks to break (any of them), cheapest first. PLACE_STATION: the station block. TRAVEL: the dimension. */
     public final List<String> blocks;
     /** MINE: expected number of blocks to break. */
     public final int blockCount;
@@ -81,7 +81,30 @@ public final class PlanStep {
                 new LinkedHashMap<>(inputs), fuel, fuelCount, depth, seconds);
     }
 
+    /** Take {@code count} items from the user's (unprotected) containers (A24). */
+    public static PlanStep withdraw(String item, int count, int depth, double seconds) {
+        return new PlanStep(Kind.WITHDRAW, Collections.singletonList(item), count, Collections.emptyList(), 0, null, null, 0, Collections.emptyMap(), null, 0, depth, seconds);
+    }
+
+    /** Go through a portal to {@code dimension} (Nether/End allowed, decision 9). */
+    public static PlanStep travel(String dimension, int depth, double seconds) {
+        return new PlanStep(Kind.TRAVEL, Collections.emptyList(), 0, Collections.singletonList(dimension), 0, null, null, 0, Collections.emptyMap(), null, 0, depth, seconds);
+    }
+
+    public String dimension() {
+        return kind == Kind.TRAVEL ? blocks.get(0) : null;
+    }
+
+    public static String dimensionName(String dim) {
+        if (dim == null) return "?";
+        if (dim.endsWith("the_nether")) return "the Nether";
+        if (dim.endsWith("the_end")) return "the End";
+        if (dim.endsWith("overworld")) return "the Overworld";
+        return shortId(dim);
+    }
+
     public String station() {
+        if (kind == Kind.TRAVEL || kind == Kind.WITHDRAW) return null;
         return blocks.isEmpty() ? null : blocks.get(0);
     }
 
@@ -100,6 +123,12 @@ public final class PlanStep {
                 break;
             case PLACE_STATION:
                 sb.append("Place ").append(shortId(blocks.get(0)));
+                break;
+            case WITHDRAW:
+                sb.append("Take ").append(count).append("x ").append(shortId(items.get(0))).append(" from your chests");
+                break;
+            case TRAVEL:
+                sb.append("Travel to ").append(dimensionName(blocks.get(0)));
                 break;
             default:
                 sb.append(kind == Kind.SMELT ? "Smelt " : "Craft ").append(count).append("x ").append(shortId(recipe.output)).append(" from ");
