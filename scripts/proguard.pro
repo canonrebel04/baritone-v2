@@ -338,6 +338,11 @@
     public java.lang.String substring(int,int);
 }
 
+# Keep Gson-serialized POJO fields in Get Item persistent knowledge store
+-keepclassmembers class baritone.process.getitem.knowledge.** {
+    <fields>;
+}
+
 # Remove - StringBuilder method calls. Remove all invocations of StringBuilder
 # methods without side effects whose return values are not used.
 -assumenosideeffects public class java.lang.StringBuilder {

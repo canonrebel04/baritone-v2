@@ -48,6 +48,7 @@ public class MovementParkour extends Movement {
     private final boolean ascend;
     private final int deltaY;
     private boolean steppedBack;
+    private int ticksOnGroundBeforeJump;
 
     private MovementParkour(IBaritone baritone, BetterBlockPos src, int dist, Direction dir, int deltaY) {
         super(baritone, src, src.relative(dir, dist).above(deltaY), EMPTY, src.relative(dir, dist).above(deltaY - 1));
@@ -279,16 +280,20 @@ public class MovementParkour extends Movement {
 
     @Override
     public boolean safeToCancel(MovementState state) {
-        // once this movement is instantiated, the state is default to PREPPING
-        // but once it's ticked for the first time it changes to RUNNING
-        // since we don't really know anything about momentum, it suffices to say Parkour can only be canceled on the 0th tick
-        return state.getStatus() != MovementStatus.RUNNING;
+        // Allow cancelling if not yet running, OR if still grounded on the takeoff / run-up block
+        // so PathExecutor's stuck detector can break out of any pre-jump loop.
+        if (state.getStatus() != MovementStatus.RUNNING) {
+            return true;
+        }
+        return ctx.player().onGround()
+                && (ctx.playerFeet().equals(src) || ctx.playerFeet().equals(src.relative(direction, -1)));
     }
 
     @Override
     public void reset() {
         super.reset();
         this.steppedBack = false;
+        this.ticksOnGroundBeforeJump = 0;
     }
 
     @Override
@@ -338,6 +343,11 @@ public class MovementParkour extends Movement {
         }
 
         if (ctx.playerFeet().equals(src)) {
+            if (ctx.player().onGround() && ++ticksOnGroundBeforeJump > 40) {
+                // Break out of any pre-jump oscillation loop and let A* replan with failure memory
+                logDebug("Parkour stuck before takeoff, aborting to replan");
+                return state.setStatus(MovementStatus.UNREACHABLE);
+            }
             // Enhancements #16 & #17: Parkour entry from momentum + multi-block run-up
             // If already carrying sprint momentum (>= 0.21 b/t) along jump axis, skip step-back!
             if (forwardVel >= 0.21) {
@@ -361,14 +371,18 @@ public class MovementParkour extends Movement {
                 }
                 steppedBack = true;
             }
-            // Center laterally on src before sprinting across the edge so we don't drift off-axis and miss the jump
-            if (lateralOffset > 0.22 && forwardOffset < 0.25) {
-                state.setInput(Input.SPRINT, false);
-                MovementHelper.moveTowards(ctx, state, src);
-                return state;
-            }
+            // Always keep camera aimed toward dest (never swing sideways toward src center, which caused loops)
             MovementHelper.moveTowards(ctx, state, dest);
             if (!state.getInputStates().getOrDefault(Input.MOVE_FORWARD, false)) {
+                return state;
+            }
+            // Center laterally using gentle strafe while keeping eyes locked on dest
+            double signedLateral = (px - (src.x + 0.5)) * (-direction.getStepZ())
+                    + (pz - (src.z + 0.5)) * direction.getStepX();
+            if (Math.abs(signedLateral) > 0.22 && forwardOffset < 0.20) {
+                state.setInput(Input.SPRINT, false);
+                state.setInput(Input.MOVE_FORWARD, false);
+                state.setInput(signedLateral > 0 ? Input.MOVE_LEFT : Input.MOVE_RIGHT, true);
                 return state;
             }
             // Enhancement #6: Tick-exact jump timing using headless physics simulator edge prediction

@@ -775,33 +775,19 @@ public interface MovementHelper extends ActionCosts, Helper {
         Rotation targetRot = RotationUtils.calcRotationFromVec3d(ctx.playerHead(),
                 pos,
                 ctx.playerRotations()).withPitch(ctx.playerRotations().getPitch());
-        float signedYawDiff = Rotation.yawDistanceFromOffset(ctx.playerRotations().getYaw(), targetRot.getYaw());
-        float yawDiff = Math.abs(signedYawDiff);
+        // Wrapped signed yaw error in [-180, +180]: positive = target is RIGHT, negative = target is LEFT
+        float signedTargetRight = Mth.wrapDegrees(targetRot.getYaw() - ctx.playerRotations().getYaw());
+        float yawDiff = Math.abs(signedTargetRight);
         state.setTarget(new MovementTarget(targetRot, false));
 
         if (Baritone.settings().movementContinuousSteering.value) {
-            // Enhancement #43: Continuous yaw-error steering (smooth forward + strafe mix)
-            if (yawDiff > 115.0f) {
+            // Strict block-locked steering: never walk/strafe off a ledge while camera is still turning.
+            if (yawDiff > 35.0f) {
                 state.setInput(Input.MOVE_FORWARD, false);
                 state.setInput(Input.SPRINT, false);
-            } else if (yawDiff > 55.0f) {
-                state.setInput(Input.MOVE_FORWARD, false);
-                state.setInput(Input.SPRINT, false);
-                if (signedYawDiff > 0.0f) {
-                    state.setInput(Input.MOVE_LEFT, true);
-                } else {
-                    state.setInput(Input.MOVE_RIGHT, true);
-                }
-            } else if (yawDiff > 18.0f) {
+            } else if (yawDiff > 15.0f) {
                 state.setInput(Input.MOVE_FORWARD, true);
-                if (!Baritone.settings().movementSprintHysteresis.value) {
-                    state.setInput(Input.SPRINT, false);
-                }
-                if (signedYawDiff > 12.0f) {
-                    state.setInput(Input.MOVE_LEFT, true);
-                } else if (signedYawDiff < -12.0f) {
-                    state.setInput(Input.MOVE_RIGHT, true);
-                }
+                state.setInput(Input.SPRINT, false);
             } else {
                 state.setInput(Input.MOVE_FORWARD, true);
                 // Enhancement #2: Lateral PD velocity damping to lock onto the target axis
@@ -812,35 +798,35 @@ public interface MovementHelper extends ActionCosts, Helper {
                     if (dist > 0.15) {
                         double fx = dx / dist;
                         double fz = dz / dist;
-                        // Right-hand perpendicular vector relative to forward (fx, fz)
+                        // Right-hand perpendicular vector relative to forward (fx, fz) in MC (+X east, +Z south)
                         double rx = -fz;
                         double rz = fx;
                         double vx = ctx.player().getDeltaMovement().x;
                         double vz = ctx.player().getDeltaMovement().z;
                         double latVel = vx * rx + vz * rz;
-                        // Damp lateral drift velocity > 0.045 b/t with opposing strafe
-                        if (latVel > 0.045) {
+                        // Damp lateral drift velocity > 0.055 b/t with opposing strafe
+                        if (latVel > 0.055) {
                             state.setInput(Input.MOVE_LEFT, true);
-                        } else if (latVel < -0.045) {
+                        } else if (latVel < -0.055) {
                             state.setInput(Input.MOVE_RIGHT, true);
                         }
                     }
                 }
             }
             if (Baritone.settings().movementSprintHysteresis.value) {
-                // S19: sprint drops above 28 degrees of heading error and only comes back under 18
+                // S19: sprint drops above 16 degrees of heading error and only comes back under 10
                 SprintLatch.latched = baritone.pathing.path.smooth.PathSmoother.sprintLatch(SprintLatch.latched, yawDiff);
                 if (!SprintLatch.latched) {
                     state.setInput(Input.SPRINT, false);
                 }
             }
         } else {
-            if (yawDiff > 45.0f) {
+            if (yawDiff > 35.0f) {
                 state.setInput(Input.MOVE_FORWARD, false);
                 state.setInput(Input.SPRINT, false);
             } else {
                 state.setInput(Input.MOVE_FORWARD, true);
-                if (yawDiff > 22.0f) {
+                if (yawDiff > 16.0f) {
                     state.setInput(Input.SPRINT, false);
                 }
             }
@@ -887,15 +873,15 @@ public interface MovementHelper extends ActionCosts, Helper {
 
         if (Baritone.settings().movementBrakePrediction.value) {
             double stopDist = baritone.pathing.movement.sim.MovementSimulator.predictStoppingDistance(vx, vz, true, slip);
-            if (distToDest <= stopDist + 0.12 && distToDest < 1.1) {
+            if (distToDest <= stopDist + 0.25 && distToDest < 1.35) {
                 state.setInput(Input.SPRINT, false);
-                if (distToDest <= stopDist * 0.85 && distToDest < 0.55) {
+                if (distToDest <= stopDist + 0.05 && distToDest < 0.65) {
                     state.setInput(Input.MOVE_FORWARD, false);
                 }
             }
         }
 
-        if (Baritone.settings().movementSneakEdgeLock.value && distToDest < 0.75) {
+        if (Baritone.settings().movementSneakEdgeLock.value && distToDest < 0.95) {
             int dx = Integer.compare(dest.getX(), src.getX());
             int dz = Integer.compare(dest.getZ(), src.getZ());
             if (dx != 0 || dz != 0) {

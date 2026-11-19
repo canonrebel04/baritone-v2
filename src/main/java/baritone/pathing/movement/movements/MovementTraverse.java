@@ -324,7 +324,15 @@ public class MovementTraverse extends Movement {
 
             // Enhancements #1, #5, #41: Per-movement approach vector, corner pre-turn, and look-ahead aiming
             Vec3 moveTarget = MovementHelper.safeBlockTarget(ctx, positionsToBreak[0]);
-            double[] flat = Baritone.settings().movementSplineHeading.value ? upcomingFlat : null;
+            boolean narrowLedge = !MovementHelper.canWalkOn(ctx, dest.below().north())
+                    || !MovementHelper.canWalkOn(ctx, dest.below().south())
+                    || !MovementHelper.canWalkOn(ctx, dest.below().east())
+                    || !MovementHelper.canWalkOn(ctx, dest.below().west());
+            if (narrowLedge) {
+                // Never cut corners or sprint fast across a narrow ledge/bridge — stay dead-center on dest
+                state.setInput(Input.SPRINT, false);
+            }
+            double[] flat = (!narrowLedge && !isNextTurnSharp() && Baritone.settings().movementSplineHeading.value) ? upcomingFlat : null;
             if (flat != null && flat.length >= 4 && !inWater && ctx.player().onGround()) {
                 // S16/S17/S20: pure-pursuit carrot along the upcoming flat nodes, never cutting a node by > 0.2
                 flat = flat.clone();
@@ -333,7 +341,7 @@ public class MovementTraverse extends Movement {
                 double speed = Math.hypot(ctx.player().getDeltaMovement().x, ctx.player().getDeltaMovement().z);
                 double[] c = PathSmoother.carrot(ctx.player().position().x, ctx.player().position().z, flat, PathSmoother.lookahead(speed));
                 moveTarget = new Vec3(c[0], moveTarget.y, c[1]);
-            } else if (nextMovement != null && Baritone.settings().movementLookAhead.value) {
+            } else if (!narrowLedge && nextMovement != null && Baritone.settings().movementLookAhead.value) {
                 double distToDest = Math.hypot((dest.x + 0.5) - ctx.player().position().x, (dest.z + 0.5) - ctx.player().position().z);
                 if (continuesStraight() && distToDest < 1.05) {
                     Vec3 nextCenter = VecUtils.calculateBlockCenter(ctx.world(), nextMovement.getDest());
@@ -350,7 +358,9 @@ public class MovementTraverse extends Movement {
             // Enhancements #3 & #4: Brake-to-stop prediction & sneak-edge lock before sharp turns/stops
             MovementHelper.applyCornerAndBrakeControl(ctx, state, src, dest, isNextTurnSharp());
             MovementHelper.applySpeedProfile(ctx, state, upcomingFlat);
-            MovementHelper.applyCrowdSteer(ctx, state, moveTarget);
+            if (!narrowLedge) {
+                MovementHelper.applyCrowdSteer(ctx, state, moveTarget);
+            }
 
             preOpenDoorAhead(state);
 
