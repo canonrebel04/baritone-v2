@@ -42,6 +42,11 @@ public final class Planner {
     public static final Set<RecipeType> M1_TYPES = Collections.unmodifiableSet(EnumSet.of(
             RecipeType.SHAPED, RecipeType.SHAPELESS, RecipeType.SMELTING, RecipeType.BLASTING, RecipeType.SMOKING));
 
+    /** Plan A26: plus the stonecutter, smithing table and campfire. */
+    public static final Set<RecipeType> M4_TYPES = Collections.unmodifiableSet(EnumSet.of(
+            RecipeType.SHAPED, RecipeType.SHAPELESS, RecipeType.SMELTING, RecipeType.BLASTING, RecipeType.SMOKING,
+            RecipeType.CAMPFIRE_COOKING, RecipeType.STONECUTTING, RecipeType.SMITHING));
+
     private static final int MAX_ROUTES = 4;
     private static final int MAX_EXPANSIONS = 20000;
 
@@ -52,7 +57,7 @@ public final class Planner {
 
     /** Settings snapshot used for planning. */
     public static final class Options {
-        public Set<RecipeType> types = M1_TYPES;
+        public Set<RecipeType> types = M4_TYPES;
         public Set<String> protectedItems = Collections.emptySet();
         /** Stations already placed nearby (block ids). */
         public Set<String> stations = Collections.emptySet();
@@ -223,7 +228,7 @@ public final class Planner {
 
     private double recipeBatchCost(Recipe r, Map<String, Double> unit, double fuelPerSmelt) {
         double c = costs.craftSecondsPerBatch;
-        if (r.type.cooking) c += costs.cookSeconds(r.cookTime) + fuelPerSmelt;
+        if (r.type.cooking) c += r.type.cookTicks(4, r.cookTime) / 80.0 + (r.type.needsFuel() ? fuelPerSmelt : 0);
         for (Ingredient i : r.ingredients) {
             double best = CostModel.INF;
             for (String opt : i.options) best = Math.min(best, unit.getOrDefault(opt, CostModel.INF));
@@ -602,7 +607,7 @@ public final class Planner {
         double estimate(Recipe r, int missing) {
             int batches = ceilDiv(missing, r.outputCount);
             double c = batches * costs.craftSecondsPerBatch;
-            if (r.type.cooking) c += batches * (costs.cookSeconds(r.cookTime) + 1.5);
+            if (r.type.cooking) c += r.type.cookTicks(batches, r.cookTime) / 20.0 + (r.type.needsFuel() ? batches * 1.5 : 0);
             for (Ingredient i : r.ingredients) {
                 int need = i.count * batches;
                 int have = 0;
@@ -768,7 +773,7 @@ public final class Planner {
                 }
                 String fuelItem = null;
                 int fuelCount = 0;
-                if (r.type.cooking) {
+                if (r.type.needsFuel()) {
                     int ticks = batches * (r.cookTime <= 0 ? 200 : r.cookTime);
                     String[] pick = pickFuel(ticks, depth);
                     if (pick == null) return false;
@@ -777,7 +782,7 @@ public final class Planner {
                 }
                 add(r.output, batches * r.outputCount);
                 double s = batches * costs.craftSecondsPerBatch + (st != null ? costs.stationUseSeconds : 0);
-                if (r.type.cooking) s += batches * costs.cookSeconds(r.cookTime);
+                if (r.type.cooking) s += r.type.cookTicks(batches, r.cookTime) / 20.0;
                 seconds += s;
                 steps.add(PlanStep.craft(r, batches, inputs, fuelItem, fuelCount, depth, s));
                 return true;

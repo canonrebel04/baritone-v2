@@ -27,7 +27,7 @@ import java.util.*;
  * time (A37).
  */
 public final class Source {
-    public enum Kind { TRADE, FISH, HUNT, SHEAR, MILK, HARVEST, TREE, MOB_FARM }
+    public enum Kind { TRADE, FISH, HUNT, SHEAR, MILK, HARVEST, TREE, MOB_FARM, COMPOST }
 
     public final Kind kind;
     /** Item produced. */

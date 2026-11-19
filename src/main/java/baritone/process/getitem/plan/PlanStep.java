@@ -23,7 +23,7 @@ import java.util.*;
 
 /** One executable step of a Get Item plan (plan 4.2 task queue). */
 public final class PlanStep {
-    public enum Kind { MINE, PLACE_STATION, CRAFT, SMELT, WITHDRAW, TRAVEL, GATHER }
+    public enum Kind { MINE, PLACE_STATION, CRAFT, SMELT, WITHDRAW, TRAVEL, GATHER, OPERATE }
 
     public final Kind kind;
     /** Items this step produces (a MINE step for a tag goal may produce any of several). */
@@ -48,6 +48,8 @@ public final class PlanStep {
     public final double seconds;
     /** GATHER: the world source used (trade, farm, fishing, hunting, ...). */
     public final Source source;
+    /** OPERATE: what is done at the station (brew, anvil, enchant, ...), for display. */
+    public final String label;
 
     private PlanStep(Kind kind, List<String> items, int count, List<String> blocks, int blockCount, String tool,
                      Recipe recipe, int batches, Map<String, Integer> inputs, String fuel, int fuelCount, int depth,
@@ -66,6 +68,30 @@ public final class PlanStep {
         this.depth = depth;
         this.seconds = seconds;
         this.source = null;
+        this.label = null;
+    }
+
+    private PlanStep(String label, String station, List<String> items, int count) {
+        this.kind = Kind.OPERATE;
+        this.items = Collections.unmodifiableList(new ArrayList<>(items));
+        this.count = count;
+        this.blocks = station == null ? Collections.emptyList() : Collections.singletonList(station);
+        this.blockCount = 0;
+        this.tool = null;
+        this.recipe = null;
+        this.batches = 1;
+        this.inputs = Collections.emptyMap();
+        this.fuel = null;
+        this.fuelCount = 0;
+        this.depth = 0;
+        this.seconds = 0;
+        this.source = null;
+        this.label = label;
+    }
+
+    /** An advanced-goal operation (A8/A25/A27/A31/A43/A45): brewing, anvil, enchanting, filling bottles... */
+    public static PlanStep operate(String label, String station, List<String> items, int count) {
+        return new PlanStep(label, station, items, count);
     }
 
     private PlanStep(Source source, int count, int batches, Map<String, Integer> inputs, int depth, double seconds) {
@@ -83,6 +109,7 @@ public final class PlanStep {
         this.depth = depth;
         this.seconds = seconds;
         this.source = source;
+        this.label = null;
     }
 
     /** Obtain {@code count} items from a world source in {@code batches} batches, consuming {@code inputs}. */
@@ -146,6 +173,9 @@ public final class PlanStep {
                 sb.append(" -> ").append(count).append("x ").append(items.size() > 1 ? "any of " + items.size() + " items" : shortId(items.get(0)));
                 if (tool != null) sb.append(" [").append(shortId(tool)).append("]");
                 break;
+            case OPERATE:
+                sb.append(label);
+                break;
             case PLACE_STATION:
                 sb.append("Place ").append(shortId(blocks.get(0)));
                 break;
@@ -166,7 +196,7 @@ public final class PlanStep {
                 break;
             }
             default:
-                sb.append(kind == Kind.SMELT ? "Smelt " : "Craft ").append(count).append("x ").append(shortId(recipe.output)).append(" from ");
+                sb.append(verb()).append(count).append("x ").append(shortId(recipe.output)).append(" from ");
                 StringJoiner j = new StringJoiner(", ");
                 inputs.forEach((k, v) -> j.add(v + "x " + shortId(k)));
                 sb.append(j);
@@ -175,6 +205,18 @@ public final class PlanStep {
                 sb.append(st == null ? " (inventory grid)" : " (" + shortId(st) + ")");
         }
         return sb.toString();
+    }
+
+    private String verb() {
+        if (recipe != null) {
+            switch (recipe.type) {
+                case CAMPFIRE_COOKING: return "Cook ";
+                case STONECUTTING: return "Cut ";
+                case SMITHING: return "Smith ";
+                default: break;
+            }
+        }
+        return kind == Kind.SMELT ? "Smelt " : "Craft ";
     }
 
     @Override

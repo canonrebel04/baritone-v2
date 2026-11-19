@@ -36,6 +36,17 @@ public enum RecipeType {
         this.cooking = cooking;
     }
 
+    /** Cooking that burns fuel (furnace, blast furnace, smoker); a campfire cooks for free. */
+    public boolean needsFuel() {
+        return cooking && this != CAMPFIRE_COOKING;
+    }
+
+    /** Wall-clock ticks to cook {@code batches} items: a campfire cooks four at once. */
+    public int cookTicks(int batches, int cookTime) {
+        int t = cookTime <= 0 ? (this == CAMPFIRE_COOKING ? 600 : 200) : cookTime;
+        return this == CAMPFIRE_COOKING ? (batches + 3) / 4 * t : batches * t;
+    }
+
     /** Dataset type name ("shaped", "smelting", ...) to enum, or null. */
     public static RecipeType fromDataset(String name) {
         if (name == null) return null;
