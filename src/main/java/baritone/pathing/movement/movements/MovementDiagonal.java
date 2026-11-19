@@ -335,6 +335,7 @@ public class MovementDiagonal extends Movement {
             reachedWaypoint = ((playerX - midX) * dx + (playerZ - midZ) * dz) >= 0;
         }
 
+        boolean isAscend = dest.y > src.y;
         double[] flat = Baritone.settings().movementSplineHeading.value ? upcomingFlat : null;
         if (flat != null && flat.length >= 4 && cellAOpen && cellBOpen && dest.y == src.y && ctx.player().onGround()
                 && !MovementHelper.isLiquid(ctx, ctx.playerFeet())) {
@@ -344,11 +345,24 @@ public class MovementDiagonal extends Movement {
             MovementHelper.moveTowards(ctx, state, new Vec3(c[0], src.y, c[1]));
             MovementHelper.applySpeedProfile(ctx, state, flat);
             MovementHelper.applyCrowdSteer(ctx, state, new Vec3(c[0], src.y, c[1]));
-        } else if (reachedWaypoint) {
+        } else if (reachedWaypoint || (isAscend && cellAOpen && cellBOpen)) {
             MovementHelper.moveTowards(ctx, state, dest);
-            MovementHelper.applyCornerAndBrakeControl(ctx, state, src, dest, isNextTurnSharp());
+            // Never brake/sneak before a diagonal ascend — we need forward motion to jump up onto dest!
+            if (!isAscend) {
+                MovementHelper.applyCornerAndBrakeControl(ctx, state, src, dest, isNextTurnSharp());
+            }
         } else {
             MovementHelper.moveTowards(ctx, state, new Vec3(midX, src.y, midZ));
+        }
+
+        // Proactive jump for diagonal ascend: jump when approaching dest (not only after colliding with the corner)
+        if (isAscend && ctx.player().onGround() && ctx.player().position().y < dest.y - 0.1
+                && !(MovementHelper.canStepUp(ctx) && ctx.player().onGround())
+                && state.getInputStates().getOrDefault(Input.MOVE_FORWARD, false)) {
+            double flatDistToDest = Math.hypot((dest.x + 0.5) - playerX, (dest.z + 0.5) - playerZ);
+            if (ctx.player().horizontalCollision || flatDistToDest <= 1.25) {
+                state.setInput(Input.JUMP, true);
+            }
         }
 
         // Enhancements #15 & #27: Diagonal sprint-jump on long unobstructed flat/descending diagonal runs (opt-in)

@@ -343,7 +343,7 @@ public class MovementParkour extends Movement {
         }
 
         if (ctx.playerFeet().equals(src)) {
-            if (ctx.player().onGround() && ++ticksOnGroundBeforeJump > 40) {
+            if (ctx.player().onGround() && ++ticksOnGroundBeforeJump > 30) {
                 // Break out of any pre-jump oscillation loop and let A* replan with failure memory
                 logDebug("Parkour stuck before takeoff, aborting to replan");
                 return state.setStatus(MovementStatus.UNREACHABLE);
@@ -376,14 +376,11 @@ public class MovementParkour extends Movement {
             if (!state.getInputStates().getOrDefault(Input.MOVE_FORWARD, false)) {
                 return state;
             }
-            // Center laterally using gentle strafe while keeping eyes locked on dest
+            // Center laterally using gentle strafe while keeping forward momentum (don't kill MOVE_FORWARD!)
             double signedLateral = (px - (src.x + 0.5)) * (-direction.getStepZ())
                     + (pz - (src.z + 0.5)) * direction.getStepX();
             if (Math.abs(signedLateral) > 0.22 && forwardOffset < 0.20) {
-                state.setInput(Input.SPRINT, false);
-                state.setInput(Input.MOVE_FORWARD, false);
                 state.setInput(signedLateral > 0 ? Input.MOVE_LEFT : Input.MOVE_RIGHT, true);
-                return state;
             }
             // Enhancement #6: Tick-exact jump timing using headless physics simulator edge prediction
             boolean readyToJump;

@@ -342,23 +342,24 @@ public class PathExecutor implements IPathExecutor, Helper {
             onTick();
             return true;
         } else {
-            // Enhancement #9: Stuck / circle detector — catch orbiting on the same block
+            // Enhancement #9: Stuck / circle / back-and-forth detector — check CURRENT movement's break/place
+            // (not the entire path's toBreak/toPlace, which disabled detection during mining paths!)
             if (Baritone.settings().movementStuckCircleDetector.value
                     && movementStatus == RUNNING
-                    && toBreak.isEmpty() && toPlace.isEmpty()
+                    && movement.toBreak(bsi).isEmpty() && movement.toPlace(bsi).isEmpty()
                     && ctx.player().onGround()) {
                 double px = ctx.player().position().x;
                 double py = ctx.player().position().y;
                 double pz = ctx.player().position().z;
                 if (Double.isNaN(circleAnchorX)
-                        || Math.hypot(px - circleAnchorX, pz - circleAnchorZ) > 0.55
+                        || Math.hypot(px - circleAnchorX, pz - circleAnchorZ) > 0.85
                         || Math.abs(py - circleAnchorY) > 0.5) {
                     circleAnchorX = px;
                     circleAnchorY = py;
                     circleAnchorZ = pz;
                     circleTicks = 0;
-                } else if (++circleTicks >= 24 && canCancel) {
-                    logDebug("Stuck/circle detected on " + movement.getClass().getSimpleName() + " for " + circleTicks + " ticks. Replanning.");
+                } else if (++circleTicks >= 28 && canCancel) {
+                    logDebug("Stuck/oscillation detected on " + movement.getClass().getSimpleName() + " for " + circleTicks + " ticks. Replanning.");
                     recordMovementFailure(movement);
                     circleTicks = 0;
                     cancel();
