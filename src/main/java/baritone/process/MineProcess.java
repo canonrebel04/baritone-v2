@@ -42,6 +42,7 @@ import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static baritone.api.pathing.movement.ActionCosts.COST_INF;
@@ -69,6 +70,24 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
     private int calcFailCooldownTicks;
     private int consecutiveCalcFailures;
 
+    // S87: background rescans hand their result to the main thread instead of mutating state off-thread
+    private final AtomicBoolean rescanInFlight = new AtomicBoolean();
+    private volatile RescanResult rescanResult;
+    private volatile int rescanGeneration;
+
+    private static final class RescanResult {
+        final int generation;
+        /** New ore locations, or {@code null} when nothing is known and the process should cancel. */
+        final List<BlockPos> locations;
+        final String filterName;
+
+        RescanResult(int generation, List<BlockPos> locations, String filterName) {
+            this.generation = generation;
+            this.locations = locations;
+            this.filterName = filterName;
+        }
+    }
+
     public MineProcess(Baritone baritone) {
         super(baritone);
     }
@@ -80,6 +99,13 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
 
     @Override
     public PathingCommand onTick(boolean calcFailed, boolean isSafeToCancel) {
+        RescanResult result = this.rescanResult;
+        if (result != null) {
+            this.rescanResult = null;
+            if (result.generation == this.rescanGeneration && !applyRescan(result)) {
+                return null;
+            }
+        }
         if (desiredQuantity > 0) {
             int curr = ctx.player().getInventory().getNonEquipmentItems().stream()
                     .filter(stack -> filter.has(stack))
@@ -131,8 +157,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         int mineGoalUpdateInterval = Baritone.settings().mineGoalUpdateInterval.value;
         List<BlockPos> curr = new ArrayList<>(knownOreLocations);
         if (mineGoalUpdateInterval != 0 && tickCount++ % mineGoalUpdateInterval == 0) { // big brain
-            CalculationContext context = new CalculationContext(baritone, true);
-            Baritone.getExecutor().execute(() -> rescan(curr, context));
+            scheduleRescan(curr);
         }
         if (Baritone.settings().legitMine.value) {
             if (!addNearby()) {
@@ -250,26 +275,77 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         return new PathingCommand(branchPointRunaway, PathingCommandType.REVALIDATE_GOAL_AND_PATH);
     }
 
-    private void rescan(List<BlockPos> already, CalculationContext context) {
+    /**
+     * S87: starts a background rescan unless one is already running. Everything the search reads from the
+     * process (filter, blacklist, dropped items) is snapshotted here on the main thread; the result is applied at
+     * the start of a later tick.
+     */
+    private void scheduleRescan(List<BlockPos> already) {
         BlockOptionalMetaLookup filter = filterFilter();
-        if (filter == null) {
+        if (filter == null || Baritone.settings().legitMine.value) {
             return;
         }
-        if (Baritone.settings().legitMine.value) {
+        if (!rescanInFlight.compareAndSet(false, true)) {
             return;
         }
-        List<BlockPos> dropped = droppedItemsScan();
+        final int generation = this.rescanGeneration;
+        final List<BlockPos> blacklistSnapshot = new ArrayList<>(blacklist);
+        final List<BlockPos> dropped = droppedItemsScan();
+        final CalculationContext context = new CalculationContext(baritone, true);
+        try {
+            Baritone.getExecutor().execute(() -> {
+                try {
+                    List<BlockPos> locs = searchLocations(context, filter, already, blacklistSnapshot, dropped);
+                    if (generation == this.rescanGeneration) {
+                        this.rescanResult = new RescanResult(generation, locs, filter.toString());
+                    }
+                } catch (Throwable t) {
+                    logChannel().warn("Background rescan failed", t);
+                } finally {
+                    rescanInFlight.set(false);
+                }
+            });
+        } catch (Throwable t) {
+            rescanInFlight.set(false);
+            throw t;
+        }
+    }
+
+    /** Synchronous scan, used when a mine command starts. */
+    private void rescanNow(List<BlockPos> already, CalculationContext context) {
+        BlockOptionalMetaLookup filter = filterFilter();
+        if (filter == null || Baritone.settings().legitMine.value) {
+            return;
+        }
+        List<BlockPos> locs = searchLocations(context, filter, already, new ArrayList<>(blacklist), droppedItemsScan());
+        applyRescan(new RescanResult(this.rescanGeneration, locs, filter.toString()));
+    }
+
+    private static List<BlockPos> searchLocations(CalculationContext context, BlockOptionalMetaLookup filter, List<BlockPos> already,
+                                                  List<BlockPos> blacklist, List<BlockPos> dropped) {
         List<BlockPos> locs = searchWorld(context, filter, Baritone.settings().mineMaxOreLocationsCount.value, already, blacklist, dropped);
         locs.addAll(dropped);
         if (locs.isEmpty() && !Baritone.settings().exploreForBlocks.value) {
-            logDirect("No locations for " + filter + " known, cancelling");
+            return null;
+        }
+        return locs;
+    }
+
+    /** Applies a scan result on the main thread; returns false when the process was cancelled. */
+    private boolean applyRescan(RescanResult result) {
+        if (this.filter == null) {
+            return false;
+        }
+        if (result.locations == null) {
+            logDirect("No locations for " + result.filterName + " known, cancelling");
             if (Baritone.settings().notificationOnMineFail.value) {
-                logNotification("No locations for " + filter + " known, cancelling", true);
+                logNotification("No locations for " + result.filterName + " known, cancelling", true);
             }
             cancel();
-            return;
+            return false;
         }
-        knownOreLocations = locs;
+        knownOreLocations = result.locations;
+        return true;
     }
 
     private boolean internalMiningGoal(BlockPos pos, CalculationContext context, List<BlockPos> locs) {
@@ -544,8 +620,10 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         this.anticipatedDrops = new HashMap<>();
         this.calcFailCooldownTicks = 0;
         this.consecutiveCalcFailures = 0;
+        this.rescanGeneration++;
+        this.rescanResult = null;
         if (filter != null) {
-            rescan(new ArrayList<>(), new CalculationContext(baritone));
+            rescanNow(new ArrayList<>(), new CalculationContext(baritone));
         }
     }
 

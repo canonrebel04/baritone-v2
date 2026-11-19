@@ -782,6 +782,12 @@ public final class Settings {
     public final Setting<Boolean> debugLogging = new Setting<>(false);
 
     /**
+     * Write Baritone's INFO/debug game-log lines from a background thread so log floods never stall the game or
+     * pathing thread. Warnings, errors and stack traces are always written synchronously.
+     */
+    public final Setting<Boolean> asyncLogging = new Setting<>(true);
+
+    /**
      * Allow chat based control of Baritone. Most likely should be disabled when Baritone is imported for use in
      * something else
      */

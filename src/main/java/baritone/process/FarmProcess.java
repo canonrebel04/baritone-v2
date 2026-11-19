@@ -64,6 +64,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 
 public final class FarmProcess extends BaritoneProcessHelper implements IFarmProcess {
@@ -76,6 +77,9 @@ public final class FarmProcess extends BaritoneProcessHelper implements IFarmPro
     private boolean active;
 
     private List<BlockPos> locations;
+    // S87: the background scan hands its result over instead of writing the list the main thread iterates
+    private final AtomicBoolean scanInFlight = new AtomicBoolean();
+    private volatile List<BlockPos> scanResult;
     private int tickCount;
 
     private int range;
@@ -128,6 +132,7 @@ public final class FarmProcess extends BaritoneProcessHelper implements IFarmPro
         this.range = range;
         active = true;
         locations = null;
+        scanResult = null;
     }
 
     private enum Harvest {
@@ -224,7 +229,25 @@ public final class FarmProcess extends BaritoneProcessHelper implements IFarmPro
                 }
             }
 
-            Baritone.getExecutor().execute(() -> locations = BaritoneAPI.getProvider().getWorldScanner().scanChunkRadius(ctx, scan, Baritone.settings().farmMaxScanSize.value, 10, 10));
+            if (scanInFlight.compareAndSet(false, true)) {
+                try {
+                    Baritone.getExecutor().execute(() -> {
+                        try {
+                            scanResult = new ArrayList<>(BaritoneAPI.getProvider().getWorldScanner().scanChunkRadius(ctx, scan, Baritone.settings().farmMaxScanSize.value, 10, 10));
+                        } finally {
+                            scanInFlight.set(false);
+                        }
+                    });
+                } catch (RuntimeException e) {
+                    scanInFlight.set(false);
+                    throw e;
+                }
+            }
+        }
+        List<BlockPos> scanned = scanResult;
+        if (scanned != null) {
+            scanResult = null;
+            locations = scanned;
         }
         if (locations == null) {
             return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);

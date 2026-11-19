@@ -149,6 +149,12 @@ public interface Helper {
      * @param message The message to display in chat
      */
     default void logDebug(String message) {
+        // Collapse identical debug lines repeated within a second (plan S97)
+        final int suppressed = BaritoneLog.DEBUG_THROTTLE.check(message);
+        if (suppressed == LogThrottle.SUPPRESS) {
+            return;
+        }
+        message = message + LogThrottle.suffix(suppressed);
         if (!BaritoneAPI.getSettings().chatDebug.value) {
             // Not shown in chat, but still recorded in the game log when debug logging is enabled
             logChannel().debug(message);

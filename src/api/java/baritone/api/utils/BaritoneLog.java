@@ -21,6 +21,10 @@ import baritone.api.BaritoneAPI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
@@ -30,6 +34,10 @@ import java.util.function.Supplier;
  * Debug output is off by default. Enable it with the JVM argument {@code -Dbaritone.debug=true} or the
  * {@code debugLogging} setting ({@code #debugLogging true}). When enabled, debug lines are written at INFO
  * level with a {@code [debug]} marker so they reach latest.log under the stock Minecraft log4j config.
+ * <p>
+ * INFO and debug lines are handed to a bounded background writer when the {@code asyncLogging} setting is on
+ * (plan S97), so a log flood never stalls the game or pathing thread; warnings and errors are always written
+ * synchronously. Lines that don't fit in the queue are dropped and counted.
  */
 public final class BaritoneLog {
 
@@ -49,6 +57,13 @@ public final class BaritoneLog {
     public static final BaritoneLog COMMAND = new BaritoneLog("Command");
     public static final BaritoneLog SETTINGS = new BaritoneLog("Settings");
     public static final BaritoneLog EVENT = new BaritoneLog("Event");
+
+    /** Collapses identical debug lines repeated within one second (plan S97). */
+    public static final LogThrottle DEBUG_THROTTLE = new LogThrottle(1000);
+
+    private static final BlockingQueue<String> QUEUE = new ArrayBlockingQueue<>(4096);
+    private static final AtomicLong DROPPED = new AtomicLong();
+    private static volatile Thread writer;
 
     private final String prefix;
 
@@ -72,7 +87,81 @@ public final class BaritoneLog {
     }
 
     public void info(Object message) {
-        LOGGER.info(prefix + message);
+        emit(prefix + message);
+    }
+
+    /** Number of INFO/debug lines dropped because the async queue was full. */
+    public static long droppedLines() {
+        return DROPPED.get();
+    }
+
+    private static boolean asyncEnabled() {
+        try {
+            return BaritoneAPI.getSettings().asyncLogging.value;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    private static void emit(String line) {
+        if (!asyncEnabled()) {
+            LOGGER.info(line);
+            return;
+        }
+        ensureWriter();
+        if (!QUEUE.offer(line)) {
+            DROPPED.incrementAndGet();
+        }
+    }
+
+    private static void ensureWriter() {
+        if (writer != null) {
+            return;
+        }
+        synchronized (BaritoneLog.class) {
+            if (writer != null) {
+                return;
+            }
+            Thread t = new Thread(BaritoneLog::drainLoop, "Baritone Log");
+            t.setDaemon(true);
+            t.start();
+            try {
+                Runtime.getRuntime().addShutdownHook(new Thread(BaritoneLog::flush, "Baritone Log Flush"));
+            } catch (IllegalStateException | SecurityException ignored) {
+                // shutting down already
+            }
+            writer = t;
+        }
+    }
+
+    private static void drainLoop() {
+        long reportedDrops = 0;
+        while (true) {
+            try {
+                String line = QUEUE.poll(1, TimeUnit.SECONDS);
+                if (line != null) {
+                    LOGGER.info(line);
+                }
+                long drops = DROPPED.get();
+                if (drops != reportedDrops && QUEUE.isEmpty()) {
+                    LOGGER.warn("[Baritone] dropped " + (drops - reportedDrops) + " log lines (async log queue full)");
+                    reportedDrops = drops;
+                }
+            } catch (InterruptedException e) {
+                flush();
+                return;
+            } catch (Throwable ignored) {
+                // never let the writer die
+            }
+        }
+    }
+
+    /** Writes out everything still queued (called on shutdown). */
+    public static void flush() {
+        String line;
+        while ((line = QUEUE.poll()) != null) {
+            LOGGER.info(line);
+        }
     }
 
     public void warn(Object message) {
@@ -89,7 +178,7 @@ public final class BaritoneLog {
 
     public void debug(Object message) {
         if (isDebugEnabled()) {
-            LOGGER.info(prefix + "[debug] " + message);
+            emit(prefix + "[debug] " + message);
         } else if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(prefix + message);
         }
