@@ -241,6 +241,42 @@ public final class GameData {
         return out;
     }
 
+    /** Plan A8/A27: a stack as plain data (potion, enchantments or a book's stored ones, name, work penalty). */
+    public static baritone.process.getitem.advanced.StackDesc describe(int slot, ItemStack s) {
+        String potion = null;
+        net.minecraft.world.item.alchemy.PotionContents pc = s.get(net.minecraft.core.component.DataComponents.POTION_CONTENTS);
+        if (pc != null && pc.potion().isPresent()) {
+            potion = pc.potion().get().unwrapKey().map(k -> k.identifier().getPath()).orElse(null);
+        }
+        Map<String, Integer> ench = new TreeMap<>();
+        net.minecraft.world.item.enchantment.ItemEnchantments ie = s.is(Items.ENCHANTED_BOOK)
+                ? s.get(net.minecraft.core.component.DataComponents.STORED_ENCHANTMENTS) : s.getEnchantments();
+        if (ie != null) {
+            for (var e : ie.entrySet()) {
+                String id = e.getKey().unwrapKey().map(k -> k.identifier().getPath()).orElse(null);
+                if (id != null) ench.put(id, e.getIntValue());
+            }
+        }
+        net.minecraft.network.chat.Component name = s.get(net.minecraft.core.component.DataComponents.CUSTOM_NAME);
+        Integer rc = s.get(net.minecraft.core.component.DataComponents.REPAIR_COST);
+        return new baritone.process.getitem.advanced.StackDesc(slot, id(s.getItem()), s.getCount(), potion, ench,
+                name == null ? null : name.getString(), rc == null ? 0 : rc);
+    }
+
+    /** Inventory stacks (slot = player inventory index; 40 = offhand) as plain data. */
+    public List<baritone.process.getitem.advanced.StackDesc> stacks() {
+        List<baritone.process.getitem.advanced.StackDesc> out = new ArrayList<>();
+        if (ctx.player() == null) return out;
+        net.minecraft.world.entity.player.Inventory inv = ctx.player().getInventory();
+        for (int i = 0; i < 36; i++) {
+            ItemStack s = inv.getItem(i);
+            if (!s.isEmpty()) out.add(describe(i, s));
+        }
+        ItemStack off = ctx.player().getOffhandItem();
+        if (!off.isEmpty()) out.add(describe(40, off));
+        return out;
+    }
+
     public static boolean hasMending(ItemStack s) {
         for (var h : s.getEnchantments().keySet()) {
             if (h.is(net.minecraft.world.item.enchantment.Enchantments.MENDING)) return true;
@@ -309,12 +345,31 @@ public final class GameData {
         Set<Block> stations = new HashSet<>();
         for (String s : STATIONS) stations.add(block(s));
         for (BlockPos p : findBlocks(stations, Baritone.settings().getItemStationSearchRadius.value)) {
-            if (!blacklist.contains(p)) out.add(id(ctx.world().getBlockState(p).getBlock()));
+            if (!blacklist.contains(p)) out.add(stationOf(id(ctx.world().getBlockState(p).getBlock())));
         }
         return out;
     }
 
-    public static final String[] STATIONS = {"minecraft:crafting_table", "minecraft:furnace", "minecraft:blast_furnace", "minecraft:smoker"};
+    /** Block ids that work as the given station (any anvil damage level, soul campfires). */
+    public static List<String> stationAliases(String station) {
+        switch (station) {
+            case "minecraft:anvil": return Arrays.asList("minecraft:anvil", "minecraft:chipped_anvil", "minecraft:damaged_anvil");
+            case "minecraft:campfire": return Arrays.asList("minecraft:campfire", "minecraft:soul_campfire");
+            default: return Collections.singletonList(station);
+        }
+    }
+
+    /** The station a block counts as (inverse of {@link #stationAliases}). */
+    public static String stationOf(String block) {
+        if (block.endsWith("_anvil")) return "minecraft:anvil";
+        if ("minecraft:soul_campfire".equals(block)) return "minecraft:campfire";
+        return block;
+    }
+
+    public static final String[] STATIONS = {"minecraft:crafting_table", "minecraft:furnace", "minecraft:blast_furnace", "minecraft:smoker",
+            "minecraft:stonecutter", "minecraft:smithing_table", "minecraft:campfire", "minecraft:soul_campfire",
+            "minecraft:brewing_stand", "minecraft:anvil", "minecraft:chipped_anvil", "minecraft:damaged_anvil",
+            "minecraft:enchanting_table", "minecraft:grindstone", "minecraft:composter"};
 
     /** Natural block ids present in loaded chunks around the player (palette scan; cheap). */
     public Set<String> seenNaturalBlocks(CostModel costs, int chunkRadius) {

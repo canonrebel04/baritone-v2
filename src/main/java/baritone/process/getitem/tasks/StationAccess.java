@@ -41,6 +41,7 @@ public final class StationAccess {
     private final IPlayerContext ctx;
     private final GameData data;
     private final Block station;
+    private final Set<Block> accepted;
     private final Set<BlockPos> blacklist;
     BlockPos pos;
     private int lookTicks;
@@ -53,6 +54,15 @@ public final class StationAccess {
         this.data = data;
         this.station = GameData.block(stationId);
         this.blacklist = blacklist;
+        this.accepted = new HashSet<>();
+        for (String a : GameData.stationAliases(stationId)) accepted.add(GameData.block(a));
+    }
+
+    /** Usable right now (a campfire has to be lit to cook). */
+    private boolean usable(BlockPos p) {
+        net.minecraft.world.level.block.state.BlockState st = ctx.world().getBlockState(p);
+        if (!accepted.contains(st.getBlock())) return false;
+        return !st.hasProperty(net.minecraft.world.level.block.CampfireBlock.LIT) || st.getValue(net.minecraft.world.level.block.CampfireBlock.LIT);
     }
 
     /** @return null once the right-click was sent and a container should open; otherwise the command to run. */
@@ -61,10 +71,10 @@ public final class StationAccess {
             failure.append("unknown station");
             return null;
         }
-        if (pos == null || ctx.world().getChunkSource().hasChunk(pos.getX() >> 4, pos.getZ() >> 4) && ctx.world().getBlockState(pos).getBlock() != station) {
+        if (pos == null || ctx.world().getChunkSource().hasChunk(pos.getX() >> 4, pos.getZ() >> 4) && !usable(pos)) {
             pos = null;
-            for (BlockPos p : data.findBlocks(Collections.singleton(station), Baritone.settings().getItemStationSearchRadius.value)) {
-                if (!blacklist.contains(p)) {
+            for (BlockPos p : data.findBlocks(accepted, Baritone.settings().getItemStationSearchRadius.value)) {
+                if (!blacklist.contains(p) && usable(p)) {
                     pos = p;
                     break;
                 }
@@ -72,7 +82,7 @@ public final class StationAccess {
             if (pos == null) {
                 for (BlockPos p : knownStations.apply(GameData.id(station), ctx.playerFeet())) {
                     boolean loaded = ctx.world().getChunkSource().hasChunk(p.getX() >> 4, p.getZ() >> 4);
-                    if (!blacklist.contains(p) && (!loaded || ctx.world().getBlockState(p).getBlock() == station)) {
+                    if (!blacklist.contains(p) && (!loaded || usable(p))) {
                         pos = p;
                         break;
                     }
@@ -113,5 +123,10 @@ public final class StationAccess {
 
     int clicks() {
         return clicks;
+    }
+
+    /** Where the station is (once found). */
+    BlockPos pos() {
+        return pos;
     }
 }

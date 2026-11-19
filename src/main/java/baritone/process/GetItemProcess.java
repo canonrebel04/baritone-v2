@@ -44,6 +44,10 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 
+import baritone.process.getitem.data.RecipeType;
+import baritone.process.getitem.advanced.*;
+import baritone.process.getitem.inventory.HotbarLayout;
+import baritone.process.getitem.sources.Compost;
 import java.util.*;
 
 /**
@@ -95,6 +99,17 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
     private final Set<String> storeQueue = new HashSet<>();
     /** A30: Meteor registers a kill handler; Baritone never attacks itself. */
     private volatile boolean killHandler;
+    /** M4 (A8/A25/A27): enchant / potion / rename goal, or null for plain item goals. */
+    private ItemSpec spec;
+    private String specText;
+    /** A27: the brewing stand used last still holds fuel. */
+    private boolean standFuel;
+    /** A25: grindstone rerolls spent on this goal. */
+    private int rerollsUsed;
+    private int xpTries;
+    private int hotbarCooldown;
+    private int xpCooldown;
+    private int packCooldown;
 
     public GetItemProcess(Baritone baritone) {
         super(baritone);
@@ -125,6 +140,7 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
     public synchronized String get(String item, int amount) {
         if (ctx.player() == null) return "not in game";
         onLostControl();
+        if (ItemSpec.looksAdvanced(item)) return getAdvanced(item, amount);
         Goal g = parse(item, amount);
         if (g == null) return "unknown item or tag: " + item;
         Plan p = makePlan(g);
@@ -146,6 +162,97 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
         return null;
     }
 
+    /** M4: start an enchant / potion / rename goal; the steps are decided from the inventory as it goes. */
+    private String getAdvanced(String text, int amount) {
+        ItemSpec sp = ItemSpec.parse(text);
+        if (sp == null) return "can't read \"" + text + "\" (try potion:swiftness, splash_potion:strong_healing, diamond_pickaxe@fortune:3,unbreaking:3, ...@name:Text)";
+        Item it = GameData.item(sp.item);
+        if (it == null || it == net.minecraft.world.item.Items.AIR) return "unknown item: " + sp.item;
+        if (sp.isPotion()) {
+            if (!Baritone.settings().getItemBrewing.value) return "brewing is off (getItemBrewing)";
+            if (BrewPlanner.path(sp.item, sp.potion) == null) return "don't know how to brew " + sp.display();
+        }
+        Next n = advancedNext(sp, amount);
+        if (n.kind == Next.Kind.FAIL) {
+            lastFailure = n.why;
+            return n.why;
+        }
+        spec = sp;
+        specText = text.trim();
+        goal = new Goal(sp.display(), Collections.singletonList(sp.item), amount);
+        stepsDone = 0;
+        stepFailures = 0;
+        lastFailure = null;
+        lastPlan = null;
+        startMillis = System.currentTimeMillis();
+        startPos = ctx.playerFeet();
+        startDim = data.dimension();
+        applyRunSettings();
+        knowledge.setPending(specText, amount);
+        logDirect("Get Item: " + amount + "x " + sp.display() + " (next: " + n + ")");
+        return null;
+    }
+
+    private Next advancedNext(ItemSpec sp, int amount) {
+        List<StackDesc> inv = data.stacks();
+        if (sp.isPotion()) return BrewPlanner.next(sp, amount, inv, standFuel);
+        EnchantPlanner.Options o = new EnchantPlanner.Options();
+        o.anvil = Baritone.settings().getItemUseAnvil.value;
+        o.table = Baritone.settings().getItemUseEnchantingTable.value;
+        o.maxAnvilCost = Baritone.settings().getItemMaxAnvilCost.value;
+        o.rerolls = Baritone.settings().getItemEnchantRerolls.value;
+        o.rerollsUsed = rerollsUsed;
+        o.levels = ctx.player().getAbilities().instabuild ? 1000 : ctx.player().experienceLevel;
+        o.collectXp = Baritone.settings().getItemCollectXp.value && xpTries < 3;
+        return EnchantPlanner.next(sp, amount, inv, o);
+    }
+
+    private int goalHave() {
+        if (goal == null) return 0;
+        return spec != null ? spec.have(data.stacks()) : goal.have(data.inventory());
+    }
+
+    /** M4: the task for the next advanced-goal action, or a stop command (as a failure string). */
+    private Object advancedTask() {
+        Next n = advancedNext(spec, goal.count);
+        logDebug("Get Item advanced: " + n);
+        switch (n.kind) {
+            case DONE:
+                return null;
+            case FAIL:
+                return n.why;
+            case NEED: {
+                int have = data.inventory().getOrDefault(n.item, 0);
+                Plan p = makePlan(Goal.item(n.item, have + n.count));
+                lastPlan = p;
+                if (!p.success) return "no plan for " + n.item.replace("minecraft:", "") + " (" + n.why + "): " + p.failure;
+                PlanStep step = p.first();
+                if (step == null) return "plan for " + n.item.replace("minecraft:", "") + " is empty";
+                return create(step, p);
+            }
+            case FILL:
+                return new FillBottleTask(baritone, data, n.count, stationBlacklist);
+            case BREW:
+                return new BrewTask(baritone, data, n.from, n.item, n.count, stationBlacklist);
+            case ANVIL:
+                return new AnvilTask(baritone, data, spec.item, n.slot, n.other, null, stationBlacklist);
+            case RENAME:
+                return new AnvilTask(baritone, data, spec.item, n.slot, -1, n.name, stationBlacklist);
+            case ENCHANT:
+                return new EnchantTask(baritone, data, spec.item, n.slot, spec.enchants,
+                        rerollsUsed < Baritone.settings().getItemEnchantRerolls.value, stationBlacklist);
+            case GRINDSTONE:
+                if (!spec.clean) rerollsUsed++;
+                return new GrindstoneTask(baritone, data, spec.item, n.slot, stationBlacklist);
+            case XP:
+                xpTries++;
+                if (XpOrbTask.nearest(baritone) == null) return "needs " + n.count + " more levels and there are no experience orbs nearby";
+                return new XpOrbTask(baritone, data);
+            default:
+                return "unexpected " + n.kind;
+        }
+    }
+
     /** Known items/tags, plus any registry item (it may still come from a chest). */
     private Goal parse(String item, int amount) {
         Goal g = Goal.parse(item, amount, data.planner().graph, Collections.emptyList());
@@ -157,6 +264,14 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
     @Override
     public List<String> plan(String item, int amount) {
         if (ctx.player() == null) return Collections.singletonList("not in game");
+        if (ItemSpec.looksAdvanced(item)) {
+            ItemSpec sp = ItemSpec.parse(item);
+            if (sp == null) return Collections.singletonList("can't read \"" + item + "\"");
+            List<String> out = new ArrayList<>();
+            if (sp.isPotion()) out.addAll(BrewPlanner.describe(sp, amount));
+            out.add("Next: " + advancedNext(sp, amount));
+            return out;
+        }
         Goal g = parse(item, amount);
         if (g == null) return Collections.singletonList("unknown item or tag: " + item);
         Plan p = makePlan(g);
@@ -171,7 +286,7 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
     @Override
     public synchronized String status() {
         if (goal == null) return lastFailure == null ? "idle" : "idle (last: " + lastFailure + ")";
-        int have = goal.have(data.inventory());
+        int have = goalHave();
         String why = pauseReason();
         return "getting " + goal.display + " " + have + "/" + goal.count + ", step " + (stepsDone + 1)
                 + (why != null ? " [" + why + "]" : task != null ? ": " + task.status() : "");
@@ -180,7 +295,7 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
     @Override
     public synchronized String progressLine() {
         if (goal == null) return null;
-        int have = goal.have(data.inventory());
+        int have = goalHave();
         StringBuilder sb = new StringBuilder(goal.display.replace("minecraft:", "")).append(' ').append(have).append('/').append(goal.count);
         if (lastPlan != null && lastPlan.success) {
             sb.append(" · step ").append(stepsDone + 1).append('/').append(stepsDone + Math.max(1, lastPlan.steps.size()));
@@ -308,12 +423,17 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
         o.dimension = data.dimension();
         o.maxDepth = Baritone.settings().getItemMaxPlanDepth.value;
         o.allowPlaceStations = Baritone.settings().getItemPlaceStations.value;
+        Set<RecipeType> types = EnumSet.copyOf(Planner.M4_TYPES);
+        if (!Baritone.settings().getItemUseStonecutter.value) types.remove(RecipeType.STONECUTTING);
+        if (!Baritone.settings().getItemUseSmithing.value) types.remove(RecipeType.SMITHING);
+        if (!Baritone.settings().getItemUseCampfire.value) types.remove(RecipeType.CAMPFIRE_COOKING);
+        o.types = types;
         Set<String> st = new TreeSet<>(data.nearbyStations(stationBlacklist));
         if (ctx.player() != null) {
             BlockPos me = ctx.playerFeet();
             int r = Math.min(Baritone.settings().getItemContainerRadius.value, 48);
             for (StationRegistry.Station s : knowledge.base().stations.near(null, o.dimension, me.getX(), me.getY(), me.getZ(), r)) {
-                if (!stationBlacklist.contains(new BlockPos(s.x, s.y, s.z))) st.add(s.block);
+                if (!stationBlacklist.contains(new BlockPos(s.x, s.y, s.z))) st.add(GameData.stationOf(s.block));
             }
             if (Baritone.settings().getItemUseContainers.value) {
                 ProtectPolicy policy = policy();
@@ -361,6 +481,15 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
         }
         if (Baritone.settings().getItemUseAnimals.value) out.addAll(SourceCatalog.animals(census.sheep, census.cows));
         if (Baritone.settings().getItemUseTrees.value) out.addAll(SourceCatalog.trees(Baritone.settings().getItemTreeBoneMeal.value));
+        if (Baritone.settings().getItemCompost.value) {
+            List<BlockPos> composters = data.findBlocks(Collections.singleton(Blocks.COMPOSTER), Baritone.settings().getItemStationSearchRadius.value);
+            if (!composters.isEmpty()) {
+                BlockPos c = composters.get(0);
+                Set<String> keep = new HashSet<>(data.protectedItems());
+                if (goal != null) keep.addAll(goal.options);
+                out.addAll(Compost.sources(data.inventory(), keep, 3 + Math.sqrt(c.distSqr(me)) / 4.3, c.getX() + "," + c.getY() + "," + c.getZ()));
+            }
+        }
         out.addAll(SourceCatalog.mobFarms(Baritone.settings().getItemMobFarms.value, me.getX(), me.getY(), me.getZ()));
         out.removeIf(x -> sourceBlacklist.contains(x.kind + "|" + x.ref) || data.protectedItems().contains(x.item));
         return out;
@@ -478,7 +607,7 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
         pausedForHostiles = false;
 
         if (task == null) {
-            if (goal.have(data.inventory()) >= goal.count) return done();
+            if (goalHave() >= goal.count) return done();
             if (idleTicks > 0) {
                 idleTicks--; // let pickups / inventory sync settle between steps
                 return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
@@ -486,6 +615,12 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
             StepTask side = sideTask();
             if (side != null) {
                 task = side;
+            } else if (spec != null) {
+                Object t = advancedTask();
+                if (t == null) return done();
+                if (t instanceof String why) return stop(why);
+                task = (StepTask) t;
+                logDebug("Get Item step " + (stepsDone + 1) + ": " + task.step.describe());
             } else {
                 Plan p = makePlan(goal);
                 lastPlan = p;
@@ -513,6 +648,7 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
                 stepFailures = 0;
             }
             if (t instanceof TravelTask && returning) return finishReturn();
+            if (t instanceof BrewTask bt) standFuel = bt.fuelLeft() > 0;
             idleTicks = 3;
             return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
         }
@@ -572,7 +708,8 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
 
     private boolean isPlanStep(StepTask t) {
         return !(t instanceof EatTask || t instanceof PickupTask || t instanceof PeekTask || t instanceof DropJunkTask
-                || t instanceof StashTask || t instanceof ExploreTask);
+                || t instanceof StashTask || t instanceof ExploreTask || t instanceof HotbarLayoutTask
+                || t instanceof ShulkerPackTask || t instanceof XpOrbTask && spec == null);
     }
 
     private void dropTask() {
@@ -695,6 +832,39 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
                 }
             }
         }
+        // A43: overflow into a carried shulker box when there's nowhere to stash
+        if (Baritone.settings().getItemShulkerPack.value && InventoryPlanner.freeSlots(slots, 36) < minFree && packCooldown-- <= 0) {
+            String box = null;
+            for (int i = 0; i < 36; i++) {
+                ItemStack s = inv.get(i);
+                if (!s.isEmpty() && s.getItem() instanceof net.minecraft.world.item.BlockItem bi && bi.getBlock() instanceof net.minecraft.world.level.block.ShulkerBoxBlock) {
+                    box = GameData.id(s.getItem());
+                    break;
+                }
+            }
+            if (box != null) {
+                packCooldown = 200;
+                Set<String> junk = new HashSet<>();
+                for (Item i : Baritone.settings().getItemJunkItems.value) junk.add(GameData.id(i));
+                InventoryPlanner.Decision d = InventoryPlanner.decide(slots, 36, minFree, junk, neededItems(), data.protectedItems(), false, true);
+                Set<String> items = new HashSet<>();
+                for (int idx : d.stash) items.add(GameData.id(inv.get(idx).getItem()));
+                items.remove(box);
+                if (!items.isEmpty()) return new ShulkerPackTask(baritone, data, knowledge, box, items);
+            }
+        }
+        // A43: hotbar tool layout
+        if (!Baritone.settings().getItemHotbarLayout.value.isEmpty() && hotbarCooldown-- <= 0) {
+            hotbarCooldown = 100;
+            if (HotbarLayout.nextSwap(Baritone.settings().getItemHotbarLayout.value, HotbarLayoutTask.items(ctx.player().getInventory())) != null) {
+                return new HotbarLayoutTask(baritone, data);
+            }
+        }
+        // A45: experience orbs
+        if (Baritone.settings().getItemCollectXpAlways.value && xpCooldown-- <= 0 && XpOrbTask.nearest(baritone) != null) {
+            xpCooldown = 200;
+            return new XpOrbTask(baritone, data);
+        }
         // drops
         if (Baritone.settings().getItemPickupDrops.value) {
             Set<String> needed = neededItems();
@@ -725,6 +895,10 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
     /** Items the goal or the current plan uses or produces. */
     private Set<String> neededItems() {
         Set<String> out = new HashSet<>(goal.options);
+        if (spec != null) {
+            out.addAll(Arrays.asList("minecraft:glass_bottle", "minecraft:potion", "minecraft:splash_potion", "minecraft:lingering_potion",
+                    "minecraft:blaze_powder", "minecraft:lapis_lazuli", "minecraft:enchanted_book", "minecraft:nether_wart"));
+        }
         if (lastPlan != null) {
             for (PlanStep s : lastPlan.steps) {
                 out.addAll(s.items);
@@ -781,6 +955,7 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
             case PLACE_STATION:
                 return new PlaceStationTask(baritone, data, step);
             case SMELT:
+                if (step.recipe != null && step.recipe.type == RecipeType.CAMPFIRE_COOKING) return new CampfireTask(baritone, data, step, stationBlacklist);
                 return new SmeltTask(baritone, data, step, stationBlacklist);
             case WITHDRAW: {
                 Map<String, Integer> also = new LinkedHashMap<>();
@@ -801,10 +976,14 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
                         return new FishTask(baritone, data, knowledge, step);
                     case MOB_FARM:
                         return new MobFarmTask(baritone, data, step);
+                    case COMPOST:
+                        return new ComposterTask(baritone, data, step, stationBlacklist);
                     default:
                         return new AnimalTask(baritone, data, step);
                 }
             default:
+                if (step.recipe != null && step.recipe.type == RecipeType.STONECUTTING) return new CutTask(baritone, data, step, stationBlacklist);
+                if (step.recipe != null && step.recipe.type == RecipeType.SMITHING) return new SmithTask(baritone, data, step, stationBlacklist);
                 return new CraftTask(baritone, data, step, stationBlacklist);
         }
     }
@@ -866,6 +1045,14 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
         MineTask.clearToolHooks();
         restoreRunSettings();
         goal = null;
+        spec = null;
+        specText = null;
+        standFuel = false;
+        rerollsUsed = 0;
+        xpTries = 0;
+        hotbarCooldown = 0;
+        xpCooldown = 0;
+        packCooldown = 0;
         idleTicks = 0;
         stationBlacklist.clear();
         blockFailures.clear();

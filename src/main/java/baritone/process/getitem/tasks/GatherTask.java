@@ -166,6 +166,29 @@ abstract class GatherTask extends StepTask {
         return new PathingCommand(new baritone.api.pathing.goals.GoalBlock(ie.blockPosition()), PathingCommandType.SET_GOAL_AND_PATH);
     }
 
+    private int useBlockPathTicks;
+
+    /**
+     * Walk into reach of {@code pos}, look at it and right-click it with the held item (paced like a player).
+     *
+     * @return null right after a click was sent, otherwise the command to run
+     */
+    protected PathingCommand useBlock(BlockPos pos) {
+        java.util.Optional<Rotation> reach = ContainerAccess.reachComfortably(baritone, pos, useBlockPathTicks);
+        if (reach.isEmpty()) {
+            useBlockPathTicks++;
+            return new PathingCommand(new baritone.api.pathing.goals.GoalGetToBlock(pos), PathingCommandType.SET_GOAL_AND_PATH);
+        }
+        if (baritone.getPathingBehavior().isPathing()) return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+        baritone.getLookBehavior().updateTarget(reach.get(), true);
+        if (ctx.isLookingAt(pos) && ctx.objectMouseOver() instanceof net.minecraft.world.phys.BlockHitResult hit && useReady()) {
+            ctx.playerController().processRightClickBlock(ctx.player(), ctx.world(), InteractionHand.MAIN_HAND, hit);
+            ctx.player().swing(InteractionHand.MAIN_HAND, ctx.player().getMainHandItem().getInteractAnimation(), false);
+            return null;
+        }
+        return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+    }
+
     static BlockPos parsePos(String s) {
         String[] p = s.split(",");
         return new BlockPos(Integer.parseInt(p[0].trim()), Integer.parseInt(p[1].trim()), Integer.parseInt(p[2].trim()));

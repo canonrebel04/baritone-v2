@@ -2172,6 +2172,78 @@ public final class Settings {
     public final Setting<Boolean> getItemExactWithdraw = new Setting<>(true);
 
     /**
+     * Get Item (A26): plans may use a stonecutter (slabs, stairs, walls... one block in, cheaper than crafting).
+     */
+    public final Setting<Boolean> getItemUseStonecutter = new Setting<>(true);
+
+    /**
+     * Get Item (A26): plans may use a smithing table (netherite upgrades; armor trims are not planned).
+     */
+    public final Setting<Boolean> getItemUseSmithing = new Setting<>(true);
+
+    /**
+     * Get Item (A26): plans may cook food on a campfire (no fuel, four at a time, slower per item).
+     */
+    public final Setting<Boolean> getItemUseCampfire = new Setting<>(true);
+
+    /**
+     * Get Item (A27): potion goals ({@code potion:swiftness}, {@code splash_potion:strong_healing}) are brewed in a
+     * brewing stand, filling water bottles and fuelling it with blaze powder as needed.
+     */
+    public final Setting<Boolean> getItemBrewing = new Setting<>(true);
+
+    /**
+     * Get Item (A8/A25): enchant goals ({@code diamond_pickaxe@fortune:3}) may use enchanted books on an anvil.
+     */
+    public final Setting<Boolean> getItemUseAnvil = new Setting<>(true);
+
+    /**
+     * Get Item (A8/A25): anvil operations costing this many levels or more are refused (vanilla says "Too
+     * Expensive!" at 40).
+     */
+    public final Setting<Integer> getItemMaxAnvilCost = new Setting<>(39);
+
+    /**
+     * Get Item (A8/A25): enchant goals may use an enchanting table (level-30 slot, 3 lapis) when no book route is
+     * available.
+     */
+    public final Setting<Boolean> getItemUseEnchantingTable = new Setting<>(true);
+
+    /**
+     * Get Item (A25): how many times a wrong enchanting-table result is cleaned on a grindstone and enchanted again
+     * before giving up (each try costs 3 levels and 3 lapis). 0 = never reroll.
+     */
+    public final Setting<Integer> getItemEnchantRerolls = new Setting<>(3);
+
+    /**
+     * Get Item (A31): plans may make bone meal in a composter from spare compostables (seeds, saplings, leaves...).
+     */
+    public final Setting<Boolean> getItemCompost = new Setting<>(true);
+
+    /**
+     * Get Item (A45): walk over nearby experience orbs when an enchanting/anvil step is short of levels.
+     */
+    public final Setting<Boolean> getItemCollectXp = new Setting<>(true);
+
+    /**
+     * Get Item (A45): also pick up nearby experience orbs during any goal, not just when levels are needed.
+     */
+    public final Setting<Boolean> getItemCollectXpAlways = new Setting<>(false);
+
+    /**
+     * Get Item (A43): when the inventory is nearly full and there's no stash chest, place a carried shulker box, put
+     * items the plan doesn't need into it and pick it back up. Off by default (it places and breaks a block).
+     */
+    public final Setting<Boolean> getItemShulkerPack = new Setting<>(false);
+
+    /**
+     * Get Item (A43): hotbar tool layout, one entry per hotbar slot 1-9: {@code pickaxe}, {@code axe},
+     * {@code shovel}, {@code hoe}, {@code sword}, {@code shears}, {@code food}, {@code blocks} or {@code -} (leave
+     * alone). The best matching item is swapped into the slot while idle between steps. Empty = off.
+     */
+    public final Setting<List<String>> getItemHotbarLayout = new Setting<>(new ArrayList<>());
+
+    /**
      * Get Item: prefer natural blocks seen near you when choosing what to mine (e.g. the log type that grows
      * here), by scanning loaded chunk palettes when a plan is made.
      */
