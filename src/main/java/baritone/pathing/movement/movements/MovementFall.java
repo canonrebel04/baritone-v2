@@ -53,16 +53,6 @@ public class MovementFall extends Movement {
     private static final ItemStack STACK_BUCKET_WATER = new ItemStack(Items.WATER_BUCKET);
     private static final ItemStack STACK_BUCKET_EMPTY = new ItemStack(Items.BUCKET);
 
-    /**
-     * Consecutive ticks the player has been floating (y velocity >= 0) in the destination
-     * water before we attempt to scoop it up. The first floating tick can still be a
-     * client-side artifact on high latency -- the server may not have processed the
-     * landing yet -- and scooping then removes the water the server still thinks the
-     * player is falling through, causing full fall damage death. A short dwell lets the
-     * server catch up with the immersion.
-     */
-    private int waterSettleTicks = 0;
-
     public MovementFall(IBaritone baritone, BetterBlockPos src, BetterBlockPos dest) {
         super(baritone, src, dest, MovementFall.buildPositionsToBreak(src, dest));
     }
@@ -101,7 +91,7 @@ public class MovementFall extends Movement {
         }
 
         BlockPos playerFeet = ctx.playerFeet();
-        Rotation toDest = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.calculateBlockCenter(ctx.world(), dest), ctx.playerRotations());
+        Rotation toDest = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.getBlockPosCenter(dest), ctx.playerRotations());
         Rotation targetRotation = null;
         BlockState destState = ctx.world().getBlockState(dest);
         Block destBlock = destState.getBlock();
@@ -136,14 +126,8 @@ public class MovementFall extends Movement {
                 if (Inventory.isHotbarSlot(ctx.player().getInventory().findSlotMatchingItem(STACK_BUCKET_EMPTY))) {
                     ctx.player().getInventory().setSelectedSlot(ctx.player().getInventory().findSlotMatchingItem(STACK_BUCKET_EMPTY));
                     if (ctx.player().getDeltaMovement().y >= 0) {
-                        // wait a couple of floating ticks before scooping so the server has
-                        // processed the landing and fluid immersion; see waterSettleTicks
-                        if (++waterSettleTicks >= 2) {
-                            return state.setInput(Input.CLICK_RIGHT, true);
-                        }
-                        return state;
+                        return state.setInput(Input.CLICK_RIGHT, true);
                     } else {
-                        waterSettleTicks = 0;
                         return state;
                     }
                 } else {
@@ -152,13 +136,10 @@ public class MovementFall extends Movement {
                     } // don't else return state; we need to stay centered because this water might be flowing under the surface
                 }
             } else {
-                waterSettleTicks = 0;
                 return state.setStatus(MovementStatus.SUCCESS);
             }
-        } else {
-            waterSettleTicks = 0; // not in the destination water; restart the dwell if we come back
         }
-        Vec3 destCenter = VecUtils.calculateBlockCenter(ctx.world(), dest); // we are moving to the 0.5 center not the edge (like if we were falling on a ladder)
+        Vec3 destCenter = VecUtils.getBlockPosCenter(dest); // we are moving to the 0.5 center not the edge (like if we were falling on a ladder)
         if (Math.abs(ctx.player().position().x + ctx.player().getDeltaMovement().x - destCenter.x) > 0.1 || Math.abs(ctx.player().position().z + ctx.player().getDeltaMovement().z - destCenter.z) > 0.1) {
             if (!ctx.player().onGround() && Math.abs(ctx.player().getDeltaMovement().y) > 0.4) {
                 state.setInput(Input.SNEAK, true);

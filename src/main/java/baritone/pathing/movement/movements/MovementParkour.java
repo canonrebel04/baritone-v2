@@ -176,7 +176,7 @@ public class MovementParkour extends Movement {
             if (placeCost >= COST_INF) {
                 continue;
             }
-            if (!MovementHelper.isReplaceable(context, destX, y - 1, destZ, toReplace)) {
+            if (!MovementHelper.isReplaceable(destX, y - 1, destZ, toReplace, context.bsi)) {
                 continue;
             }
             if (!checkOvershootSafety(context.bsi, destX + xDiff, y, destZ + zDiff)) {
@@ -189,7 +189,7 @@ public class MovementParkour extends Movement {
                 if (againstX == destX - xDiff && againstZ == destZ - zDiff) { // we can't turn around that fast
                     continue;
                 }
-                if (MovementHelper.canPlaceAgainst(context, againstX, againstY, againstZ)) {
+                if (MovementHelper.canPlaceAgainst(context.bsi, againstX, againstY, againstZ)) {
                     res.x = destX;
                     res.y = y;
                     res.z = destZ;
@@ -236,11 +236,6 @@ public class MovementParkour extends Movement {
             for (int y = 0; y < 2; y++) {
                 set.add(src.relative(direction, i).above(y));
             }
-        }
-        // the bot steps back one block behind the start to build up sprint momentum for
-        // long jumps; that position must also be valid, otherwise PathExecutor aborts the path
-        for (int y = 0; y < 2; y++) {
-            set.add(src.relative(direction, -1).above(y));
         }
         return set;
     }

@@ -72,7 +72,7 @@ public class MovementAscend extends Movement {
             if (additionalPlacementCost >= COST_INF) {
                 return COST_INF;
             }
-            if (!MovementHelper.isReplaceable(context, destX, y, destZ, toPlace)) {
+            if (!MovementHelper.isReplaceable(destX, y, destZ, toPlace, context.bsi)) {
                 return COST_INF;
             }
             boolean foundPlaceOption = false;
@@ -83,7 +83,7 @@ public class MovementAscend extends Movement {
                 if (againstX == x && againstZ == z) { // we might be able to backplace now, but it doesn't matter because it will have been broken by the time we'd need to use it
                     continue;
                 }
-                if (MovementHelper.canPlaceAgainst(context, againstX, againstY, againstZ)) {
+                if (MovementHelper.canPlaceAgainst(context.bsi, againstX, againstY, againstZ)) {
                     foundPlaceOption = true;
                     break;
                 }
@@ -122,13 +122,12 @@ public class MovementAscend extends Movement {
             return COST_INF;// the only thing we can ascend onto from a bottom slab is another bottom slab
         }
         double walk;
-        boolean jump = true; // P2-13: whether this ascend actually requires a jump (drives jumpPenalty)
         if (jumpingToBottomSlab) {
             if (jumpingFromBottomSlab) {
                 walk = Math.max(JUMP_ONE_BLOCK_COST, WALK_ONE_BLOCK_COST); // we hit space immediately on entering this action
+                walk += context.jumpPenalty;
             } else {
                 walk = WALK_ONE_BLOCK_COST; // we don't hit space we just walk into the slab
-                jump = false;
             }
         } else {
             // jumpingFromBottomSlab must be false
@@ -136,16 +135,9 @@ public class MovementAscend extends Movement {
                 walk = WALK_ONE_OVER_SOUL_SAND_COST;
             } else if (toPlace.is(Blocks.MAGMA_BLOCK)) {
                 walk = SNEAK_ONE_BLOCK_COST;
-            } else if (context.canStepUp) {
-                // P2-13: STEP_HEIGHT attribute >= 1.0, so a 1-block step-up is a plain walk
-                // (auto-step), not a jump: no JUMP_ONE_BLOCK_COST markup and no jump penalty
-                walk = WALK_ONE_BLOCK_COST;
-                jump = false;
             } else {
                 walk = Math.max(JUMP_ONE_BLOCK_COST, WALK_ONE_BLOCK_COST);
             }
-        }
-        if (jump) {
             walk += context.jumpPenalty;
         }
 
@@ -205,11 +197,8 @@ public class MovementAscend extends Movement {
             return state; // don't jump while walking from a non double slab into a bottom slab
         }
 
-        if (Baritone.settings().assumeStep.value
-                || ctx.playerFeet().equals(src.above())
-                || (MovementHelper.canStepUp(ctx) && ctx.player().onGround())) {
-            // no need to hit space if we're already jumping, or if the player's STEP_HEIGHT
-            // attribute (>= 1.0) lets auto-step carry them up the block
+        if (Baritone.settings().assumeStep.value || ctx.playerFeet().equals(src.above())) {
+            // no need to hit space if we're already jumping
             return state;
         }
 
@@ -243,21 +232,6 @@ public class MovementAscend extends Movement {
             BetterBlockPos check = startUp.relative(Direction.from2DDataValue(i));
             if (!MovementHelper.canWalkThrough(ctx, check)) {
                 // We might bonk our head
-                return false;
-            }
-        }
-        // also verify clearance above the destination: at the jump peak the head
-        // reaches ~src.y + 3.05, and dest.above(2) is not covered by the src check
-        // nor guaranteed walkable by movement validation, so a ceiling above the
-        // landing block would bonk the bot, kill its momentum, and drop it back
-        // into the gap
-        BetterBlockPos endUp = dest.above(2);
-        if (!MovementHelper.canWalkThrough(ctx, endUp)) {
-            return false;
-        }
-        for (int i = 0; i < 4; i++) {
-            BetterBlockPos check = endUp.relative(Direction.from2DDataValue(i));
-            if (!MovementHelper.canWalkThrough(ctx, check)) {
                 return false;
             }
         }

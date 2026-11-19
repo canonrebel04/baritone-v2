@@ -119,6 +119,13 @@ public class MovementPillar extends Movement {
                         return COST_INF;
                     }
                 }
+                // this is commented because it may have had a purpose, but it's very unclear what it was. it's from the minebot era.
+                //if (!MovementHelper.canWalkOn(context, chkPos, check) || MovementHelper.canWalkThrough(context, chkPos, check)) {//if the block above where we want to break is not a full block, don't do it
+                // TODO why does canWalkThrough mean this action is COST_INF?
+                // FallingBlock makes sense, and !canWalkOn deals with weird cases like if it were lava
+                // but I don't understand why canWalkThrough makes it impossible
+                //    return COST_INF;
+                //}
             }
         }
         if (ladder) {
@@ -142,8 +149,8 @@ public class MovementPillar extends Movement {
         BlockState fromDown = BlockStateInterface.get(ctx, src);
         if (MovementHelper.isWater(fromDown) && MovementHelper.isWater(ctx, dest)) {
             // stay centered while swimming up a water column
-            state.setTarget(new MovementState.MovementTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.calculateBlockCenter(ctx.world(), dest), ctx.playerRotations()), false));
-            Vec3 destCenter = VecUtils.calculateBlockCenter(ctx.world(), dest);
+            state.setTarget(new MovementState.MovementTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.getBlockPosCenter(dest), ctx.playerRotations()), false));
+            Vec3 destCenter = VecUtils.getBlockPosCenter(dest);
             if (Math.abs(ctx.player().position().x - destCenter.x) > 0.2 || Math.abs(ctx.player().position().z - destCenter.z) > 0.2) {
                 state.setInput(Input.MOVE_FORWARD, true);
             }
@@ -155,7 +162,7 @@ public class MovementPillar extends Movement {
         boolean ladder = MovementHelper.isClimbable(fromDown.getBlock());
 
         Rotation rotation = RotationUtils.calcRotationFromVec3d(ctx.playerHead(),
-                VecUtils.calculateBlockCenter(ctx.world(), positionToPlace),
+                VecUtils.getBlockPosCenter(positionToPlace),
                 ctx.playerRotations());
         if (!ladder) {
             state.setTarget(new MovementState.MovementTarget(ctx.playerRotations().withPitch(rotation.getPitch()), true));

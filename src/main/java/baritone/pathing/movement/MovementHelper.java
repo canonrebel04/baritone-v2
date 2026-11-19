@@ -34,8 +34,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
@@ -105,11 +103,11 @@ public interface MovementHelper extends ActionCosts, Helper {
                 && FallingBlock.isFree(bsi.get0(x, y - 1, z))) { // and if it would fall (i.e. it's unsupported)
             return true; // dont break a block that is adjacent to unsupported gravel because it can cause really weird stuff
         }
+        if (ignoreLiquids) {
+            return false;
+        }
         // only pure liquids for now
         // waterlogged blocks can have closed bottom sides and such
-        if (ignoreLiquids) {
-            return false; // mining-selection relaxation: caller (MineProcess) decided liquid adjacency is acceptable
-        }
         if (block instanceof LiquidBlock) {
             if (directlyAbove || Baritone.settings().strictLiquidCheck.value) {
                 return true;
@@ -335,22 +333,6 @@ public interface MovementHelper extends ActionCosts, Helper {
         return state.canBeReplaced();
     }
 
-    static boolean isReplaceable(CalculationContext context, int x, int y, int z, BlockState state) {
-        return context.precomputedData.isReplaceable(context.bsi, x, y, z, state);
-    }
-
-    static boolean isReplaceable(CalculationContext context, int x, int y, int z) {
-        return isReplaceable(context, x, y, z, context.get(x, y, z));
-    }
-
-    static boolean isBlockNormalCube(CalculationContext context, BlockState state) {
-        return context.precomputedData.isBlockNormalCube(state);
-    }
-
-    static boolean avoidWalkingInto(CalculationContext context, BlockState state) {
-        return context.precomputedData.avoidWalkingInto(state);
-    }
-
     static boolean isDoorPassable(IPlayerContext ctx, BlockPos doorPos, BlockPos playerPos) {
         if (playerPos.equals(doorPos)) {
             return false;
@@ -552,22 +534,6 @@ public interface MovementHelper extends ActionCosts, Helper {
     }
 
     /**
-     * Whether the player can walk up a full 1-block step without jumping, based on their
-     * STEP_HEIGHT attribute (vanilla base 0.6; a value >= 1.0 enables auto-stepping onto
-     * full blocks, e.g. from armor modifiers or potion effects).
-     * <p>
-     * Gated by the {@code honorStepHeight} setting: when disabled, this always returns false
-     * so step-ups keep the legacy jump behavior.
-     */
-    static boolean canStepUp(IPlayerContext ctx) {
-        if (!Baritone.settings().honorStepHeight.value) {
-            return false;
-        }
-        AttributeInstance stepHeight = ctx.player().getAttribute(Attributes.STEP_HEIGHT);
-        return stepHeight != null && stepHeight.getValue() >= 1.0;
-    }
-
-    /**
      * If movements make us stand/walk on this block, will it have a top to walk on?
      */
     static boolean mustBeSolidToWalkOn(CalculationContext context, int x, int y, int z, BlockState state) {
@@ -629,17 +595,6 @@ public interface MovementHelper extends ActionCosts, Helper {
         // (thats how this check is used)
         // therefore dont include weird things that we technically could place against (like carpet) but practically can't
         return isBlockNormalCube(state) || state.getBlock() == Blocks.GLASS || state.getBlock() instanceof StainedGlassBlock;
-    }
-
-    static boolean canPlaceAgainst(CalculationContext context, int x, int y, int z, BlockState state) {
-        if (!context.worldBorder.canPlaceAt(x, z)) {
-            return false;
-        }
-        return isBlockNormalCube(context, state) || state.getBlock() == Blocks.GLASS || state.getBlock() instanceof StainedGlassBlock;
-    }
-
-    static boolean canPlaceAgainst(CalculationContext context, int x, int y, int z) {
-        return canPlaceAgainst(context, x, y, z, context.get(x, y, z));
     }
 
     /**
@@ -706,40 +661,6 @@ public interface MovementHelper extends ActionCosts, Helper {
         switchToBestToolFor(ctx, b, new ToolSet(ctx.player()), BaritoneAPI.getSettings().preferSilkTouch.value);
     }
 
-    class InventoryDelayTracker {
-        private static int targetSlot = -1;
-        private static int executionTick = -1;
-        private static final java.util.Random random = new java.util.Random();
-
-        public static void requestSwap(IPlayerContext ctx, int slot) {
-            int currentSlot = ctx.player().getInventory().getSelectedSlot();
-            if (currentSlot == slot) {
-                targetSlot = -1;
-                executionTick = -1;
-                return;
-            }
-
-            int currentTick = ctx.player().tickCount;
-
-            if (targetSlot != slot) {
-                targetSlot = slot;
-                double val = 3.0 + random.nextGaussian() * 0.7;
-                int ticks = (int) Math.round(val);
-                if (ticks < 2) ticks = 2;
-                if (ticks > 4) ticks = 4;
-                executionTick = currentTick + ticks;
-            }
-
-            if (executionTick != -1 && currentTick >= executionTick) {
-                if (ctx.player().getInventory().getSelectedSlot() != targetSlot) {
-                    ctx.player().getInventory().setSelectedSlot(targetSlot);
-                }
-                targetSlot = -1;
-                executionTick = -1;
-            }
-        }
-    }
-
     /**
      * AutoTool for a specific block with precomputed ToolSet data
      *
@@ -749,26 +670,17 @@ public interface MovementHelper extends ActionCosts, Helper {
      */
     static void switchToBestToolFor(IPlayerContext ctx, BlockState b, ToolSet ts, boolean preferSilkTouch) {
         if (Baritone.settings().autoTool.value && !Baritone.settings().assumeExternalAutoTool.value) {
-            int bestSlot = ts.getBestSlot(b.getBlock(), preferSilkTouch);
-            if (Baritone.settings().inventoryDelay.value) {
-                InventoryDelayTracker.requestSwap(ctx, bestSlot);
-            } else {
-                ctx.player().getInventory().setSelectedSlot(bestSlot);
-            }
+            ctx.player().getInventory().setSelectedSlot(ts.getBestSlot(b.getBlock(), preferSilkTouch));
         }
     }
 
-    static void moveTowards(IPlayerContext ctx, MovementState state, Vec3 pos) {
+    static void moveTowards(IPlayerContext ctx, MovementState state, BlockPos pos) {
         state.setTarget(new MovementTarget(
                 RotationUtils.calcRotationFromVec3d(ctx.playerHead(),
-                        pos,
+                        VecUtils.getBlockPosCenter(pos),
                         ctx.playerRotations()).withPitch(ctx.playerRotations().getPitch()),
                 false
         )).setInput(Input.MOVE_FORWARD, true);
-    }
-
-    static void moveTowards(IPlayerContext ctx, MovementState state, BlockPos pos) {
-        moveTowards(ctx, state, VecUtils.calculateBlockCenter(ctx.world(), pos));
     }
 
     static void moveTowardsWithoutRotation(IPlayerContext ctx, MovementState state, float idealYaw) {
@@ -785,7 +697,7 @@ public interface MovementHelper extends ActionCosts, Helper {
     static void moveTowardsWithoutRotation(IPlayerContext ctx, MovementState state, BlockPos dest) {
         float idealYaw = RotationUtils.calcRotationFromVec3d(
                 ctx.playerHead(),
-                VecUtils.calculateBlockCenter(ctx.world(), dest),
+                VecUtils.getBlockPosCenter(dest),
                 ctx.playerRotations()
         ).getYaw();
         moveTowardsWithoutRotation(ctx, state, idealYaw);
@@ -794,7 +706,7 @@ public interface MovementHelper extends ActionCosts, Helper {
     static void moveTowardsWithSlightRotation(IPlayerContext ctx, MovementState state, BlockPos dest) {
         float idealYaw = RotationUtils.calcRotationFromVec3d(
                 ctx.playerHead(),
-                VecUtils.calculateBlockCenter(ctx.world(), dest),
+                VecUtils.getBlockPosCenter(dest),
                 ctx.playerRotations()
         ).getYaw();
         float distance = Rotation.yawDistanceFromOffset(ctx.playerRotations().getYaw(), idealYaw) % 45f;
@@ -907,7 +819,7 @@ public interface MovementHelper extends ActionCosts, Helper {
                     return PlaceResult.NO_OPTION;
                 }
                 double faceX = (placeAt.getX() + against1.getX() + 1.0D) * 0.5D;
-                double faceY = (placeAt.getY() + against1.getY() + 1.0D) * 0.5D;
+                double faceY = (placeAt.getY() + against1.getY() + 0.5D) * 0.5D;
                 double faceZ = (placeAt.getZ() + against1.getZ() + 1.0D) * 0.5D;
                 Rotation place = RotationUtils.calcRotationFromVec3d(wouldSneak ? RayTraceUtils.inferSneakingEyePosition(ctx.player()) : ctx.playerHead(), new Vec3(faceX, faceY, faceZ), ctx.playerRotations());
                 Rotation actual = baritone.getLookBehavior().getAimProcessor().peekRotation(place);

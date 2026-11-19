@@ -127,7 +127,7 @@ public class MovementTraverse extends Movement {
             if (MovementHelper.isClimbable(srcDownBlock)) {
                 return COST_INF;
             }
-            if (MovementHelper.isReplaceable(context, destX, y - 1, destZ, destOn)) {
+            if (MovementHelper.isReplaceable(destX, y - 1, destZ, destOn, context.bsi)) {
                 boolean throughWater = MovementHelper.isWater(pb0) || MovementHelper.isWater(pb1);
                 if (MovementHelper.isWater(destOn) && throughWater) {
                     // this happens when assume walk on water is true and this is a traverse in water, which isn't allowed
@@ -150,7 +150,7 @@ public class MovementTraverse extends Movement {
                     if (againstX == x && againstZ == z) { // this would be a backplace
                         continue;
                     }
-                    if (MovementHelper.canPlaceAgainst(context, againstX, againstY, againstZ)) { // found a side place option
+                    if (MovementHelper.canPlaceAgainst(context.bsi, againstX, againstY, againstZ)) { // found a side place option
                         return WC + placeCost + hardness1 + hardness2;
                     }
                 }
@@ -249,7 +249,7 @@ public class MovementTraverse extends Movement {
         BlockPos feet = ctx.playerFeet();
         if (feet.getY() != dest.getY() && !ladder) {
             logDebug("Wrong Y coordinate");
-            if (feet.getY() < dest.getY() && !(MovementHelper.canStepUp(ctx) && ctx.player().onGround())) {
+            if (feet.getY() < dest.getY()) {
                 System.out.println("In movement traverse");
                 return state.setInput(Input.JUMP, true);
             }
@@ -309,7 +309,7 @@ public class MovementTraverse extends Movement {
                 case ATTEMPTING: {
                     if (dist1 > 0.83) {
                         // might need to go forward a bit
-                        float yaw = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.calculateBlockCenter(ctx.world(), dest), ctx.playerRotations()).getYaw();
+                        float yaw = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.getBlockPosCenter(dest), ctx.playerRotations()).getYaw();
                         if (Math.abs(state.getTarget().rotation.getYaw() - yaw) < 0.1) {
                             // but only if our attempted place is straight ahead
                             return state.setInput(Input.MOVE_FORWARD, true);
@@ -336,7 +336,7 @@ public class MovementTraverse extends Movement {
                 float pitch = backToFace.getPitch();
                 double dist2 = Math.max(Math.abs(ctx.player().position().x - faceX), Math.abs(ctx.player().position().z - faceZ));
                 if (dist2 < 0.29) { // see issue #208
-                    float yaw = RotationUtils.calcRotationFromVec3d(VecUtils.calculateBlockCenter(ctx.world(), dest), ctx.playerHead(), ctx.playerRotations()).getYaw();
+                    float yaw = RotationUtils.calcRotationFromVec3d(VecUtils.getBlockPosCenter(dest), ctx.playerHead(), ctx.playerRotations()).getYaw();
                     state.setTarget(new MovementState.MovementTarget(new Rotation(yaw, pitch), true));
                     state.setInput(Input.MOVE_BACK, true);
                 } else {

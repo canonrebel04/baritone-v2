@@ -32,7 +32,6 @@ import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.movements.*;
 import baritone.utils.BlockStateInterface;
-import baritone.utils.MouseGCD;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.world.phys.Vec3;
@@ -76,23 +75,6 @@ public class PathExecutor implements IPathExecutor, Helper {
 
     private boolean sprintNextTick;
 
-    /**
-     * Deterministic humanize cadence: sprint continuously for this many ticks before
-     * dropping sprint for {@link #SPRINT_DROP_DURATION_TICKS} ticks. Fixed instead of
-     * random so the pattern is repeatable and doesn't look like sprint spam.
-     */
-    private static final int SPRINT_DROP_INTERVAL_TICKS = 80;
-
-    /** Fixed number of ticks sprint is dropped each time the cadence triggers. */
-    private static final int SPRINT_DROP_DURATION_TICKS = 3;
-
-    private int overshootTicksRemaining = 0;
-    private Rotation overshootRotation = null;
-    // Direction of the in-progress humanization overshoot, for lookahead safety checks
-    private int overshootOx = 0, overshootOz = 0;
-    private int ticksSprinting = 0;
-    private int sprintDropTicksRemaining = 0;
-
     public PathExecutor(PathingBehavior behavior, IPath path) {
         this.behavior = behavior;
         this.ctx = behavior.ctx;
@@ -107,35 +89,6 @@ public class PathExecutor implements IPathExecutor, Helper {
      * not sneaking out over lava), false otherwise
      */
     public boolean onTick() {
-        if (overshootTicksRemaining > 0) {
-            overshootTicksRemaining--;
-            if (overshootTicksRemaining == 0) {
-                overshootRotation = null;
-                pathPosition++;
-                onChangeInPathPosition();
-                onTick();
-                return true;
-            } else {
-                if (overshootRotation != null) {
-                    // Lookahead guard: the overshoot block was verified when the overshoot started,
-                    // but sprint momentum can carry past it mid-overshoot. Each tick, check the
-                    // block directly ahead (in the overshoot direction) of where the player is now;
-                    // if it's not safe to run into, cut the overshoot short.
-                    BlockPos ahead = ctx.playerFeet().offset(overshootOx, 0, overshootOz);
-                    BlockStateInterface bsiAhead = new BlockStateInterface(ctx);
-                    if (!MovementHelper.canWalkThrough(bsiAhead, ahead.getX(), ahead.getY(), ahead.getZ())
-                            || !MovementHelper.canWalkThrough(bsiAhead, ahead.getX(), ahead.getY() + 1, ahead.getZ())
-                            || !MovementHelper.canWalkOn(bsiAhead, ahead.getX(), ahead.getY() - 1, ahead.getZ())) {
-                        overshootTicksRemaining = Math.min(overshootTicksRemaining, 1);
-                    }
-                    behavior.baritone.getLookBehavior().updateTarget(overshootRotation, true);
-                }
-                behavior.baritone.getInputOverrideHandler().clearAllKeys();
-                behavior.baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
-                behavior.baritone.getInputOverrideHandler().setInputForceState(Input.SPRINT, true);
-                return false;
-            }
-        }
         if (pathPosition == path.length() - 1) {
             pathPosition++;
         }
@@ -240,8 +193,7 @@ public class PathExecutor implements IPathExecutor, Helper {
         if (costEstimateIndex == null || costEstimateIndex != pathPosition) {
             costEstimateIndex = pathPosition;
             // do this only once, when the movement starts, and deliberately get the cost as cached when this path was calculated, not the cost as it is right now
-            Double cost = movement.getCost();
-            currentMovementOriginalCostEstimate = cost != null ? cost : 0.0;
+            currentMovementOriginalCostEstimate = movement.getCost();
             for (int i = 1; i < Baritone.settings().costVerificationLookahead.value && pathPosition + i < path.length() - 1; i++) {
                 if (((Movement) path.movements().get(pathPosition + i)).calculateCost(behavior.secretInternalGetCalculationContext()) >= ActionCosts.COST_INF && canCancel) {
                     logDebug("Something has changed in the world and a future movement has become impossible. Cancelling.");
@@ -275,56 +227,6 @@ public class PathExecutor implements IPathExecutor, Helper {
             return true;
         }
         if (movementStatus == SUCCESS) {
-            if (Baritone.settings().humanizeMovements.value && pathPosition + 1 < path.movements().size()) {
-                Movement currentMov = (Movement) path.movements().get(pathPosition);
-                IMovement nextMov = path.movements().get(pathPosition + 1);
-                if (nextMov instanceof Movement) {
-                    Movement next = (Movement) nextMov;
-                    BlockPos src1 = currentMov.getSrc();
-                    BlockPos dest1 = currentMov.getDest();
-                    BlockPos src2 = next.getSrc();
-                    BlockPos dest2 = next.getDest();
-                    
-                    int dx1 = dest1.getX() - src1.getX();
-                    int dz1 = dest1.getZ() - src1.getZ();
-                    int dy1 = dest1.getY() - src1.getY();
-                    
-                    int dx2 = dest2.getX() - src2.getX();
-                    int dz2 = dest2.getZ() - src2.getZ();
-                    int dy2 = dest2.getY() - src2.getY();
-                    
-                    if (dy1 == 0 && dy2 == 0 && (dx1 != 0 || dz1 != 0) && (dx2 != 0 || dz2 != 0)) {
-                        if (dx1 != dx2 || dz1 != dz2) {
-                            int ox = dx1 > 0 ? 1 : (dx1 < 0 ? -1 : 0);
-                            int oz = dz1 > 0 ? 1 : (dz1 < 0 ? -1 : 0);
-                            BlockPos overshootPos = dest1.offset(ox, 0, oz);
-                            
-                            BlockStateInterface bsiTemp = new BlockStateInterface(ctx);
-                            if (MovementHelper.canWalkThrough(bsiTemp, overshootPos.getX(), overshootPos.getY(), overshootPos.getZ())
-                                    && MovementHelper.canWalkThrough(bsiTemp, overshootPos.getX(), overshootPos.getY() + 1, overshootPos.getZ())
-                                    && MovementHelper.canWalkOn(bsiTemp, overshootPos.getX(), overshootPos.getY() - 1, overshootPos.getZ())) {
-                                overshootTicksRemaining = new java.util.Random().nextInt(3) + 2;
-                                overshootOx = ox;
-                                overshootOz = oz;
-                                // GCD-quantize the overshoot rotation so the deltas fed to the look
-                                // behavior (and hence the server) are always multiples of the mouse
-                                // GCD — anti-cheats flag non-GCD rotation deltas.
-                                overshootRotation = MouseGCD.quantize(RotationUtils.calcRotationFromVec3d(
-                                        ctx.playerHead(),
-                                        VecUtils.getBlockPosCenter(overshootPos),
-                                        ctx.playerRotations()
-                                ), MouseGCD.step(ctx));
-                                
-                                behavior.baritone.getLookBehavior().updateTarget(overshootRotation, true);
-                                behavior.baritone.getInputOverrideHandler().clearAllKeys();
-                                behavior.baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
-                                behavior.baritone.getInputOverrideHandler().setInputForceState(Input.SPRINT, true);
-                                return false;
-                            }
-                        }
-                    }
-                }
-            }
             //System.out.println("Movement done, next path");
             pathPosition++;
             onChangeInPathPosition();
@@ -364,19 +266,6 @@ public class PathExecutor implements IPathExecutor, Helper {
         return new Pair<>(best, bestPos);
     }
 
-    /**
-     * Returns whether the player's feet are further than {@code leniency} blocks from
-     * every valid position of the current path. Used to detect when a temporary process
-     * (e.g. combat evasion) moved the player off-path while it held control, so the
-     * underlying process can cancel and re-path instead of resuming a stale path.
-     */
-    public boolean isPlayerOffPath(double leniency) {
-        if (path == null || path.movements().isEmpty()) {
-            return false;
-        }
-        return closestPathPos(path).first() > leniency;
-    }
-
     private boolean shouldPause() {
         Optional<AbstractNodeCostSearch> current = behavior.getInProgress();
         if (!current.isPresent()) {
@@ -408,6 +297,13 @@ public class PathExecutor implements IPathExecutor, Helper {
         // no need to pause our very last movement when it would have otherwise cleanly exited with MovementStatus SUCCESS
         positions = positions.subList(1, positions.size());
         return positions.contains(ctx.playerFeet());
+    }
+
+    public boolean isPlayerOffPath(double leniency) {
+        if (path == null || path.movements().isEmpty()) {
+            return false;
+        }
+        return closestPathPos(path).first() > leniency;
     }
 
     private boolean possiblyOffPath(Pair<Double, BlockPos> status, double leniency) {
@@ -442,22 +338,7 @@ public class PathExecutor implements IPathExecutor, Helper {
                 return false; // so don't
             }
         }
-        // indexOf would return the FIRST occurrence of the player feet, so on a path that
-        // loops over itself (visits the same block twice) the bot would snap back to the
-        // start of the loop every time and backtrack forever. Find the occurrence nearest
-        // to the current path position instead.
-        List<BetterBlockPos> positions = path.positions();
-        int index = -1;
-        int bestDist = Integer.MAX_VALUE;
-        for (int i = 0; i < positions.size(); i++) {
-            if (positions.get(i).equals(ctx.playerFeet())) {
-                int dist = Math.abs(i - pathPosition);
-                if (dist < bestDist) {
-                    bestDist = dist;
-                    index = i;
-                }
-            }
-        }
+        int index = path.positions().indexOf(ctx.playerFeet());
         if (index == -1) {
             return false;
         }
@@ -467,38 +348,6 @@ public class PathExecutor implements IPathExecutor, Helper {
     }
 
     private boolean shouldSprintNextTick() {
-        boolean normalSprint = shouldSprintNextTick0();
-        if (normalSprint) {
-            if (Baritone.settings().humanizeMovements.value) {
-                if (sprintDropTicksRemaining > 0) {
-                    sprintDropTicksRemaining--;
-                    return false;
-                }
-
-                ticksSprinting++;
-                if (ticksSprinting >= SPRINT_DROP_INTERVAL_TICKS) {
-                    // Deterministic cadence: after sprinting for a fixed interval, drop sprint
-                    // for a fixed few ticks, then resume. No randomness, so the sprint on/off
-                    // pattern is always the same instead of looking like sprint spam.
-                    sprintDropTicksRemaining = SPRINT_DROP_DURATION_TICKS;
-                    ticksSprinting = 0;
-                    return false;
-                }
-            } else {
-                ticksSprinting = 0;
-                sprintDropTicksRemaining = 0;
-            }
-        } else {
-            // Sprint is genuinely inappropriate right now (sharp corner, diagonal turn,
-            // unsafe descend, ...) -- drop it. Reset the counters so the deterministic
-            // cadence restarts fresh when sprint resumes.
-            ticksSprinting = 0;
-            sprintDropTicksRemaining = 0;
-        }
-        return normalSprint;
-    }
-
-    private boolean shouldSprintNextTick0() {
         boolean requested = behavior.baritone.getInputOverrideHandler().isInputForcedDown(Input.SPRINT);
 
         // we'll take it from here, no need for minecraft to see we're holding down control and sprint for us

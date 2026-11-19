@@ -38,7 +38,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
 
 public class MovementDiagonal extends Movement {
 
@@ -167,7 +166,7 @@ public class MovementDiagonal extends Movement {
             return;
         }
         BlockState cuttingOver2 = context.get(destX, y - 1, z);
-        if ((!context.allowWalkOnMagmaBlocks && cuttingOver2.is(Blocks.MAGMA_BLOCK)) || MovementHelper.isLava(cuttingOver2)) {
+        if ((!context.allowWalkOnMagmaBlocks && cuttingOver1.is(Blocks.MAGMA_BLOCK)) || MovementHelper.isLava(cuttingOver2)) {
             return;
         }
         boolean water = false;
@@ -201,7 +200,7 @@ public class MovementDiagonal extends Movement {
                     || (!BTop && BMid && BLow)) { // head bonk B
                 return;
             }
-            res.cost = multiplier * SQRT_2 + (context.canStepUp ? 0 : JUMP_ONE_BLOCK_COST); // P2-13: with auto-step, a 1-block diagonal step-up costs a plain walk
+            res.cost = multiplier * SQRT_2 + JUMP_ONE_BLOCK_COST;
             res.x = destX;
             res.z = destZ;
             res.y = y + 1;
@@ -272,73 +271,14 @@ public class MovementDiagonal extends Movement {
         } else if (!playerInValidPosition() && !(MovementHelper.isLiquid(ctx, src) && getValidPositions().contains(ctx.playerFeet().above()))) {
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
-        if (dest.y > src.y && ctx.player().position().y < src.y + 0.1 && ctx.player().horizontalCollision
-                && !(MovementHelper.canStepUp(ctx) && ctx.player().onGround())) {
-            // P2-13: with STEP_HEIGHT >= 1.0 and the player grounded, auto-step carries the
-            // player up the 1-block step, so the bump-jump is not needed
+        if (dest.y > src.y && ctx.player().position().y < src.y + 0.1 && ctx.player().horizontalCollision) {
             state.setInput(Input.JUMP, true);
         }
         if (sprint()) {
             state.setInput(Input.SPRINT, true);
         }
         state.setInput(Input.SNEAK, Baritone.settings().allowWalkOnMagmaBlocks.value && MovementHelper.steppingOnBlocks(ctx).stream().anyMatch(block -> ctx.world().getBlockState(block).is(Blocks.MAGMA_BLOCK)));
-
-        int dx = dest.x - src.x;
-        int dz = dest.z - src.z;
-
-        // Corner-routing waypoint. The plain vertex midpoint (src + 0.5 + 0.5*delta) is the
-        // exact corner point where the hitbox meets the solid block, so steering into it
-        // walks the bot into the corner edge, where it stops dead and stares at the vertex.
-        // When one cutting cell is solid (edging around a corner), route through the center
-        // of the OPEN cell instead -- an L-path that hugs the block side and flows around it.
-        double midX;
-        double midZ;
-        boolean cellAOpen = MovementHelper.canWalkThrough(ctx, new BetterBlockPos(src.x, src.y, dest.z))
-                && MovementHelper.canWalkThrough(ctx, new BetterBlockPos(src.x, src.y + 1, dest.z));
-        boolean cellBOpen = MovementHelper.canWalkThrough(ctx, new BetterBlockPos(dest.x, src.y, src.z))
-                && MovementHelper.canWalkThrough(ctx, new BetterBlockPos(dest.x, src.y + 1, src.z));
-        if (cellAOpen && !cellBOpen) {
-            // solid cell at (dest.x, src.z): go south/north through (src.x, dest.z) first
-            midX = src.x + 0.5;
-            midZ = dest.z + 0.5;
-        } else if (cellBOpen && !cellAOpen) {
-            // solid cell at (src.x, dest.z): go east/west through (dest.x, src.z) first
-            midX = dest.x + 0.5;
-            midZ = src.z + 0.5;
-        } else {
-            // pure diagonal (both cells open) or invalid (both solid): plain vertex midpoint
-            midX = src.x + 0.5 + 0.5 * dx;
-            midZ = src.z + 0.5 + 0.5 * dz;
-        }
-
-        double playerX = ctx.player().position().x;
-        double playerZ = ctx.player().position().z;
-
-        // For an edging wrap (one cutting cell solid), the turn toward dest must fire
-        // only AFTER the player has crossed the waypoint's coordinate on the axis it
-        // travels FIRST (the L-path: leg 1 along the open cell, leg 2 toward dest).
-        // A projection onto the travel direction fires too early on drifted approaches
-        // (bot still south of the waypoint but drifting east) and jams it into the
-        // corner edge, where it sits facing the vertex. Pure diagonals keep the plain
-        // projection check — the vertex waypoint lies directly on the line of travel.
-        boolean reachedWaypoint;
-        if (cellAOpen && !cellBOpen) {
-            // solid at (dest.x, src.z): L-path travels along Z first (src.z -> dest.z)
-            // through the open cell at (src.x, dest.z), then along X to dest.
-            reachedWaypoint = (playerZ - midZ) * dz >= -0.2;
-        } else if (cellBOpen && !cellAOpen) {
-            // solid at (src.x, dest.z): L-path travels along X first (src.x -> dest.x)
-            // through the open cell at (dest.x, src.z), then along Z to dest.
-            reachedWaypoint = (playerX - midX) * dx >= -0.2;
-        } else {
-            reachedWaypoint = ((playerX - midX) * dx + (playerZ - midZ) * dz) >= 0;
-        }
-
-        if (reachedWaypoint) {
-            MovementHelper.moveTowards(ctx, state, dest);
-        } else {
-            MovementHelper.moveTowards(ctx, state, new Vec3(midX, src.y, midZ));
-        }
+        MovementHelper.moveTowards(ctx, state, dest);
         return state;
     }
 

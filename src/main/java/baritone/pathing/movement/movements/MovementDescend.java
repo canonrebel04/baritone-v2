@@ -204,8 +204,7 @@ public class MovementDescend extends Movement {
                 return false; // falling onto a half slab is really glitchy, and can cause more fall damage than we'd expect
             }
             if (reachedMinimum && unprotectedFallHeight <= context.maxFallHeightNoWater + 1) {
-                // fallHeight = maxFallHeightNoWater + 1 means onto.up() is maxFallHeightNoWater blocks down,
-                // which is the max safe fall distance (SAFE_FALL_DISTANCE attribute, incl. Feather Falling)
+                // fallHeight = 4 means onto.up() is 3 blocks down, which is the max
                 res.x = destX;
                 res.y = newY + 1;
                 res.z = destZ;
