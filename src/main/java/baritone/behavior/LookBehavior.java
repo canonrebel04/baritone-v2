@@ -27,12 +27,20 @@ import baritone.api.behavior.look.ITickableAimProcessor;
 import baritone.api.event.events.*;
 import baritone.api.utils.IPlayerContext;
 import baritone.api.utils.Rotation;
+import baritone.api.event.events.type.EventState;
+import baritone.api.utils.BetterBlockPos;
 import baritone.behavior.look.ForkableRandom;
+import baritone.behavior.look.LookProfile;
+import baritone.behavior.look.MicroMotion;
+import baritone.behavior.look.SaccadeAimController;
+import baritone.pathing.path.PathExecutor;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import baritone.utils.MouseGCD;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.Optional;
 
 public final class LookBehavior extends Behavior implements ILookBehavior {
@@ -85,10 +93,47 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
      */
     private static final double SMOOTH_RESYNC_EPSILON = 5.0;
 
+    /** Ticks a silent rotation keeps easing back to the camera after it ends. */
+    private static final int SERVER_RETURN_MAX_TICKS = 20;
+
+    /** Ticks of "nothing to look at" before idle gaze starts drifting. */
+    private static final int IDLE_GAZE_DELAY_TICKS = 30;
+
+    /** Profile-driven aim controllers (plan S1-S8) for the visible camera and the silent server rotation. */
+    private final SaccadeAimController clientAim;
+    private final SaccadeAimController serverAim;
+
+    /** Correlated micro-noise / idle drift source (plan S5, S10, S13). */
+    private final MicroMotion micro;
+
+    /** S11: set from the network thread when the server teleports/sets us back. */
+    private volatile boolean setbackPending;
+    private int setbackTicks;
+
+    private int serverReturnTicks;
+
+    private int idleTicks;
+    private boolean idleBlocked;
+    private Rotation idleBase;
+
+    /** The camera rotation Baritone wrote last tick (to detect the user taking over during idle gaze). */
+    private Rotation lastCameraWrite;
+    private Rotation pendingCameraWrite;
+
+    /** This tick's planned rotation (see {@link #ensurePlanned}). */
+    private boolean planValid;
+    private Rotation planned;
+    /** Whether movement this tick should use {@link #planned} instead of the raw target. */
+    private boolean plannedConsistent;
+
     public LookBehavior(Baritone baritone) {
         super(baritone);
         this.processor = new AimProcessor(baritone.getPlayerContext());
         this.hub = new LookPriorityHub();
+        final long seed = System.nanoTime() ^ 0x5DEECE66DL;
+        this.clientAim = new SaccadeAimController(seed);
+        this.serverAim = new SaccadeAimController(seed * 31);
+        this.micro = new MicroMotion(seed * 131);
     }
 
     @Override
@@ -107,11 +152,14 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
         // look-drift loop. Re-inject the marker after quantizing.
         final boolean holdPitchMarker = Math.abs(rotation.getPitch()
                 - (ctx.playerRotations().getPitch() + 0.0001f)) < 0.00005f;
+        // The movement doesn't care about pitch (moveTowards keeps the current pitch): S9 gaze may replace it.
+        final boolean pitchFree = !blockInteract
+                && Math.abs(rotation.getPitch() - ctx.playerRotations().getPitch()) < 0.00005f;
         rotation = MouseGCD.quantize(rotation, gcdStep);
         if (holdPitchMarker) {
             rotation = new Rotation(rotation.getYaw(), ctx.playerRotations().getPitch() + 0.0001f);
         }
-        this.target = new Target(rotation, Target.Mode.resolve(ctx, blockInteract), blockInteract);
+        this.target = new Target(rotation, Target.Mode.resolve(ctx, blockInteract), blockInteract, pitchFree);
     }
 
     @Override
@@ -131,81 +179,8 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     public void onPlayerUpdate(PlayerUpdateEvent event) {
         switch (event.getState()) {
             case PRE: {
-                // Resolve active look request (highest priority between external hub requests and Baritone internal target)
-                Optional<ILookRequest> highestExternal = this.hub.getHighestPriorityRequest();
-
-                Rotation targetRotation = null;
-                Target.Mode targetMode = Target.Mode.NONE;
-                boolean blockInteract = false;
-                Boolean customSmooth = null;
-
-                if (highestExternal.isPresent() && (this.target == null || highestExternal.get().getPriority() > ILookPriorityHub.DEFAULT_BARITONE_PRIORITY)) {
-                    ILookRequest req = highestExternal.get();
-                    targetRotation = req.getRotation();
-                    if (targetRotation != null) {
-                        blockInteract = req.isBlockInteract();
-                        customSmooth = req.isSmooth();
-                        if (req.isSilent()) {
-                            targetMode = Target.Mode.SERVER;
-                        } else {
-                            targetMode = Target.Mode.resolve(ctx, blockInteract);
-                        }
-                    }
-                }
-
-                if (targetRotation == null && this.target != null) {
-                    targetRotation = this.target.rotation;
-                    targetMode = this.target.mode;
-                    blockInteract = this.target.blockInteract;
-                }
-
-                if (targetRotation == null || targetMode == Target.Mode.NONE) {
-                    this.lastAppliedMode = targetMode;
-                    this.chase = null;
-                    return;
-                }
-
-                this.lastAppliedMode = targetMode;
-                final Rotation actual = this.processor.peekRotation(targetRotation, blockInteract);
-
-                if (targetMode == Target.Mode.SERVER) {
-                    this.prevRotation = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
-                    // GCD-quantize so the silent rotation stream only contains angles reachable by
-                    // real mouse input at the player's current sensitivity.
-                    final float gcdStep = MouseGCD.step(ctx);
-                    ctx.player().setYRot(MouseGCD.quantize(actual.getYaw(), gcdStep));
-                    ctx.player().setXRot(MouseGCD.quantize(actual.getPitch(), gcdStep));
-                } else if (targetMode == Target.Mode.CLIENT) {
-                    boolean useSmooth;
-                    if (customSmooth != null) {
-                        useSmooth = customSmooth;
-                    } else {
-                        useSmooth = ctx.player().isFallFlying()
-                                ? Baritone.settings().elytraSmoothLook.value
-                                : Baritone.settings().smoothLook.value;
-                    }
-
-                    final float gcdStep = MouseGCD.step(ctx);
-                    if (useSmooth) {
-                        Rotation current = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
-
-                        double maxTurn = Baritone.settings().maxLookTurnSpeed.value;
-                        if (blockInteract) {
-                            maxTurn = Math.max(maxTurn, 65.0);
-                        }
-
-                        // Continuous quantized-space chase: critically-damped spring toward a live
-                        // target, integrated in GCD-step units — applied camera positions always
-                        // lie on the path, and re-targets preserve velocity (no restarts, no jitter).
-                        Rotation smoothed = this.smoothRotation(current, actual, (float) maxTurn,
-                                Baritone.settings().smoothLookTicks.value);
-                        ctx.player().setYRot(MouseGCD.quantize(smoothed.getYaw(), gcdStep));
-                        ctx.player().setXRot(MouseGCD.quantize(smoothed.getPitch(), gcdStep));
-                    } else {
-                        ctx.player().setYRot(MouseGCD.quantize(actual.getYaw(), gcdStep));
-                        ctx.player().setXRot(MouseGCD.quantize(actual.getPitch(), gcdStep));
-                    }
-                }
+                this.ensurePlanned();
+                this.applyPlanned();
                 break;
             }
             case POST: {
@@ -220,10 +195,350 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
                 this.lastAppliedMode = null;
                 // The target is done being used for this game tick, so it can be invalidated
                 this.target = null;
+                if (this.pendingCameraWrite != null) {
+                    this.lastCameraWrite = this.pendingCameraWrite;
+                    this.pendingCameraWrite = null;
+                }
+                this.planned = null;
+                this.plannedConsistent = false;
+                this.planValid = false;
                 break;
             }
             default:
                 break;
+        }
+    }
+
+    /**
+     * Plans this tick's rotation once. Called from whichever runs first: the movement-direction hook
+     * ({@link #onPlayerRotationMove}, during {@code aiStep}) or the PRE player update, so the yaw the player moves
+     * with and the yaw sent to the server are the same value (anticheat movement simulation consistency).
+     */
+    private void ensurePlanned() {
+        if (this.planValid) {
+            return;
+        }
+        this.planValid = true;
+        this.planned = null;
+        this.plannedConsistent = false;
+        this.planTick();
+    }
+
+    /** Records the rotation to write this tick (GCD-quantized). */
+    private void plan(Rotation rotation, float gcdStep, boolean consistent) {
+        this.planned = new Rotation(MouseGCD.quantize(rotation.getYaw(), gcdStep), MouseGCD.quantize(rotation.getPitch(), gcdStep));
+        this.plannedConsistent = consistent;
+    }
+
+    /** Writes the planned rotation at PRE (before the movement packet is sent). */
+    private void applyPlanned() {
+        if (this.planned == null) {
+            return;
+        }
+        if (this.lastAppliedMode == Target.Mode.SERVER) {
+            this.prevRotation = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
+        }
+        ctx.player().setYRot(this.planned.getYaw());
+        ctx.player().setXRot(this.planned.getPitch());
+        if (this.lastAppliedMode == Target.Mode.CLIENT) {
+            this.pendingCameraWrite = this.planned;
+        }
+    }
+
+    /**
+     * PRE player update: arbitrate the winning rotation (hub requests vs. Baritone's own target, plan S15),
+     * then apply it through the active smoothing profile. Runs after {@code AbstractClientPlayer.tick()}, i.e.
+     * after the entity's {@code yRotO/xRotO} were latched for this tick, so vanilla's partial-tick camera lerp
+     * renders every write smoothly per frame instead of stair-stepping at 20 Hz (plan S2).
+     */
+    private void planTick() {
+        final Settings settings = Baritone.settings();
+        final LookProfile profile = LookProfile.parse(settings.lookProfile.value);
+
+        // S11: ease out of server corrections instead of whipping straight back to the target.
+        final int easeTicks = Math.max(0, settings.lookSetbackEaseTicks.value);
+        if (this.setbackPending) {
+            this.setbackPending = false;
+            this.setbackTicks = easeTicks;
+            this.chase = null;
+            this.clientAim.invalidate();
+            this.serverAim.invalidate();
+            this.serverReturnTicks = 0;
+        }
+        final double turnScale = this.setbackTicks > 0 && easeTicks > 0
+                ? 0.25 + 0.75 * (1.0 - (double) this.setbackTicks / easeTicks)
+                : 1.0;
+        if (this.setbackTicks > 0) {
+            this.setbackTicks--;
+        }
+
+        // S13: micro-motion phase is stride-coupled
+        final double walked = Math.hypot(ctx.player().getX() - ctx.player().xo, ctx.player().getZ() - ctx.player().zo);
+        this.micro.tick(walked);
+
+        // Resolve active look request (highest priority between external hub requests and Baritone internal target)
+        Optional<ILookRequest> highestExternal = this.hub.getHighestPriorityRequest();
+
+        Rotation targetRotation = null;
+        Target.Mode targetMode = Target.Mode.NONE;
+        boolean blockInteract = false;
+        boolean pitchFree = false;
+        Boolean customSmooth = null;
+
+        if (highestExternal.isPresent() && (this.target == null || highestExternal.get().getPriority() > ILookPriorityHub.DEFAULT_BARITONE_PRIORITY)) {
+            ILookRequest req = highestExternal.get();
+            targetRotation = req.getRotation();
+            if (targetRotation != null) {
+                blockInteract = req.isBlockInteract();
+                customSmooth = req.isSmooth();
+                if (req.isCamera()) {
+                    targetMode = Target.Mode.CLIENT;
+                } else if (req.isSilent()) {
+                    targetMode = Target.Mode.SERVER;
+                } else {
+                    targetMode = Target.Mode.resolve(ctx, blockInteract);
+                }
+            }
+        }
+
+        if (targetRotation == null && this.target != null) {
+            targetRotation = this.target.rotation;
+            targetMode = this.target.mode;
+            blockInteract = this.target.blockInteract;
+            pitchFree = this.target.pitchFree;
+        }
+
+        final boolean flying = ctx.player().isFallFlying();
+        final boolean legacy = profile.isLegacy() || flying;
+
+        if (targetRotation == null || targetMode == Target.Mode.NONE) {
+            this.chase = null;
+            if (targetRotation == null && !legacy && this.tryServerReturn(settings, profile, turnScale)) {
+                this.clientAim.invalidate();
+                this.idleTicks = 0;
+                return;
+            }
+            this.serverAim.invalidate();
+            this.serverReturnTicks = 0;
+            if (targetRotation == null && !legacy) {
+                if (this.tryIdleGaze(settings, profile, turnScale)) {
+                    return;
+                }
+            } else {
+                this.idleTicks = 0;
+            }
+            if (this.idleTicks == 0) {
+                // Not idling (or idle gaze not allowed): the camera controller restarts from the camera next time
+                this.clientAim.invalidate();
+            }
+            this.lastAppliedMode = targetMode;
+            return;
+        }
+        this.idleTicks = 0;
+
+        // S9: look at the ground a few blocks ahead on the path when the movement doesn't care about pitch
+        boolean gazeApplied = false;
+        if (pitchFree && !blockInteract && !legacy && profile.gaze && settings.lookPathGaze.value) {
+            final double gaze = this.pathGazePitch(walked);
+            if (!Double.isNaN(gaze)) {
+                targetRotation = new Rotation(targetRotation.getYaw(), (float) gaze);
+                gazeApplied = true;
+            }
+        }
+
+        this.lastAppliedMode = targetMode;
+        Rotation actual = this.processor.peekRotation(targetRotation, blockInteract || gazeApplied);
+
+        // S5 + S12: correlated micro-noise, never on block interaction and never while the hurt tilt plays
+        if (!blockInteract && !legacy && settings.lookMicroNoise.value && profile.noiseAmplitude > 0
+                && ctx.player().hurtTime <= 0) {
+            actual = new Rotation(
+                    (float) (actual.getYaw() + this.micro.noiseYaw(profile.noiseAmplitude)),
+                    (float) Math.max(-90.0, Math.min(90.0, actual.getPitch() + this.micro.noisePitch(profile.noiseAmplitude)))
+            );
+        }
+
+        final float gcdStep = MouseGCD.step(ctx);
+        if (targetMode == Target.Mode.SERVER) {
+            this.clientAim.invalidate();
+            this.chase = null;
+            boolean smoothServer = customSmooth != null ? customSmooth : settings.smoothSilentLook.value;
+            if (smoothServer && !legacy) {
+                // Silent rotations are exactly what anticheat sees: smooth them with the same profile.
+                Rotation from = this.serverRotation != null ? this.serverRotation
+                        : new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
+                Rotation smoothed = this.stepAim(this.serverAim, from, actual, profile,
+                        this.maxTurn(settings, blockInteract) * turnScale, blockInteract, gcdStep);
+                this.plan(smoothed, gcdStep, true);
+                this.serverReturnTicks = SERVER_RETURN_MAX_TICKS;
+            } else {
+                // GCD-quantize so the silent rotation stream only contains angles reachable by
+                // real mouse input at the player's current sensitivity.
+                this.serverAim.invalidate();
+                this.plan(actual, gcdStep, false);
+            }
+        } else if (targetMode == Target.Mode.CLIENT) {
+            this.serverAim.invalidate();
+            this.serverReturnTicks = 0;
+            boolean useSmooth;
+            if (customSmooth != null) {
+                useSmooth = customSmooth;
+            } else {
+                useSmooth = flying
+                        ? settings.elytraSmoothLook.value
+                        : settings.smoothLook.value;
+            }
+
+            if (useSmooth) {
+                Rotation current = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
+                double maxTurn = this.maxTurn(settings, blockInteract) * turnScale;
+                Rotation smoothed;
+                if (legacy) {
+                    this.clientAim.invalidate();
+                    // Continuous quantized-space chase: critically-damped spring toward a live
+                    // target, integrated in GCD-step units — applied camera positions always
+                    // lie on the path, and re-targets preserve velocity (no restarts, no jitter).
+                    smoothed = this.smoothRotation(current, actual, (float) maxTurn, settings.smoothLookTicks.value);
+                } else {
+                    this.chase = null;
+                    smoothed = this.stepAim(this.clientAim, current, actual, profile, maxTurn, blockInteract, gcdStep);
+                }
+                this.plan(smoothed, gcdStep, !legacy);
+            } else {
+                this.clientAim.invalidate();
+                this.chase = null;
+                this.plan(actual, gcdStep, false);
+            }
+        }
+    }
+
+    private double maxTurn(Settings settings, boolean blockInteract) {
+        double maxTurn = settings.maxLookTurnSpeed.value;
+        if (blockInteract) {
+            maxTurn = Math.max(maxTurn, 65.0);
+        }
+        return maxTurn;
+    }
+
+    /**
+     * Advances a profile-driven aim controller one tick (S1/S3/S4/S6/S7/S8). If the real rotation was displaced
+     * externally (mouse, other mod, teleport) the controller restarts from where the rotation actually is.
+     */
+    private Rotation stepAim(SaccadeAimController aim, Rotation current, Rotation target, LookProfile profile,
+                             double maxTurn, boolean precise, float gcdStep) {
+        if (!aim.isInitialized()
+                || rotationDistance(new Rotation((float) aim.yaw(), (float) aim.pitch()), current) > SMOOTH_RESYNC_EPSILON) {
+            aim.reset(current.getYaw(), current.getPitch());
+        }
+        aim.setSnapEpsilon(gcdStep * 0.5);
+        aim.step(target.getYaw(), target.getPitch(), profile, maxTurn, precise);
+        return new Rotation((float) aim.yaw(), (float) aim.pitch());
+    }
+
+    /**
+     * After a smoothed silent rotation ends, keep easing the server-side rotation back to the camera for a few
+     * ticks instead of letting the next movement packet snap straight to it.
+     */
+    private boolean tryServerReturn(Settings settings, LookProfile profile, double turnScale) {
+        if (this.serverReturnTicks <= 0 || !this.serverAim.isInitialized() || !settings.smoothSilentLook.value) {
+            return false;
+        }
+        this.serverReturnTicks--;
+        final Rotation camera = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
+        final float gcdStep = MouseGCD.step(ctx);
+        final Rotation from = this.serverRotation != null ? this.serverRotation : camera;
+        final Rotation smoothed = this.stepAim(this.serverAim, from, camera, profile,
+                this.maxTurn(settings, false) * turnScale, false, gcdStep);
+        if (rotationDistance(smoothed, camera) <= gcdStep) {
+            this.serverReturnTicks = 0;
+            this.serverAim.invalidate();
+            this.lastAppliedMode = Target.Mode.NONE;
+            return true;
+        }
+        this.plan(smoothed, gcdStep, true);
+        this.lastAppliedMode = Target.Mode.SERVER;
+        return true;
+    }
+
+    /**
+     * S10 idle gaze: while a Baritone process is in control but nothing asked for a rotation this tick, drift the
+     * camera slowly around where it was instead of freezing it. Never with free look (the camera is the user's),
+     * never with a screen open, and it stops for the rest of the idle period as soon as the user moves the mouse.
+     */
+    private boolean tryIdleGaze(Settings settings, LookProfile profile, double turnScale) {
+        if (!profile.gaze || !settings.lookIdleGaze.value || settings.freeLook.value
+                || ctx.minecraft().gui.screen() != null
+                || !this.baritone.getPathingControlManager().mostRecentInControl().isPresent()) {
+            this.idleTicks = 0;
+            return false;
+        }
+        final Rotation camera = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
+        if (this.idleTicks == 0) {
+            this.idleBlocked = false;
+        }
+        if (this.idleTicks < IDLE_GAZE_DELAY_TICKS) {
+            // Waiting: keep following the camera so the drift starts from wherever it is when it kicks in
+            this.idleBase = camera;
+            this.idleTicks++;
+            if (this.idleTicks == IDLE_GAZE_DELAY_TICKS) {
+                this.clientAim.reset(camera.getYaw(), camera.getPitch());
+                this.lastCameraWrite = camera;
+            }
+            return false;
+        }
+        if (this.idleBlocked || (this.lastCameraWrite != null && rotationDistance(this.lastCameraWrite, camera) > 0.01)) {
+            this.idleBlocked = true; // the user (or another mod) moved the camera: hands off until idle restarts
+            return false;
+        }
+        final float gcdStep = MouseGCD.step(ctx);
+        final Rotation target = new Rotation(
+                (float) (this.idleBase.getYaw() + this.micro.idleYaw()),
+                (float) Math.max(-90.0, Math.min(90.0, this.idleBase.getPitch() + this.micro.idlePitch())));
+        final Rotation smoothed = this.stepAim(this.clientAim, camera, target, profile,
+                Math.min(6.0, this.maxTurn(settings, false)) * turnScale, false, gcdStep);
+        this.plan(smoothed, gcdStep, true);
+        this.lastAppliedMode = Target.Mode.CLIENT;
+        return true;
+    }
+
+    /**
+     * S9 + S13: pitch that looks at the path's ground a speed-dependent distance ahead, or NaN when not pathing.
+     */
+    private double pathGazePitch(double speed) {
+        final PathExecutor current = this.baritone.getPathingBehavior().getCurrent();
+        if (current == null) {
+            return Double.NaN;
+        }
+        final List<BetterBlockPos> positions = current.getPath().positions();
+        final int index = current.getPosition();
+        if (index < 0 || index >= positions.size() - 1) {
+            return Double.NaN;
+        }
+        final double want = MicroMotion.gazeDistance(speed);
+        final double eyeX = ctx.player().getX();
+        final double eyeY = ctx.player().getEyeY();
+        final double eyeZ = ctx.player().getZ();
+        BetterBlockPos node = null;
+        double horizontal = 0;
+        final int last = Math.min(positions.size() - 1, index + 16);
+        for (int i = index + 1; i <= last; i++) {
+            node = positions.get(i);
+            horizontal = Math.hypot(node.x + 0.5 - eyeX, node.z + 0.5 - eyeZ);
+            if (horizontal >= want) {
+                break;
+            }
+        }
+        if (node == null || horizontal < 1.0) {
+            return Double.NaN;
+        }
+        return MicroMotion.gazePitch(eyeY, node.y, horizontal);
+    }
+
+    /** S11: called from the network thread, consumed on the next PRE. */
+    @Override
+    public void onReceivePacket(PacketEvent event) {
+        if (event.getState() == EventState.PRE && event.getPacket() instanceof ClientboundPlayerPositionPacket) {
+            this.setbackPending = true;
         }
     }
 
@@ -244,6 +559,14 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
         this.serverRotation = null;
         this.target = null;
         this.hub.clear();
+        this.chase = null;
+        this.clientAim.invalidate();
+        this.serverAim.invalidate();
+        this.serverReturnTicks = 0;
+        this.idleTicks = 0;
+        this.lastCameraWrite = null;
+        this.planValid = false;
+        this.planned = null;
     }
 
     private Rotation getWinningRotation() {
@@ -413,6 +736,13 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
     @Override
     public void onPlayerRotationMove(RotationMoveEvent event) {
+        this.ensurePlanned();
+        if (this.planned != null && this.plannedConsistent) {
+            // Move with exactly the (smoothed) rotation that is about to be sent to the server
+            event.setYaw(this.planned.getYaw());
+            event.setPitch(this.planned.getPitch());
+            return;
+        }
         Rotation winning = getWinningRotation();
         if (winning != null) {
             final boolean blockInteract = this.target != null && this.target.blockInteract;
@@ -437,6 +767,11 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     }
 
     private static abstract class AbstractAimProcessor implements ITickableAimProcessor {
+
+        /** AR(1) coefficient for correlated random-look offsets. */
+        private static final double RANDOM_RHO = 0.8;
+        /** (1 - rho) * sqrt((1 + rho) / (1 - rho)): keeps the stationary spread equal to the white-noise spread. */
+        private static final double RANDOM_GAIN = (1.0 - RANDOM_RHO) * Math.sqrt((1.0 + RANDOM_RHO) / (1.0 - RANDOM_RHO));
 
         protected final IPlayerContext ctx;
         private final ForkableRandom rand;
@@ -486,15 +821,25 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
         @Override
         public final void tick() {
             // randomLooking
-            this.randomYawOffset = (this.rand.nextDouble() - 0.5) * Baritone.settings().randomLooking.value;
-            this.randomPitchOffset = (this.rand.nextDouble() - 0.5) * Baritone.settings().randomLooking.value;
+            double yawOffset = (this.rand.nextDouble() - 0.5) * Baritone.settings().randomLooking.value;
+            double pitchOffset = (this.rand.nextDouble() - 0.5) * Baritone.settings().randomLooking.value;
 
             // randomLooking113
             double random = this.rand.nextDouble() - 0.5;
             if (Math.abs(random) < 0.1) {
                 random *= 4;
             }
-            this.randomYawOffset += random * Baritone.settings().randomLooking113.value;
+            yawOffset += random * Baritone.settings().randomLooking113.value;
+
+            if (LookProfile.parse(Baritone.settings().lookProfile.value).isLegacy()) {
+                this.randomYawOffset = yawOffset;
+                this.randomPitchOffset = pitchOffset;
+            } else {
+                // S5: white per-tick jitter reads as vibration. Low-pass it (AR(1)) into a correlated drift with
+                // about the same spread, so randomLooking still randomizes without shaking the camera.
+                this.randomYawOffset = RANDOM_RHO * this.randomYawOffset + RANDOM_GAIN * yawOffset;
+                this.randomPitchOffset = RANDOM_RHO * this.randomPitchOffset + RANDOM_GAIN * pitchOffset;
+            }
         }
 
         @Override
@@ -566,11 +911,13 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
         public final Rotation rotation;
         public final Mode mode;
         public final boolean blockInteract;
+        public final boolean pitchFree;
 
-        public Target(Rotation rotation, Mode mode, boolean blockInteract) {
+        public Target(Rotation rotation, Mode mode, boolean blockInteract, boolean pitchFree) {
             this.rotation = rotation;
             this.mode = mode;
             this.blockInteract = blockInteract;
+            this.pitchFree = pitchFree;
         }
 
         enum Mode {

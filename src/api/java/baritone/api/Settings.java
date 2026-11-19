@@ -903,6 +903,50 @@ public final class Settings {
     public final Setting<Integer> smoothLookTicks = new Setting<>(3);
 
     /**
+     * Rotation smoothing profile (applies to {@link #smoothLook} and {@link #smoothSilentLook}):
+     * <ul>
+     *     <li>{@code LEGIT_SMOOTH} (default): Fitts-law timed minimum-jerk saccades with a slow settle, slower
+     *     pitch than yaw, small deterministic over/undershoot, correlated micro-noise, path gaze and idle gaze.</li>
+     *     <li>{@code BALANCED}: the same model with shorter durations and smaller error terms.</li>
+     *     <li>{@code FAST}: the legacy single critically-damped spring (snappier, opt-in).</li>
+     * </ul>
+     * Elytra flight always uses the legacy spring.
+     */
+    public final Setting<String> lookProfile = new Setting<>("LEGIT_SMOOTH");
+
+    /**
+     * Smooth silent (server-side) rotations too, using the same profile as the camera, and ease the server
+     * rotation back to the camera when a silent rotation ends instead of snapping. Silent rotations are what
+     * anticheat sees, so this is on by default. Never applied while elytra flying.
+     */
+    public final Setting<Boolean> smoothSilentLook = new Setting<>(true);
+
+    /**
+     * Bounded, correlated micro-noise on non-interaction aim so it isn't laser-perfect (profile amplitude:
+     * LEGIT_SMOOTH 0.12 deg, BALANCED 0.06 deg, FAST off). Never applied to block interaction or while hurt.
+     */
+    public final Setting<Boolean> lookMicroNoise = new Setting<>(true);
+
+    /**
+     * While walking a path, look at the ground a few blocks ahead on the path (distance grows with speed)
+     * instead of holding a fixed pitch. Only replaces the pitch when the movement doesn't care about it.
+     */
+    public final Setting<Boolean> lookPathGaze = new Setting<>(true);
+
+    /**
+     * When Baritone is in control but has nothing to look at (waiting for a path, a farm to grow, ...), let the
+     * camera drift slowly instead of freezing. Only with {@link #freeLook} off (it never moves a free-look camera),
+     * and it stops as soon as you move the mouse.
+     */
+    public final Setting<Boolean> lookIdleGaze = new Setting<>(true);
+
+    /**
+     * Ticks over which the turn rate ramps back up after a server teleport/setback, so the camera eases out of
+     * the correction instead of whipping straight back. 0 disables.
+     */
+    public final Setting<Integer> lookSetbackEaseTicks = new Setting<>(8);
+
+    /**
      * When true, the player will remain with its existing look direction as often as possible.
      * Although, in some cases this can get it stuck, hence this setting to disable that behavior.
      */
