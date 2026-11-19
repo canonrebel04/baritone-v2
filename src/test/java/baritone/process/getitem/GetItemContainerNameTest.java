@@ -17,13 +17,23 @@
 
 package baritone.process.getitem;
 
+import net.minecraft.SharedConstants;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.Bootstrap;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
 
 /** A24: a container's custom name comes from a literal screen title; default titles are translatable. */
 public class GetItemContainerNameTest {
+    /** GetItemKnowledge's static init touches registries (SoundEvents); bootstrap so the test passes on its own too. */
+    @BeforeClass
+    public static void bootstrap() {
+        SharedConstants.tryDetectVersion();
+        Bootstrap.bootStrap();
+    }
+
     @Test
     public void literalTitlesAreCustomNames() {
         assertEquals("Do Not Touch", GetItemKnowledge.customName(Component.literal("Do Not Touch")));
