@@ -18,6 +18,7 @@
 package baritone.process.getitem.tasks;
 
 import baritone.Baritone;
+import baritone.process.getitem.inventory.ToolDurability;
 import baritone.api.process.PathingCommand;
 import baritone.api.utils.BlockOptionalMetaLookup;
 import baritone.process.getitem.GameData;
@@ -116,7 +117,11 @@ public final class MineTask extends StepTask {
 
     private void installToolHooks() {
         Set<String> prot = data.protectedItems();
-        ToolSet.excludedTools = s -> prot.contains(GameData.id(s.getItem()));
+        int minLeft = Baritone.settings().getItemMinToolDurability.value;
+        // protected items and worn tools (PA2 follow-up): a nearly broken / mending-reserved tool is never picked to mine
+        ToolSet.excludedTools = s -> prot.contains(GameData.id(s.getItem()))
+                || (s.isDamageableItem() && !ToolDurability.usable(
+                s.getDamageValue(), s.getMaxDamage(), GameData.hasMending(s), minLeft, 0.15));
         ToolSet.dropPreference = (block, stack) -> {
             boolean silk = has(stack, Enchantments.SILK_TOUCH);
             if (wantDropNotBlock.contains(block)) {

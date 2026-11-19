@@ -31,6 +31,7 @@ import baritone.api.event.events.type.EventState;
 import baritone.api.utils.BetterBlockPos;
 import baritone.behavior.look.ForkableRandom;
 import baritone.behavior.look.LookProfile;
+import baritone.behavior.look.SilentCameraBlend;
 import baritone.behavior.look.MicroMotion;
 import baritone.behavior.look.SaccadeAimController;
 import baritone.pathing.path.PathExecutor;
@@ -119,6 +120,8 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     /** The camera rotation Baritone wrote last tick (to detect the user taking over during idle gaze). */
     private Rotation lastCameraWrite;
     private Rotation pendingCameraWrite;
+    /** Silent->camera blend: camera value to restore at POST while the server leg is still converging. */
+    private Rotation cameraOverride;
 
     /** This tick's planned rotation (see {@link #ensurePlanned}). */
     private boolean planValid;
@@ -187,11 +190,16 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
                 // Reset the player's rotations back to their original values ONLY for silent server-side rotations
                 if (this.prevRotation != null) {
                     if (this.lastAppliedMode == Target.Mode.SERVER) {
-                        ctx.player().setYRot(this.prevRotation.getYaw());
-                        ctx.player().setXRot(this.prevRotation.getPitch());
+                        Rotation restore = this.cameraOverride != null ? this.cameraOverride : this.prevRotation;
+                        ctx.player().setYRot(restore.getYaw());
+                        ctx.player().setXRot(restore.getPitch());
+                        if (this.cameraOverride != null) {
+                            this.pendingCameraWrite = this.cameraOverride;
+                        }
                     }
                     this.prevRotation = null;
                 }
+                this.cameraOverride = null;
                 this.lastAppliedMode = null;
                 // The target is done being used for this game tick, so it can be invalidated
                 this.target = null;
@@ -378,6 +386,9 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
                 this.plan(actual, gcdStep, false);
             }
         } else if (targetMode == Target.Mode.CLIENT) {
+            if (this.trySilentToCameraBlend(settings, profile, actual, blockInteract, turnScale, gcdStep, legacy, customSmooth)) {
+                return;
+            }
             this.serverAim.invalidate();
             this.serverReturnTicks = 0;
             boolean useSmooth;
@@ -410,6 +421,37 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
                 this.plan(actual, gcdStep, false);
             }
         }
+    }
+
+    /**
+     * Silent -> camera hand-off: while the server rotation is still away from the camera, step the server leg
+     * (sent this tick) and the camera leg (restored at POST) toward the new target separately until they meet.
+     */
+    private boolean trySilentToCameraBlend(Settings settings, LookProfile profile, Rotation actual, boolean blockInteract,
+                                           double turnScale, float gcdStep, boolean legacy, Boolean customSmooth) {
+        if (legacy || !settings.lookSilentToCameraBlend.value || this.serverReturnTicks <= 0
+                || !this.serverAim.isInitialized() || this.serverRotation == null) {
+            return false;
+        }
+        final Rotation camera = new Rotation(ctx.player().getYRot(), ctx.player().getXRot());
+        if (!SilentCameraBlend.needed(this.serverRotation.getYaw(), this.serverRotation.getPitch(),
+                camera.getYaw(), camera.getPitch(), gcdStep)) {
+            return false;
+        }
+        this.serverReturnTicks--;
+        final double maxTurn = this.maxTurn(settings, blockInteract) * turnScale;
+        final Rotation server = this.stepAim(this.serverAim, this.serverRotation, actual, profile, maxTurn, blockInteract, gcdStep);
+        final boolean smooth = customSmooth != null ? customSmooth : settings.smoothLook.value;
+        final Rotation cam = smooth ? this.stepAim(this.clientAim, camera, actual, profile, maxTurn, blockInteract, gcdStep) : actual;
+        if (SilentCameraBlend.converged(server.getYaw(), server.getPitch(), cam.getYaw(), cam.getPitch(), gcdStep)) {
+            this.serverReturnTicks = 0;
+            this.serverAim.invalidate();
+            return false; // legs met: plain camera mode from here (clientAim already continues from the camera)
+        }
+        this.plan(server, gcdStep, true);
+        this.cameraOverride = new Rotation(MouseGCD.quantize(cam.getYaw(), gcdStep), MouseGCD.quantize(cam.getPitch(), gcdStep));
+        this.lastAppliedMode = Target.Mode.SERVER;
+        return true;
     }
 
     private double maxTurn(Settings settings, boolean blockInteract) {

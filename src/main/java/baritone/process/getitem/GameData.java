@@ -241,7 +241,7 @@ public final class GameData {
         return out;
     }
 
-    private static boolean hasMending(ItemStack s) {
+    public static boolean hasMending(ItemStack s) {
         for (var h : s.getEnchantments().keySet()) {
             if (h.is(net.minecraft.world.item.enchantment.Enchantments.MENDING)) return true;
         }
