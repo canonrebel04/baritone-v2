@@ -37,7 +37,7 @@ import java.util.zip.ZipFile;
  * { "format": 1,
  *   "itemTags":  { "minecraft:planks": ["minecraft:oak_planks", ...] },      // fully resolved
  *   "blockTags": { "minecraft:mineable/pickaxe": [...], ... },                // selected, resolved
- *   "recipes":   [ { "id", "type", "w", "h", "in": [ { "o": "id" | "#tag" | [..], "n": count } ], "out", "c", "cook", "xp" } ],
+ *   "recipes":   [ { "id", "type", "w", "h", "in": [ { "o": "id" | "#tag" | [..], "n": count } ], "out", "c", "cook", "xp", "p": [cell -> index into in, -1 empty] (shaped) } ],
  *   "loot":      { "minecraft:stone": { "minecraft:cobblestone": 1.0 } }      // expected drops, no silk/fortune/shears
  * }
  * </pre>
@@ -186,20 +186,28 @@ public final class DatasetGenerator {
         LinkedHashMap<String, Integer> counts = new LinkedHashMap<>();
         LinkedHashMap<String, JsonElement> raw = new LinkedHashMap<>();
         JsonElement result;
+        List<String> cells = null; // shaped: ingredient key per grid cell (null = empty), row-major
         switch (type) {
             case "minecraft:crafting_shaped" -> {
                 o.addProperty("type", "shaped");
                 JsonObject key = r.getAsJsonObject("key");
                 JsonArray pattern = arr(r, "pattern");
                 int w = 0;
+                for (JsonElement row : pattern) w = Math.max(w, row.getAsString().length());
+                cells = new ArrayList<>();
                 for (JsonElement row : pattern) {
                     String s = row.getAsString();
-                    w = Math.max(w, s.length());
-                    for (char c : s.toCharArray()) {
-                        if (c == ' ') continue;
+                    for (int x = 0; x < w; x++) {
+                        char c = x < s.length() ? s.charAt(x) : ' ';
+                        if (c == ' ') {
+                            cells.add(null);
+                            continue;
+                        }
                         JsonElement ing = key.get(String.valueOf(c));
                         if (ing == null) return null;
                         add(counts, raw, ing, 1);
+                        JsonElement norm = normalizeIngredient(ing);
+                        cells.add(norm == null ? null : norm.toString());
                     }
                 }
                 o.addProperty("w", w);
@@ -269,6 +277,12 @@ public final class DatasetGenerator {
             in.add(ing);
         }
         o.add("in", in);
+        if (cells != null) {
+            List<String> keys = new ArrayList<>(counts.keySet());
+            JsonArray p = new JsonArray();
+            for (String c : cells) p.add(c == null ? -1 : keys.indexOf(c));
+            o.add("p", p);
+        }
         return o;
     }
 

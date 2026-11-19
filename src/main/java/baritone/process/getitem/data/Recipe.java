@@ -35,9 +35,17 @@ public final class Recipe {
     /** The result carries data components (potions, enchantments, ...): not a plain item. */
     public final boolean componentResult;
     public final Source source;
+    /** Shaped recipes: ingredient index per grid cell (row-major, {@link #width} wide, -1 empty); else null. */
+    public final int[] pattern;
 
     public Recipe(String id, RecipeType type, int width, int height, List<Ingredient> ingredients, String output,
                   int outputCount, int cookTime, double experience, boolean componentResult, Source source) {
+        this(id, type, width, height, ingredients, output, outputCount, cookTime, experience, componentResult, source, null);
+    }
+
+    public Recipe(String id, RecipeType type, int width, int height, List<Ingredient> ingredients, String output,
+                  int outputCount, int cookTime, double experience, boolean componentResult, Source source, int[] pattern) {
+        this.pattern = pattern;
         this.id = id;
         this.type = type;
         this.width = width;

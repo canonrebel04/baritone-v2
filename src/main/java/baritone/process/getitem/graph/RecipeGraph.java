@@ -97,7 +97,7 @@ public final class RecipeGraph {
             if (options.isEmpty()) return null; // unknown tag: can't plan with it
             ingredients.add(new Ingredient(options, tag, ri.count));
         }
-        return new Recipe(raw.id, type, raw.w, raw.h, ingredients, raw.out, raw.c, raw.cook, raw.xp, raw.nbt, source);
+        return new Recipe(raw.id, type, raw.w, raw.h, ingredients, raw.out, raw.c, raw.cook, raw.xp, raw.nbt, source, raw.p);
     }
 
     private boolean add(Recipe r) {

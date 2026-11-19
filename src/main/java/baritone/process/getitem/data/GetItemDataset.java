@@ -53,6 +53,8 @@ public final class GetItemDataset {
         public int w, h, c = 1, cook;
         public double xp;
         public boolean nbt;
+        /** Shaped only: per grid cell (row-major, width w) the index into {@link #in}, -1 empty. */
+        public int[] p;
         public final List<RawIngredient> in = new ArrayList<>();
     }
 
@@ -97,6 +99,11 @@ public final class GetItemDataset {
             r.cook = o.has("cook") ? o.get("cook").getAsInt() : 0;
             r.xp = o.has("xp") ? o.get("xp").getAsDouble() : 0;
             r.nbt = o.has("nbt") && o.get("nbt").getAsBoolean();
+            if (o.has("p")) {
+                JsonArray pa = o.getAsJsonArray("p");
+                r.p = new int[pa.size()];
+                for (int i = 0; i < r.p.length; i++) r.p[i] = pa.get(i).getAsInt();
+            }
             for (JsonElement ie : o.getAsJsonArray("in")) {
                 JsonObject io = ie.getAsJsonObject();
                 JsonElement opt = io.get("o");
