@@ -26,6 +26,7 @@ import baritone.api.utils.SettingsUtil;
 import baritone.pathing.calc.openset.BinaryHeapOpenSet;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Moves;
+import baritone.pathing.movement.sim.MovementTelemetry;
 import baritone.utils.pathing.BetterWorldBorder;
 import baritone.utils.pathing.Favoring;
 import baritone.utils.pathing.MutableMoveResult;
@@ -71,6 +72,8 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
         }
         long primaryTimeoutTime = startTime + (slowPath ? Baritone.settings().slowPathTimeoutMS.value : primaryTimeout);
         long failureTimeoutTime = startTime + (slowPath ? Baritone.settings().slowPathTimeoutMS.value : failureTimeout);
+        long lastImprovementTime = startTime;
+        boolean improvedSinceCheck = false;
         boolean failing = true;
         int numNodes = 0;
         int numMovementsConsidered = 0;
@@ -83,8 +86,20 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
         while (!openSet.isEmpty() && numEmptyChunk < pathingMaxChunkBorderFetch && !cancelRequested) {
             if ((numNodes & (timeCheckInterval - 1)) == 0) { // only call this once every 64 nodes (about half a millisecond)
                 long now = System.currentTimeMillis(); // since nanoTime is slow on windows (takes many microseconds)
+                if (improvedSinceCheck) {
+                    lastImprovementTime = now;
+                    improvedSinceCheck = false;
+                }
                 if (now - failureTimeoutTime >= 0 || (!failing && now - primaryTimeoutTime >= 0)) {
                     break;
+                }
+                if (!slowPath) {
+                    long elapsed = now - startTime;
+                    long stagnant = now - lastImprovementTime;
+                    if ((failing && elapsed >= 400 && stagnant >= 600)
+                            || (!failing && elapsed >= 1500 && stagnant >= 1500)) {
+                        break;
+                    }
                 }
             }
             if (slowPath) {
@@ -164,6 +179,28 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                             SettingsUtil.maybeCensor(currentNode.y + moves.yOffset)));
                 }
                 long hashCode = BetterBlockPos.longHash(res.x, res.y, res.z);
+                // Enhancement #36 & #37: Momentum-aware turn penalty using incoming heading on PathNode
+                int stepDx = Integer.compare(res.x, currentNode.x);
+                int stepDz = Integer.compare(res.z, currentNode.z);
+                if (calcContext.turnPenalty > 0.0 && (stepDx != 0 || stepDz != 0)
+                        && (currentNode.incomingDx != 0 || currentNode.incomingDz != 0)) {
+                    int dot = currentNode.incomingDx * stepDx + currentNode.incomingDz * stepDz;
+                    if (dot < 0) {
+                        // >90 degree reversal
+                        actionCost += calcContext.turnPenalty * 1.6;
+                    } else if (dot == 0) {
+                        // 90 degree sharp corner
+                        actionCost += calcContext.turnPenalty;
+                    }
+                }
+                // Enhancement #46 & #50: Failure memory + adaptive session tuning
+                if (calcContext.useFailureMemory) {
+                    actionCost += MovementTelemetry.getEdgeFailurePenalty(
+                            currentNode.x, currentNode.y, currentNode.z, res.x, res.y, res.z, moves.name());
+                }
+                if (calcContext.useAdaptiveTuning) {
+                    actionCost *= MovementTelemetry.getAdaptiveCostMultiplier(moves.name());
+                }
                 if (isFavoring) {
                     // see issue #18; avoidance spheres are evaluated lazily from the
                     // candidate coordinates instead of pre-rasterized on the main thread
@@ -178,6 +215,8 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                         neighbor = createNodeAtPosition(res.x, res.y, res.z, hashCode);
                     }
                     neighbor.previous = currentNode;
+                    neighbor.incomingDx = (byte) stepDx;
+                    neighbor.incomingDz = (byte) stepDz;
                     neighbor.cost = tentativeCost;
                     neighbor.combinedCost = tentativeCost + neighbor.estimatedCostToGoal;
                     if (neighbor.isOpen()) {
@@ -190,6 +229,7 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                         if (bestHeuristicSoFar[i] - heuristic > minimumImprovement) {
                             bestHeuristicSoFar[i] = heuristic;
                             bestSoFar[i] = neighbor;
+                            improvedSinceCheck = true;
                             if (failing && getDistFromStartSq(neighbor) > MIN_DIST_PATH * MIN_DIST_PATH) {
                                 failing = false;
                             }

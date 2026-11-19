@@ -115,39 +115,45 @@ public class MovementAscend extends Movement {
         if (MovementHelper.isClimbable(srcDown.getBlock())) {
             return COST_INF;
         }
-        // we can jump from soul sand, but not from a bottom slab
+        // Enhancement #31: Slab/stair-aware ascend — walk up bottom slabs or bottom-half stairs without jumping
         boolean jumpingFromBottomSlab = MovementHelper.isBottomSlab(srcDown);
         boolean jumpingToBottomSlab = MovementHelper.isBottomSlab(toPlace);
-        if (jumpingFromBottomSlab && !jumpingToBottomSlab) {
-            return COST_INF;// the only thing we can ascend onto from a bottom slab is another bottom slab
+        boolean steppingUpStair = toPlace.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+                && toPlace.getValue(net.minecraft.world.level.block.StairBlock.HALF) == net.minecraft.world.level.block.state.properties.Half.BOTTOM;
+        if (jumpingFromBottomSlab && !jumpingToBottomSlab && !steppingUpStair && context.jumpBoostLevel == 0) {
+            return COST_INF;// the only thing we can ascend onto from a bottom slab is another bottom slab (or stair / with Jump Boost)
         }
         double walk;
         boolean jump = true; // P2-13: whether this ascend actually requires a jump (drives jumpPenalty)
-        if (jumpingToBottomSlab) {
-            if (jumpingFromBottomSlab) {
+        if (jumpingToBottomSlab || steppingUpStair) {
+            if (jumpingFromBottomSlab && !steppingUpStair) {
                 walk = Math.max(JUMP_ONE_BLOCK_COST, WALK_ONE_BLOCK_COST); // we hit space immediately on entering this action
             } else {
-                walk = WALK_ONE_BLOCK_COST; // we don't hit space we just walk into the slab
+                walk = WALK_ONE_BLOCK_COST * context.speedCostScale; // walk smoothly up slab/stair without jumping
                 jump = false;
             }
         } else {
-            // jumpingFromBottomSlab must be false
+            // jumpingFromBottomSlab must be false (or Jump Boost active)
             if (toPlace.is(Blocks.SOUL_SAND)) {
-                walk = WALK_ONE_OVER_SOUL_SAND_COST;
+                walk = WALK_ONE_OVER_SOUL_SAND_COST * context.speedCostScale;
             } else if (toPlace.is(Blocks.MAGMA_BLOCK)) {
                 walk = SNEAK_ONE_BLOCK_COST;
             } else if (context.canStepUp) {
                 // P2-13: STEP_HEIGHT attribute >= 1.0, so a 1-block step-up is a plain walk
                 // (auto-step), not a jump: no JUMP_ONE_BLOCK_COST markup and no jump penalty
-                walk = WALK_ONE_BLOCK_COST;
+                walk = WALK_ONE_BLOCK_COST * context.speedCostScale;
                 jump = false;
             } else {
-                walk = Math.max(JUMP_ONE_BLOCK_COST, WALK_ONE_BLOCK_COST);
+                walk = Math.max(JUMP_ONE_BLOCK_COST, WALK_ONE_BLOCK_COST * context.speedCostScale);
+                if (context.jumpBoostLevel > 0) {
+                    walk *= 0.92; // Enhancement #20: Jump Boost lowers effective ascend tick cost
+                }
             }
         }
         if (jump) {
             walk += context.jumpPenalty;
         }
+        walk += context.tightClearanceCost(destX, y + 1, destZ);
 
         double totalCost = walk + additionalPlacementCost;
         // start with srcUp2 since we already have its state
@@ -199,10 +205,20 @@ public class MovementAscend extends Movement {
         }
         MovementHelper.moveTowards(ctx, state, dest);
 
+        // Enhancement #13: Ascend->Traverse flow — keep sprint active when continuing straight onto a flat traverse
+        if (Baritone.settings().movementFlowChaining.value && continuesStraight() && nextMovement instanceof MovementTraverse) {
+            state.setInput(Input.SPRINT, true);
+        } else {
+            MovementHelper.applyCornerAndBrakeControl(ctx, state, src, dest, isNextTurnSharp());
+        }
+
         state.setInput(Input.SNEAK, Baritone.settings().allowWalkOnMagmaBlocks.value && jumpingOnto.is(Blocks.MAGMA_BLOCK));
 
-        if (MovementHelper.isBottomSlab(jumpingOnto) && !MovementHelper.isBottomSlab(BlockStateInterface.get(ctx, src.below()))) {
-            return state; // don't jump while walking from a non double slab into a bottom slab
+        // Enhancement #31: Walk smoothly up bottom slabs and bottom-half stairs without jumping
+        boolean isBottomStair = jumpingOnto.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+                && jumpingOnto.getValue(net.minecraft.world.level.block.StairBlock.HALF) == net.minecraft.world.level.block.state.properties.Half.BOTTOM;
+        if ((MovementHelper.isBottomSlab(jumpingOnto) || isBottomStair) && !MovementHelper.isBottomSlab(BlockStateInterface.get(ctx, src.below()))) {
+            return state; // don't jump while walking from a non double slab into a bottom slab or stair
         }
 
         if (Baritone.settings().assumeStep.value
@@ -220,6 +236,10 @@ public class MovementAscend extends Movement {
 
         double lateralMotion = xAxis * ctx.player().getDeltaMovement().z + zAxis * ctx.player().getDeltaMovement().x;
         if (Math.abs(lateralMotion) > 0.1) {
+            return state;
+        }
+
+        if (sideDist > 0.25 || flatDistToNext > 1.25 || !state.getInputStates().getOrDefault(Input.MOVE_FORWARD, false)) {
             return state;
         }
 

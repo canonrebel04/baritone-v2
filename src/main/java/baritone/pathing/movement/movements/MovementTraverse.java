@@ -88,22 +88,37 @@ public class MovementTraverse extends Movement {
             boolean sneaking = false;
             if (MovementHelper.isWater(pb0) || MovementHelper.isWater(pb1)) {
                 WC = context.waterWalkSpeed;
+                if (context.allowSwimSprint && context.canSprint) {
+                    WC *= 0.85;
+                }
                 water = true;
             } else {
-                if (destOn.getBlock() == Blocks.SOUL_SAND) {
-                    WC += (WALK_ONE_OVER_SOUL_SAND_COST - WALK_ONE_BLOCK_COST) / 2;
-                } else if (frostWalker) {
+                // Enhancements #19, #32, #35: per-block friction, slow-block & speed-effect scaling
+                WC *= context.surfaceCostMultiplier(destOn, pb1);
+                if (frostWalker) {
                     // with frostwalker we can walk on water without the penalty, if we are sure we won't be using jesus
                 } else if (destOn.getBlock() == Blocks.WATER) {
                     WC += context.walkOnWaterOnePenalty;
                 }
-                if (srcDownBlock == Blocks.SOUL_SAND) {
+                if (srcDownBlock == Blocks.SOUL_SAND && destOn.getBlock() != Blocks.SOUL_SAND) {
                     WC += (WALK_ONE_OVER_SOUL_SAND_COST - WALK_ONE_BLOCK_COST) / 2;
                 } else if (context.allowWalkOnMagmaBlocks && srcDownBlock.equals(Blocks.MAGMA_BLOCK)) {
                     sneaking = true;
                     WC += (SNEAK_ONE_BLOCK_COST - WALK_ONE_BLOCK_COST) / 2;
                 }
+                if (context.combatMode
+                        && Double.isFinite(context.combatBlastResistantFootingFavor)
+                        && context.combatBlastResistantFootingFavor > 0) {
+                    Block footing = destOn.getBlock();
+                    if (footing == Blocks.BEDROCK
+                            || footing == Blocks.OBSIDIAN
+                            || footing == Blocks.CRYING_OBSIDIAN
+                            || footing == Blocks.REINFORCED_DEEPSLATE) {
+                        WC *= context.combatBlastResistantFootingFavor;
+                    }
+                }
             }
+            WC += context.tightClearanceCost(destX, y, destZ);
             double hardness1 = MovementHelper.getMiningDurationTicks(context, destX, y, destZ, pb1, false);
             if (hardness1 >= COST_INF) {
                 return COST_INF;
@@ -265,23 +280,76 @@ public class MovementTraverse extends Movement {
             }
             Block low = BlockStateInterface.get(ctx, src).getBlock();
             Block high = BlockStateInterface.get(ctx, src.above()).getBlock();
-            if (ctx.player().position().y > src.y + 0.1D && !ctx.player().onGround() && (MovementHelper.isClimbable(low) || MovementHelper.isClimbable(high))) {
+            // Enhancement #28: Ladder/vine side-exit — only pause when significantly above src.y (climbing), not on side-entry/exit
+            if (ctx.player().position().y > src.y + 0.25D && !ctx.player().onGround() && (MovementHelper.isClimbable(low) || MovementHelper.isClimbable(high))) {
                 // hitting W could cause us to climb the ladder instead of going forward
-                // wait until we're on the ground
+                // wait until we're near the exit elevation
                 return state;
             }
             BlockPos into = dest.subtract(src).offset(dest);
             BlockState intoBelow = BlockStateInterface.get(ctx, into);
             BlockState intoAbove = BlockStateInterface.get(ctx, into.above());
-            if (wasTheBridgeBlockAlwaysThere && (!MovementHelper.isLiquid(ctx, feet) || Baritone.settings().sprintInWater.value) && (!MovementHelper.avoidWalkingInto(intoBelow) || MovementHelper.isWater(intoBelow)) && !MovementHelper.avoidWalkingInto(intoAbove)) {
+            boolean inWater = MovementHelper.isLiquid(ctx, feet);
+            boolean inCobweb = low == Blocks.COBWEB || BlockStateInterface.get(ctx, dest).is(Blocks.COBWEB);
+            if (wasTheBridgeBlockAlwaysThere
+                    && !inCobweb
+                    && (!inWater || Baritone.settings().sprintInWater.value || Baritone.settings().allowSwimSprint.value)
+                    && (!MovementHelper.avoidWalkingInto(intoBelow) || MovementHelper.isWater(intoBelow))
+                    && !MovementHelper.avoidWalkingInto(intoAbove)) {
                 state.setInput(Input.SPRINT, true);
+            }
+
+            // Enhancement #29 & #30: Swim-sprint & water-edge exit jump / bubble column travel
+            if (inWater && Baritone.settings().allowSwimSprint.value) {
+                BlockState destState = BlockStateInterface.get(ctx, dest);
+                if (!MovementHelper.isWater(destState) && ctx.player().horizontalCollision) {
+                    state.setInput(Input.JUMP, true);
+                }
+            }
+            if (Baritone.settings().allowBubbleColumnTravel.value && BlockStateInterface.get(ctx, feet).is(Blocks.BUBBLE_COLUMN)) {
+                state.setInput(Input.JUMP, true);
+            }
+
+            // Enhancement #32: Powder snow / honey exit jump if colliding horizontally
+            if ((low == Blocks.POWDER_SNOW || fd == Blocks.HONEY_BLOCK) && ctx.player().horizontalCollision && ctx.player().onGround()) {
+                state.setInput(Input.JUMP, true);
             }
 
             BlockState destDown = BlockStateInterface.get(ctx, dest.below());
             if (feet.getY() != dest.getY() && ladder && MovementHelper.isClimbable(destDown.getBlock())) {
                 state.setInput(Input.JUMP, true);
             }
-            MovementHelper.moveTowards(ctx, state, positionsToBreak[0]);
+
+            // Enhancements #1, #5, #41: Per-movement approach vector, corner pre-turn, and look-ahead aiming
+            Vec3 moveTarget = MovementHelper.safeBlockTarget(ctx, positionsToBreak[0]);
+            if (nextMovement != null && Baritone.settings().movementLookAhead.value) {
+                double distToDest = Math.hypot((dest.x + 0.5) - ctx.player().position().x, (dest.z + 0.5) - ctx.player().position().z);
+                if (continuesStraight() && distToDest < 1.05) {
+                    Vec3 nextCenter = VecUtils.calculateBlockCenter(ctx.world(), nextMovement.getDest());
+                    moveTarget = moveTarget.lerp(nextCenter, 0.35);
+                } else if (Baritone.settings().movementCornerPreTurn.value && isNextTurnSharp() && distToDest < 0.65) {
+                    Vec3 nextCenter = VecUtils.calculateBlockCenter(ctx.world(), nextMovement.getDest());
+                    double speed = Math.hypot(ctx.player().getDeltaMovement().x, ctx.player().getDeltaMovement().z);
+                    double blend = Math.min(0.45, speed * 1.4);
+                    moveTarget = moveTarget.lerp(nextCenter, blend);
+                }
+            }
+            MovementHelper.moveTowards(ctx, state, moveTarget);
+
+            // Enhancements #3 & #4: Brake-to-stop prediction & sneak-edge lock before sharp turns/stops
+            MovementHelper.applyCornerAndBrakeControl(ctx, state, src, dest, isNextTurnSharp());
+
+            // Enhancement #12: Chain-sprint-jump on long straight flat runs (opt-in for anticheat safety)
+            if (Baritone.settings().movementChainSprintJump.value
+                    && !inWater && !inCobweb
+                    && ctx.player().onGround()
+                    && state.getInputStates().getOrDefault(Input.SPRINT, false)
+                    && continuesStraight()
+                    && nextMovement instanceof MovementTraverse
+                    && MovementHelper.fullyPassable(ctx, src.above(2))
+                    && MovementHelper.fullyPassable(ctx, dest.above(2))) {
+                state.setInput(Input.JUMP, true);
+            }
             return state;
         } else {
             wasTheBridgeBlockAlwaysThere = false;

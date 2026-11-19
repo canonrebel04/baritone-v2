@@ -103,6 +103,8 @@ public interface IBaritone {
      */
     IElytraProcess getElytraProcess();
 
+    IRestockProcess getRestockProcess();
+
     /**
      * @return The {@link IWorldProvider} instance
      * @see IWorldProvider

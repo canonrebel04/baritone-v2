@@ -65,6 +65,7 @@ import java.util.*;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 import static baritone.utils.BaritoneMath.fastCeil;
@@ -127,8 +128,10 @@ public final class ElytraBehavior implements Helper {
     private float threatYawAway;
 
     private BlockStateInterface bsi;
-    public final BetterBlockPos destination;
-    private final boolean appendDestination;
+    public volatile BetterBlockPos destination;
+    private volatile boolean appendDestination;
+    private final Executor mainExecutor;
+    private volatile boolean destroyed;
 
     private final ExecutorService solverExecutor;
     private Future<Solution> solver;
@@ -189,6 +192,7 @@ public final class ElytraBehavior implements Helper {
     public ElytraBehavior(Baritone baritone, ElytraProcess process, NetherPathfinderContext npf, BlockPos destination, boolean appendDestination) {
         this.baritone = baritone;
         this.ctx = baritone.getPlayerContext();
+        this.mainExecutor = ctx.minecraft()::execute;
         this.clearLines = new CopyOnWriteArrayList<>();
         this.blockedLines = new CopyOnWriteArrayList<>();
         this.pathManager = this.new PathManager();
@@ -215,11 +219,34 @@ public final class ElytraBehavior implements Helper {
         }
     }
 
+    // Package-private constructor for headless unit tests of in-place retargeting.
+    ElytraBehavior(IPlayerContext ctx, IElytraPathFinder pathFinder, Executor mainExecutor, BlockPos destination, boolean appendDestination) {
+        this.baritone = null;
+        this.ctx = ctx;
+        this.mainExecutor = mainExecutor;
+        this.clearLines = new CopyOnWriteArrayList<>();
+        this.blockedLines = new CopyOnWriteArrayList<>();
+        this.pathManager = this.new PathManager();
+        this.process = null;
+        this.destination = new BetterBlockPos(destination);
+        this.appendDestination = appendDestination;
+        this.solverExecutor = null;
+        this.pitchPool = null;
+        this.nextTickBoostCounter = new int[2];
+        this.npfContext = null;
+        this.context = null;
+        this.boi = null;
+        this.pathFinder = pathFinder;
+    }
+
     public final class PathManager {
 
         public NetherPath path;
         private boolean completePath;
-        private boolean recalculating;
+        private volatile boolean recalculating;
+        private long calcEpoch;
+        private boolean pendingRetarget;
+        private CompletableFuture<Void> pendingRetargetFuture;
 
         private int maxPlayerNear;
         private int ticksNearUnchanged;
@@ -256,84 +283,141 @@ public final class ElytraBehavior implements Helper {
 
         }
 
+        public boolean isRecalculating() {
+            return this.recalculating;
+        }
+
         public CompletableFuture<Void> pathToDestination() {
-            return this.pathToDestination(ctx.playerFeet());
+            return this.pathToDestination(currentPlayerStartPos());
         }
 
         public CompletableFuture<Void> pathToDestination(final BlockPos from) {
+            final long seq;
+            final BlockPos dst;
+            synchronized (this) {
+                seq = ++this.calcEpoch;
+                this.recalculating = true;
+                this.pendingRetarget = false;
+                dst = destinationFixed();
+            }
+            return this.launchPathToDestination(from, dst, seq);
+        }
+
+        public CompletableFuture<Void> retargetToDestination(final BlockPos destination, final boolean appendDestination) {
+            final long seq;
+            final BlockPos from;
+            final BlockPos dst;
+            synchronized (this) {
+                if (ElytraBehavior.this.destroyed) {
+                    return CompletableFuture.completedFuture(null);
+                }
+                ElytraBehavior.this.destination = new BetterBlockPos(destination);
+                ElytraBehavior.this.appendDestination = appendDestination;
+                if (!appendDestination) {
+                    ElytraBehavior.this.landingMode = false;
+                }
+                seq = ++this.calcEpoch;
+                if (this.recalculating) {
+                    this.pendingRetarget = true;
+                    if (this.pendingRetargetFuture == null || this.pendingRetargetFuture.isDone()) {
+                        this.pendingRetargetFuture = new CompletableFuture<>();
+                    }
+                    return this.pendingRetargetFuture;
+                }
+                this.recalculating = true;
+                this.pendingRetarget = false;
+                from = currentPlayerStartPos();
+                dst = destinationFixed();
+            }
+            return this.launchPathToDestination(from, dst, seq);
+        }
+
+        private CompletableFuture<Void> launchPathToDestination(final BlockPos from, final BlockPos dst, final long seq) {
             final long start = System.nanoTime();
-            return this.path0(from, destinationFixed(), UnaryOperator.identity())
-                    .thenRun(() -> {
-                        final double distance = this.path.get(0).distanceTo(this.path.get(this.path.size() - 1));
-                        if (this.completePath) {
-                            logVerbose(String.format("Computed path (%.1f blocks in %.4f seconds)", distance, (System.nanoTime() - start) / 1e9d));
-                        } else {
-                            logVerbose(String.format("Computed segment (Next %.1f blocks in %.4f seconds)", distance, (System.nanoTime() - start) / 1e9d));
-                        }
-                    })
-                    .whenComplete((result, ex) -> {
-                        this.recalculating = false;
-                        if (ex != null) {
-                            final Throwable cause = ex.getCause();
-                            if (cause instanceof PathCalculationException) {
-                                logDirect("Failed to compute path to destination");
+            return this.launchPath(
+                    from,
+                    dst,
+                    UnaryOperator.identity(),
+                    seq,
+                    () -> {
+                        if (!this.path.isEmpty()) {
+                            final double distance = this.path.get(0).distanceTo(this.path.get(this.path.size() - 1));
+                            if (this.completePath) {
+                                logVerbose(String.format("Computed path (%.1f blocks in %.4f seconds)", distance, (System.nanoTime() - start) / 1e9d));
                             } else {
-                                logUnhandledException(cause);
+                                logVerbose(String.format("Computed segment (Next %.1f blocks in %.4f seconds)", distance, (System.nanoTime() - start) / 1e9d));
                             }
                         }
-                    });
+                    },
+                    cause -> {
+                        if (cause instanceof PathCalculationException) {
+                            logSafeDirect("Failed to compute path to destination");
+                        } else {
+                            logSafeUnhandled(cause);
+                        }
+                    }
+            );
         }
 
         public CompletableFuture<Void> pathRecalcSegment(final OptionalInt upToIncl) {
-            if (this.recalculating) {
-                throw new IllegalStateException("already recalculating");
+            final long seq;
+            final BlockPos from;
+            final BlockPos dst;
+            final List<BetterBlockPos> after;
+            final boolean complete;
+            synchronized (this) {
+                if (this.recalculating) {
+                    throw new IllegalStateException("already recalculating");
+                }
+                seq = ++this.calcEpoch;
+                this.recalculating = true;
+                this.pendingRetarget = false;
+                from = currentPlayerStartPos();
+                after = upToIncl.isPresent() ? new ArrayList<>(this.path.subList(upToIncl.getAsInt() + 1, this.path.size())) : Collections.emptyList();
+                complete = this.completePath;
+                dst = upToIncl.isPresent() ? fixDestination(this.path.get(upToIncl.getAsInt())) : destinationFixed();
             }
 
-            this.recalculating = true;
-            final List<BetterBlockPos> after = upToIncl.isPresent() ? this.path.subList(upToIncl.getAsInt() + 1, this.path.size()) : Collections.emptyList();
-            final boolean complete = this.completePath;
-
-            // path0's thenApply runs inline when the segment future is already complete.
-            // A throw there never reaches whenComplete, which would leave recalculating
-            // stuck and freeze every later replan on the bad segment.
-            final CompletableFuture<Void> calc;
-            try {
-                calc = this.path0(ctx.playerFeet(), upToIncl.isPresent() ? fixDestination(this.path.get(upToIncl.getAsInt())) : destinationFixed(), segment -> segment.append(after.stream(), complete || (segment.isFinished() && !upToIncl.isPresent())));
-            } catch (Throwable t) {
-                this.recalculating = false;
-                throw t;
-            }
-            return calc.whenComplete((result, ex) -> {
-                        this.recalculating = false;
-                        if (ex != null) {
-                            final Throwable cause = ex.getCause();
-                            if (cause instanceof PathCalculationException) {
-                                logDirect("Failed to recompute segment");
-                            } else {
-                                logUnhandledException(cause);
-                            }
+            return this.launchPath(
+                    from,
+                    dst,
+                    segment -> segment.append(after.stream(), complete || (segment.isFinished() && !upToIncl.isPresent())),
+                    seq,
+                    null,
+                    cause -> {
+                        if (cause instanceof PathCalculationException) {
+                            logSafeDirect("Failed to recompute segment");
+                        } else {
+                            logSafeUnhandled(cause);
                         }
-                    });
+                    }
+            );
         }
 
         public void pathNextSegment(final int afterIncl) {
-            if (this.recalculating) {
-                return;
+            final long seq;
+            final List<BetterBlockPos> before;
+            final BetterBlockPos pathStart;
+            final BlockPos dst;
+            synchronized (this) {
+                if (this.recalculating) {
+                    return;
+                }
+                seq = ++this.calcEpoch;
+                this.recalculating = true;
+                this.pendingRetarget = false;
+                before = new ArrayList<>(this.path.subList(0, afterIncl + 1));
+                pathStart = this.path.get(afterIncl);
+                dst = destinationFixed();
             }
-
-            this.recalculating = true;
-            final List<BetterBlockPos> before = this.path.subList(0, afterIncl + 1);
             final long start = System.nanoTime();
-            final BetterBlockPos pathStart = this.path.get(afterIncl);
 
-            final CompletableFuture<Void> calc;
-            try {
-                calc = this.path0(pathStart, destinationFixed(), segment -> segment.prepend(before.stream()));
-            } catch (Throwable t) {
-                this.recalculating = false;
-                throw t;
-            }
-            calc.thenRun(() -> {
+            this.launchPath(
+                    pathStart,
+                    dst,
+                    segment -> segment.prepend(before.stream()),
+                    seq,
+                    () -> {
                         final int recompute = this.path.size() - before.size() - 1;
                         final double distance = recompute > 0 ? this.path.get(0).distanceTo(this.path.get(recompute)) : 0;
 
@@ -342,31 +426,38 @@ public final class ElytraBehavior implements Helper {
                         } else {
                             logVerbose(String.format("Computed segment (Next %.1f blocks in %.4f seconds)", distance, (System.nanoTime() - start) / 1e9d));
                         }
-                    })
-                    .whenComplete((result, ex) -> {
-                        this.recalculating = false;
-                        if (ex != null) {
-                            final Throwable cause = ex.getCause();
-                            if (cause instanceof PathCalculationException) {
-                                logDirect("Failed to compute next segment");
-                                if (pathStart.distToCenterSqr(ctx.player().position()) < 16 * 16) {
-                                    logVerbose("Player is near the segment start, therefore repeating this calculation is pointless. Marking as complete");
-                                    completePath = true;
-                                }
-                            } else {
-                                logUnhandledException(cause);
+                    },
+                    cause -> {
+                        if (cause instanceof PathCalculationException) {
+                            logSafeDirect("Failed to compute next segment");
+                            if (ctx != null && ctx.player() != null && pathStart.distToCenterSqr(ctx.player().position()) < 16 * 16) {
+                                logVerbose("Player is near the segment start, therefore repeating this calculation is pointless. Marking as complete");
+                                completePath = true;
                             }
+                        } else {
+                            logSafeUnhandled(cause);
                         }
-                    });
+                    }
+            );
         }
 
         public void clear() {
-            this.path = NetherPath.emptyPath();
-            this.completePath = true;
-            this.recalculating = false;
-            this.playerNear = 0;
-            this.ticksNearUnchanged = 0;
-            this.maxPlayerNear = 0;
+            final CompletableFuture<Void> pendingFuture;
+            synchronized (this) {
+                this.calcEpoch++;
+                this.pendingRetarget = false;
+                pendingFuture = this.pendingRetargetFuture;
+                this.pendingRetargetFuture = null;
+                this.path = NetherPath.emptyPath();
+                this.completePath = true;
+                this.recalculating = false;
+                this.playerNear = 0;
+                this.ticksNearUnchanged = 0;
+                this.maxPlayerNear = 0;
+            }
+            if (pendingFuture != null) {
+                pendingFuture.cancel(false);
+            }
         }
 
         private void setPath(final UnpackedSegment segment) {
@@ -374,11 +465,26 @@ public final class ElytraBehavior implements Helper {
             if (ElytraBehavior.this.appendDestination) {
                 BlockPos dest = destinationFixed();
                 BlockPos last = !path.isEmpty() ? path.get(path.size() - 1) : null;
-                if (last != null && ElytraBehavior.this.clearView(Vec3.atLowerCornerOf(dest), Vec3.atLowerCornerOf(last), false)) {
+                boolean canLand = false;
+                if (last != null) {
+                    if (ElytraBehavior.this.context != null) {
+                        ElytraBehavior.this.context.acquireReadLock();
+                        try {
+                            canLand = ElytraBehavior.this.clearView(Vec3.atLowerCornerOf(dest), Vec3.atLowerCornerOf(last), false);
+                        } finally {
+                            ElytraBehavior.this.context.releaseReadLock();
+                        }
+                    } else {
+                        canLand = true;
+                    }
+                }
+                if (canLand) {
                     path.add(new BetterBlockPos(dest));
                 } else {
-                    logDirect("unable to land at " + dest);
-                    process.landingSpotIsBad(new BetterBlockPos(dest));
+                    logSafeDirect("unable to land at " + dest);
+                    if (process != null) {
+                        process.landingSpotIsBad(new BetterBlockPos(dest));
+                    }
                 }
             }
             this.path = new NetherPath(path);
@@ -386,6 +492,7 @@ public final class ElytraBehavior implements Helper {
             this.playerNear = 0;
             this.ticksNearUnchanged = 0;
             this.maxPlayerNear = 0;
+            this.updatePlayerNear();
         }
 
         public NetherPath getPath() {
@@ -396,11 +503,219 @@ public final class ElytraBehavior implements Helper {
             return this.playerNear;
         }
 
-        // mickey resigned
-        private CompletableFuture<Void> path0(BlockPos src, BlockPos dst, UnaryOperator<UnpackedSegment> operator) {
-            return ElytraBehavior.this.pathFinder.pathFindAsync(src, dst)
-                    .thenApply(operator)
-                    .thenAcceptAsync(this::setPath, ctx.minecraft()::execute);
+        private BlockPos currentPlayerStartPos() {
+            if (ctx != null) {
+                try {
+                    BetterBlockPos feet = ctx.playerFeet();
+                    if (feet != null) {
+                        return feet;
+                    }
+                } catch (NullPointerException ignored) {
+                }
+            }
+            if (!this.path.isEmpty()) {
+                return this.path.get(Math.min(this.playerNear, this.path.size() - 1));
+            }
+            return destinationFixed();
+        }
+
+        private CompletableFuture<Void> launchPath(
+                final BlockPos src,
+                final BlockPos dst,
+                final UnaryOperator<UnpackedSegment> operator,
+                final long seq,
+                final Runnable onSuccessLog,
+                final Consumer<Throwable> onFailureLog
+        ) {
+            final CompletableFuture<Void> completion = new CompletableFuture<>();
+            final CompletableFuture<UnpackedSegment> calc;
+            try {
+                calc = ElytraBehavior.this.pathFinder.pathFindAsync(src, dst);
+            } catch (Throwable t) {
+                final boolean launchPending;
+                synchronized (this) {
+                    if (seq == this.calcEpoch) {
+                        this.recalculating = false;
+                        launchPending = false;
+                    } else {
+                        launchPending = this.pendingRetarget;
+                        if (launchPending) {
+                            this.pendingRetarget = false;
+                        }
+                    }
+                }
+                if (launchPending) {
+                    this.dispatchPendingRetarget();
+                }
+                completion.completeExceptionally(t);
+                return completion;
+            }
+
+            calc.whenCompleteAsync((rawSegment, ex) -> {
+                if (ElytraBehavior.this.destroyed) {
+                    final CompletableFuture<Void> pendingFuture;
+                    synchronized (this) {
+                        if (seq == this.calcEpoch) {
+                            this.recalculating = false;
+                        }
+                        this.pendingRetarget = false;
+                        pendingFuture = this.pendingRetargetFuture;
+                        this.pendingRetargetFuture = null;
+                    }
+                    if (pendingFuture != null) {
+                        pendingFuture.cancel(false);
+                    }
+                    if (ex != null) {
+                        completion.completeExceptionally(ex);
+                    } else {
+                        completion.complete(null);
+                    }
+                    return;
+                }
+
+                boolean applied = false;
+                boolean launchPending = false;
+                boolean isCurrentEpoch = false;
+                boolean wasDestroyed = false;
+                CompletableFuture<Void> destroyedPendingFuture = null;
+                Throwable effectiveEx = ex;
+
+                if (effectiveEx == null) {
+                    try {
+                        synchronized (this) {
+                            if (ElytraBehavior.this.destroyed) {
+                                wasDestroyed = true;
+                                if (seq == this.calcEpoch) {
+                                    this.recalculating = false;
+                                }
+                                this.pendingRetarget = false;
+                                destroyedPendingFuture = this.pendingRetargetFuture;
+                                this.pendingRetargetFuture = null;
+                            } else {
+                                isCurrentEpoch = seq == this.calcEpoch;
+                                if (isCurrentEpoch) {
+                                    final UnpackedSegment finalSegment = operator.apply(rawSegment);
+                                    this.setPath(finalSegment);
+                                    this.recalculating = false;
+                                    this.pendingRetarget = false;
+                                    applied = true;
+                                } else if (this.pendingRetarget) {
+                                    this.pendingRetarget = false;
+                                    launchPending = true;
+                                } else {
+                                    this.recalculating = false;
+                                }
+                            }
+                        }
+                    } catch (Throwable t) {
+                        effectiveEx = t;
+                    }
+                }
+
+                if (effectiveEx != null) {
+                    synchronized (this) {
+                        if (ElytraBehavior.this.destroyed) {
+                            wasDestroyed = true;
+                            if (seq == this.calcEpoch) {
+                                this.recalculating = false;
+                            }
+                            this.pendingRetarget = false;
+                            destroyedPendingFuture = this.pendingRetargetFuture;
+                            this.pendingRetargetFuture = null;
+                        } else {
+                            isCurrentEpoch = seq == this.calcEpoch;
+                            if (isCurrentEpoch) {
+                                this.recalculating = false;
+                            } else if (this.pendingRetarget) {
+                                this.pendingRetarget = false;
+                                launchPending = true;
+                            } else {
+                                this.recalculating = false;
+                            }
+                        }
+                    }
+                }
+
+                if (wasDestroyed) {
+                    if (destroyedPendingFuture != null) {
+                        destroyedPendingFuture.cancel(false);
+                    }
+                    if (effectiveEx != null) {
+                        completion.completeExceptionally(effectiveEx);
+                    } else {
+                        completion.complete(null);
+                    }
+                    return;
+                }
+
+                if (applied && onSuccessLog != null) {
+                    onSuccessLog.run();
+                } else if (effectiveEx != null && isCurrentEpoch && onFailureLog != null) {
+                    final Throwable cause = effectiveEx instanceof CompletionException && effectiveEx.getCause() != null
+                            ? effectiveEx.getCause()
+                            : effectiveEx;
+                    onFailureLog.accept(cause);
+                }
+
+                if (launchPending) {
+                    this.dispatchPendingRetarget();
+                }
+
+                if (effectiveEx != null) {
+                    completion.completeExceptionally(effectiveEx);
+                } else {
+                    completion.complete(null);
+                }
+            }, ElytraBehavior.this.mainExecutor);
+
+            return completion;
+        }
+
+        private void dispatchPendingRetarget() {
+            final long seq;
+            final BlockPos from;
+            final BlockPos dst;
+            final CompletableFuture<Void> future;
+            synchronized (this) {
+                if (ElytraBehavior.this.destroyed) {
+                    this.recalculating = false;
+                    this.pendingRetarget = false;
+                    future = this.pendingRetargetFuture;
+                    this.pendingRetargetFuture = null;
+                    if (future != null) {
+                        future.cancel(false);
+                    }
+                    return;
+                }
+                seq = this.calcEpoch;
+                this.recalculating = true;
+                this.pendingRetarget = false;
+                from = currentPlayerStartPos();
+                dst = destinationFixed();
+                future = this.pendingRetargetFuture;
+                this.pendingRetargetFuture = null;
+            }
+            this.launchPathToDestination(from, dst, seq).whenComplete((r, ex) -> {
+                if (future != null) {
+                    if (ex != null) {
+                        future.completeExceptionally(ex);
+                    } else {
+                        future.complete(null);
+                    }
+                }
+            });
+        }
+
+        private void logSafeDirect(String message) {
+            if (ElytraBehavior.this.baritone != null) {
+                logDirect(message);
+            }
+        }
+
+        private void logSafeUnhandled(Throwable cause) {
+            if (ElytraBehavior.this.baritone != null) {
+                logUnhandledException(cause);
+            }
         }
 
         // required read lock to be held
@@ -519,12 +834,20 @@ public final class ElytraBehavior implements Helper {
         }
 
         public void updatePlayerNear() {
-            if (this.path.isEmpty()) {
+            if (this.path.isEmpty() || ctx == null) {
                 return;
             }
 
+            final BetterBlockPos pos;
+            try {
+                pos = ctx.playerFeet();
+            } catch (NullPointerException ignored) {
+                return;
+            }
+            if (pos == null) {
+                return;
+            }
             int index = this.playerNear;
-            final BetterBlockPos pos = ctx.playerFeet();
 
             // Fine scan: the player moves a few nodes/tick while flying, so the ±50 stride-1
             // scan tracks normal flight cheaply. Only if it finds NO improvement do we fall
@@ -625,15 +948,39 @@ public final class ElytraBehavior implements Helper {
         }
     }
 
+    public CompletableFuture<Void> retarget(BlockPos destination) {
+        return this.retarget(destination, false);
+    }
+
+    public CompletableFuture<Void> retarget(BlockPos destination, boolean appendDestination) {
+        if (destination == null) {
+            throw new IllegalArgumentException("Destination cannot be null");
+        }
+        if (this.destroyed) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return this.pathManager.retargetToDestination(destination, appendDestination);
+    }
+
     public void destroy() {
+        this.destroyed = true;
+        this.pathManager.clear();
         if (this.solver != null) {
             this.solver.cancel(true);
         }
-        this.solverExecutor.shutdown();
-        this.pitchPool.shutdownNow();
+        if (this.solverExecutor != null) {
+            this.solverExecutor.shutdown();
+        }
+        if (this.pitchPool != null) {
+            this.pitchPool.shutdownNow();
+        }
         try {
-            while (!this.solverExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
-            while (!this.pitchPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
+            if (this.solverExecutor != null) {
+                while (!this.solverExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
+            }
+            if (this.pitchPool != null) {
+                while (!this.pitchPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {}
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -1654,6 +2001,9 @@ public final class ElytraBehavior implements Helper {
     }
 
     void logVerbose(String message) {
+        if (this.baritone == null) {
+            return;
+        }
         if (Baritone.settings().elytraChatSpam.value) {
             logDebug(message);
         }
@@ -1661,7 +2011,7 @@ public final class ElytraBehavior implements Helper {
 
     // so we don't get stuck trying to pathfind through the roof
     private BetterBlockPos fixDestination(BetterBlockPos dst) {
-        if (ctx.world().dimension() == Level.NETHER) {
+        if (ctx != null && ctx.world() != null && ctx.world().dimension() == Level.NETHER) {
             if (ctx.player().getY() >= 128 && dst.y < 128) {
                 return new BetterBlockPos(dst.x, 128, dst.z);
             }

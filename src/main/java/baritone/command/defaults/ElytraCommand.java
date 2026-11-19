@@ -21,6 +21,7 @@ import baritone.Baritone;
 import baritone.api.IBaritone;
 import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
+import baritone.api.command.datatypes.NearbyPlayer;
 import baritone.api.command.exception.CommandException;
 import baritone.api.command.exception.CommandInvalidStateException;
 import baritone.api.command.helpers.TabCompleteHelper;
@@ -29,6 +30,8 @@ import baritone.api.pathing.goals.GoalBlock;
 import baritone.api.pathing.goals.GoalXZ;
 import baritone.api.process.ICustomGoalProcess;
 import baritone.api.process.IElytraProcess;
+import baritone.api.utils.BetterBlockPos;
+import baritone.process.elytra.HighwaySnapCalculator;
 import baritone.cache.WorldData;
 import baritone.process.elytra.PortalKnowledge;
 import net.minecraft.ChatFormatting;
@@ -37,6 +40,7 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
@@ -125,12 +129,62 @@ public class ElytraCommand extends Command {
                 }
                 break;
             }
+            case "highway": {
+                if (!args.hasAny()) {
+                    throw new CommandInvalidStateException("Usage: elytra highway <x> <z>");
+                }
+                final int gx;
+                final int gz;
+                try {
+                    gx = Integer.parseInt(args.getString());
+                    if (!args.hasAny()) {
+                        throw new CommandInvalidStateException("Usage: elytra highway <x> <z>");
+                    }
+                    gz = Integer.parseInt(args.getString());
+                } catch (NumberFormatException e) {
+                    throw new CommandInvalidStateException("Invalid coordinate: " + e.getMessage());
+                }
+                BetterBlockPos feet = ctx.playerFeet();
+                List<HighwaySnapCalculator.Waypoint> waypoints = HighwaySnapCalculator.planRoute(
+                        feet.x, feet.z, gx, gz, HighwaySnapCalculator.DEFAULT_RING_ROADS);
+                if (waypoints.size() < 2) {
+                    elytra.pathTo(new GoalXZ(gx, gz));
+                    logDirect("Direct elytra flight to " + gx + ", " + gz);
+                } else {
+                    List<GoalXZ> legs = new ArrayList<>(waypoints.size());
+                    for (HighwaySnapCalculator.Waypoint wp : waypoints) {
+                        legs.add(new GoalXZ(wp.x(), wp.z()));
+                    }
+                    elytra.startTrip(legs);
+                    logDirect("Started " + legs.size() + "-leg highway-snapped elytra trip to " + gx + ", " + gz);
+                }
+                break;
+            }
             case "cancel": {
                 if (!elytra.isTripActive()) {
                     logDirect("No active trip");
                 } else {
                     elytra.cancelTrip();
                 }
+                break;
+            }
+            case "follow": {
+                if (!args.hasAny()) {
+                    throw new CommandInvalidStateException("Usage: elytra follow <player>");
+                }
+                Player target = args.getDatatypeFor(NearbyPlayer.INSTANCE);
+                if (target == null) {
+                    throw new CommandInvalidStateException("No nearby player found with that name");
+                }
+                if (target == ctx.player()) {
+                    throw new CommandInvalidStateException("Cannot elytra-follow yourself");
+                }
+                try {
+                    elytra.followEntity(target);
+                } catch (IllegalArgumentException ex) {
+                    throw new CommandInvalidStateException(ex.getMessage());
+                }
+                logDirect("Elytra following " + target.getName().getString());
                 break;
             }
             case "portals": {
@@ -277,11 +331,19 @@ public class ElytraCommand extends Command {
 
     @Override
     public Stream<String> tabComplete(String label, IArgConsumer args) throws CommandException {
-        TabCompleteHelper helper = new TabCompleteHelper();
         if (args.hasExactlyOne()) {
-            helper.append("reset", "repack", "supported", "trip", "cancel", "portals");
+            return new TabCompleteHelper()
+                    .append("reset", "repack", "supported", "trip", "highway", "follow", "cancel", "portals")
+                    .filterPrefix(args.getString())
+                    .stream();
         }
-        return helper.filterPrefix(args.getString()).stream();
+        if (args.has(2) && "follow".equalsIgnoreCase(args.getString())) {
+            while (args.has(2)) {
+                args.get();
+            }
+            return args.tabCompleteDatatype(NearbyPlayer.INSTANCE);
+        }
+        return Stream.empty();
     }
 
     @Override
@@ -297,6 +359,7 @@ public class ElytraCommand extends Command {
                 "Usage:",
                 "> elytra - fly to the current goal",
                 "> elytra <x> <z> [y] - fly to the specified coordinates",
+                "> elytra follow <player> - dynamically pursue a nearby player with elytra flight",
                 "> elytra trip <x1> <z1> <x2> <z2> [...] - fly a multi-leg trip: land at each waypoint, then continue to the next leg automatically",
                 "> elytra cancel - cancel the current trip and clear its saved progress",
                 "> elytra portals - list the nether portals known in this dimension (discovered automatically, used for portal shortcuts)",

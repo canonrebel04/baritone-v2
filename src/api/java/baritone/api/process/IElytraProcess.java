@@ -21,6 +21,7 @@ import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalXZ;
 import baritone.api.utils.BetterBlockPos;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
 
 import java.util.List;
 
@@ -41,6 +42,15 @@ public interface IElytraProcess extends IBaritoneProcess {
     void pathTo(BlockPos destination);
 
     void pathTo(Goal destination);
+
+    /**
+     * Dynamically pursues a moving entity via elytra flight, leading its 3D velocity.
+     *
+     * @param target The entity to pursue
+     */
+    default void followEntity(Entity target) {
+        throw new UnsupportedOperationException("Entity pursuit is not supported by this elytra process");
+    }
 
     /**
      * Starts a multi-leg trip. The process will fly each leg in order, landing and taking off

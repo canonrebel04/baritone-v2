@@ -27,6 +27,7 @@ import baritone.api.process.IFollowProcess;
 import baritone.api.process.PathingCommand;
 import baritone.api.process.PathingCommandType;
 import baritone.api.utils.BetterBlockPos;
+import baritone.pathing.movement.MovementHelper;
 import baritone.utils.BaritoneProcessHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
@@ -96,12 +97,36 @@ public final class FollowProcess extends BaritoneProcessHelper implements IFollo
     }
 
     private Goal towards(Entity following) {
+        Vec3 targetPos = following.position();
+        int leadTicks = Baritone.settings().followLeadTicks.value;
+        if (leadTicks > 0 && !into) {
+            Vec3 vel = following.getDeltaMovement();
+            double speedSq = vel.x * vel.x + vel.z * vel.z;
+            if (speedSq <= 0.0025) {
+                Vec3 known = following.getKnownSpeed();
+                double knownSq = known.x * known.x + known.z * known.z;
+                if (knownSq > 0.0025 && knownSq <= 6.25) {
+                    vel = known;
+                    speedSq = knownSq;
+                }
+            }
+            if (speedSq > 0.0025 && speedSq <= 6.25) {
+                Vec3 predicted = targetPos.add(vel.x * leadTicks, 0.0D, vel.z * leadTicks);
+                BlockPos predBlock = BlockPos.containing(predicted.x, targetPos.y, predicted.z);
+                if (ctx.world() != null
+                        && MovementHelper.canWalkThrough(ctx, new BetterBlockPos(predBlock))
+                        && MovementHelper.canWalkThrough(ctx, new BetterBlockPos(predBlock.above()))) {
+                    targetPos = predicted;
+                }
+            }
+        }
+
         BlockPos pos;
         if (Baritone.settings().followOffsetDistance.value == 0 || into) {
-            pos = following.blockPosition();
+            pos = BlockPos.containing(targetPos);
         } else {
-            GoalXZ g = GoalXZ.fromDirection(following.position(), Baritone.settings().followOffsetDirection.value, Baritone.settings().followOffsetDistance.value);
-            pos = new BetterBlockPos(g.getX(), following.position().y, g.getZ());
+            GoalXZ g = GoalXZ.fromDirection(targetPos, Baritone.settings().followOffsetDirection.value, Baritone.settings().followOffsetDistance.value);
+            pos = new BetterBlockPos(g.getX(), targetPos.y, g.getZ());
         }
         if (into) {
             return new GoalBlock(pos);

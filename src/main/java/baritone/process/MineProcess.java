@@ -61,6 +61,8 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
     private GoalRunAway branchPointRunaway;
     private int desiredQuantity;
     private int tickCount;
+    private int calcFailCooldownTicks;
+    private int consecutiveCalcFailures;
 
     public MineProcess(Baritone baritone) {
         super(baritone);
@@ -84,6 +86,16 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             }
         }
         if (calcFailed) {
+            if (!ctx.player().onGround() && !ctx.player().isInWater() && !ctx.player().isInLava() && !ctx.player().onClimbable()) {
+                // Mid-air / falling starts often fail with 1 node; wait until grounded instead of blacklisting valid targets
+                calcFailCooldownTicks = 5;
+                return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+            }
+            if (calcFailCooldownTicks > 0) {
+                calcFailCooldownTicks--;
+                return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+            }
+            consecutiveCalcFailures++;
             if (!knownOreLocations.isEmpty() && Baritone.settings().blacklistClosestOnFailure.value) {
                 logDirect("Unable to find any path to " + filter + ", blacklisting presumably unreachable closest instance...");
                 if (Baritone.settings().notificationOnMineFail.value) {
@@ -91,6 +103,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
                 }
                 knownOreLocations.stream().min(Comparator.comparingDouble(ctx.playerFeet()::distSqr)).ifPresent(blacklist::add);
                 knownOreLocations.removeIf(blacklist::contains);
+                calcFailCooldownTicks = Math.min(40, 10 * consecutiveCalcFailures);
             } else {
                 logDirect("Unable to find any path to " + filter + ", canceling mine");
                 if (Baritone.settings().notificationOnMineFail.value) {
@@ -98,6 +111,14 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
                 }
                 cancel();
                 return null;
+            }
+        } else {
+            if (calcFailCooldownTicks > 0) {
+                calcFailCooldownTicks--;
+                return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+            }
+            if (baritone.getPathingBehavior().isPathing()) {
+                consecutiveCalcFailures = 0;
             }
         }
 
@@ -516,6 +537,8 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         this.branchPoint = null;
         this.branchPointRunaway = null;
         this.anticipatedDrops = new HashMap<>();
+        this.calcFailCooldownTicks = 0;
+        this.consecutiveCalcFailures = 0;
         if (filter != null) {
             rescan(new ArrayList<>(), new CalculationContext(baritone));
         }

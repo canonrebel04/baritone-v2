@@ -37,10 +37,120 @@ public class GoalComposite implements Goal {
         this.goals = goals;
     }
 
+    private transient volatile Bounds bounds;
+    private transient int lastBestIndex;
+
+    private static final class Bounds {
+        final int[] gx;
+        final int[] gy;
+        final int[] gz;
+        final int[] slackXZ;
+        final int[] slackY;
+        final boolean[] hasXZ;
+        final boolean[] hasInGoalBounds;
+
+        Bounds(Goal[] goals) {
+            int n = goals.length;
+            this.gx = new int[n];
+            this.gy = new int[n];
+            this.gz = new int[n];
+            this.slackXZ = new int[n];
+            this.slackY = new int[n];
+            this.hasXZ = new boolean[n];
+            this.hasInGoalBounds = new boolean[n];
+            for (int i = 0; i < n; i++) {
+                Goal g = goals[i];
+                Class<?> cls = g.getClass();
+                if (cls == GoalBlock.class) {
+                    GoalBlock b = (GoalBlock) g;
+                    gx[i] = b.x;
+                    gy[i] = b.y;
+                    gz[i] = b.z;
+                    hasXZ[i] = true;
+                    hasInGoalBounds[i] = true;
+                } else if (cls == GoalTwoBlocks.class) {
+                    GoalTwoBlocks b = (GoalTwoBlocks) g;
+                    gx[i] = b.x;
+                    gy[i] = b.y;
+                    gz[i] = b.z;
+                    slackY[i] = 1;
+                    hasXZ[i] = true;
+                    hasInGoalBounds[i] = true;
+                } else if (g instanceof GoalTwoBlocks && cls.getName().equals("baritone.process.MineProcess$GoalThreeBlocks")) {
+                    GoalTwoBlocks b = (GoalTwoBlocks) g;
+                    gx[i] = b.x;
+                    gy[i] = b.y;
+                    gz[i] = b.z;
+                    slackY[i] = 2;
+                    hasXZ[i] = true;
+                    hasInGoalBounds[i] = true;
+                } else if (cls == GoalGetToBlock.class) {
+                    GoalGetToBlock b = (GoalGetToBlock) g;
+                    gx[i] = b.x;
+                    gy[i] = b.y;
+                    gz[i] = b.z;
+                    slackXZ[i] = 1;
+                    slackY[i] = 1;
+                    hasXZ[i] = true;
+                    hasInGoalBounds[i] = true;
+                } else if (cls == GoalNear.class) {
+                    net.minecraft.core.BlockPos pos = ((GoalNear) g).getGoalPos();
+                    gx[i] = pos.getX();
+                    gy[i] = pos.getY();
+                    gz[i] = pos.getZ();
+                    hasXZ[i] = true;
+                } else if (cls == GoalXZ.class) {
+                    GoalXZ b = (GoalXZ) g;
+                    gx[i] = b.getX();
+                    gz[i] = b.getZ();
+                    hasXZ[i] = true;
+                }
+            }
+        }
+    }
+
+    private Bounds getBounds() {
+        Bounds b = this.bounds;
+        if (b == null) {
+            b = new Bounds(goals);
+            this.bounds = b;
+        }
+        return b;
+    }
+
     @Override
     public boolean isInGoal(int x, int y, int z) {
-        for (Goal goal : goals) {
-            if (goal.isInGoal(x, y, z)) {
+        int len = goals.length;
+        if (len == 0) {
+            return false;
+        }
+        int hint = lastBestIndex;
+        if (hint >= 0 && hint < len && goals[hint].isInGoal(x, y, z)) {
+            return true;
+        }
+        if (len <= 4) {
+            for (int i = 0; i < len; i++) {
+                if (i != hint && goals[i].isInGoal(x, y, z)) {
+                    lastBestIndex = i;
+                    return true;
+                }
+            }
+            return false;
+        }
+        Bounds b = getBounds();
+        for (int i = 0; i < len; i++) {
+            if (i == hint) {
+                continue;
+            }
+            if (b.hasInGoalBounds[i]) {
+                if (Math.abs(x - b.gx[i]) > b.slackXZ[i]
+                        || Math.abs(z - b.gz[i]) > b.slackXZ[i]
+                        || Math.abs(y - b.gy[i]) > b.slackY[i]) {
+                    continue;
+                }
+            }
+            if (goals[i].isInGoal(x, y, z)) {
+                lastBestIndex = i;
                 return true;
             }
         }
@@ -49,10 +159,47 @@ public class GoalComposite implements Goal {
 
     @Override
     public double heuristic(int x, int y, int z) {
+        int len = goals.length;
+        if (len == 0) {
+            return Double.MAX_VALUE;
+        }
+        if (len <= 4) {
+            double min = Double.MAX_VALUE;
+            for (Goal g : goals) {
+                // TODO technically this isn't admissible...?
+                min = Math.min(min, g.heuristic(x, y, z)); // whichever is closest
+            }
+            return min;
+        }
+        Bounds b = getBounds();
         double min = Double.MAX_VALUE;
-        for (Goal g : goals) {
+        int bestIdx = -1;
+        int hint = lastBestIndex;
+        if (hint >= 0 && hint < len) {
+            min = goals[hint].heuristic(x, y, z);
+            bestIdx = hint;
+        }
+        double costHeuristic = baritone.api.BaritoneAPI.getSettings().costHeuristic.value;
+        double maxDist = costHeuristic > 0 ? min / costHeuristic : Double.POSITIVE_INFINITY;
+        for (int i = 0; i < len; i++) {
+            if (i == hint) {
+                continue;
+            }
+            if (b.hasXZ[i]) {
+                if (Math.abs(x - b.gx[i]) > maxDist || Math.abs(z - b.gz[i]) > maxDist) {
+                    continue;
+                }
+            }
             // TODO technically this isn't admissible...?
-            min = Math.min(min, g.heuristic(x, y, z)); // whichever is closest
+            double h = goals[i].heuristic(x, y, z); // whichever is closest
+            if (h < min) {
+                min = h;
+                bestIdx = i;
+                maxDist = costHeuristic > 0 ? min / costHeuristic : Double.POSITIVE_INFINITY;
+            }
+        }
+        if (bestIdx >= 0) {
+            lastBestIndex = bestIdx;
         }
         return min;
     }

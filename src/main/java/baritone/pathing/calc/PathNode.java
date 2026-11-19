@@ -64,6 +64,13 @@ public final class PathNode {
      */
     public int heapPosition;
 
+    /**
+     * Lightweight incoming horizontal direction (signum of dx, dz in {-1, 0, 1})
+     * used for momentum-aware turn penalties without expanding the A* state space.
+     */
+    public byte incomingDx;
+    public byte incomingDz;
+
     public PathNode(int x, int y, int z, Goal goal) {
         this.previous = null;
         this.cost = ActionCosts.COST_INF;

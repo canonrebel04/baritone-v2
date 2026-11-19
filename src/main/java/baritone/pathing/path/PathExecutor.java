@@ -31,10 +31,15 @@ import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.movements.*;
+import baritone.pathing.movement.sim.MovementTelemetry;
 import baritone.utils.BlockStateInterface;
 import baritone.utils.MouseGCD;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import java.util.*;
 
@@ -92,6 +97,13 @@ public class PathExecutor implements IPathExecutor, Helper {
     private int overshootOx = 0, overshootOz = 0;
     private int ticksSprinting = 0;
     private int sprintDropTicksRemaining = 0;
+
+    // Enhancement #9: Stuck / circle detector state
+    private double circleAnchorX = Double.NaN;
+    private double circleAnchorY = Double.NaN;
+    private double circleAnchorZ = Double.NaN;
+    private int circleTicks = 0;
+    private static final ItemStack EMERGENCY_WATER_BUCKET = new ItemStack(Items.WATER_BUCKET);
 
     public PathExecutor(PathingBehavior behavior, IPath path) {
         this.behavior = behavior;
@@ -184,6 +196,11 @@ public class PathExecutor implements IPathExecutor, Helper {
             ticksAway = 0;
         }
         if (possiblyOffPath(status, MAX_MAX_DIST_FROM_PATH)) { // ok, stop right away, we're way too far.
+            // Enhancements #47 & #48: Emergency water-bucket clutch / ladder grab while falling off-path
+            if (Baritone.settings().movementOffPathRecovery.value && attemptEmergencyFallRecovery()) {
+                return false;
+            }
+            recordMovementFailure(movement);
             logDebug("too far from path");
             cancel();
             return false;
@@ -268,69 +285,80 @@ public class PathExecutor implements IPathExecutor, Helper {
             clearKeys();
             return true;
         }
+        // Enhancement #45: Early-stop segment validation — re-verify next N movements every tick against world changes
+        int earlyLookahead = Baritone.settings().movementEarlyStopValidationLookahead.value;
+        if (canCancel && earlyLookahead > 0) {
+            CalculationContext verifyCtx = behavior.secretInternalGetCalculationContext();
+            for (int i = 1; i <= earlyLookahead && pathPosition + i < path.movements().size(); i++) {
+                if (((Movement) path.movements().get(pathPosition + i)).calculateCost(verifyCtx) >= ActionCosts.COST_INF) {
+                    logDebug("Early-stop validation: upcoming movement +" + i + " became impossible. Cancelling.");
+                    cancel();
+                    return true;
+                }
+            }
+        }
+        // Enhancements #1 & #11: Supply next movement for approach vectors, corner pre-turn, and momentum hand-off
+        IMovement nextMovement = (pathPosition + 1 < path.movements().size()) ? path.movements().get(pathPosition + 1) : null;
+        movement.setNextMovement(nextMovement);
+
         MovementStatus movementStatus = movement.update();
         if (movementStatus == UNREACHABLE || movementStatus == FAILED) {
+            recordMovementFailure(movement);
             logDebug("Movement returns status " + movementStatus);
+            if (Baritone.settings().movementOffPathRecovery.value && attemptEmergencyFallRecovery()) {
+                return false;
+            }
             cancel();
             return true;
         }
         if (movementStatus == SUCCESS) {
-            if (Baritone.settings().humanizeMovements.value && pathPosition + 1 < path.movements().size()) {
-                Movement currentMov = (Movement) path.movements().get(pathPosition);
-                IMovement nextMov = path.movements().get(pathPosition + 1);
-                if (nextMov instanceof Movement) {
-                    Movement next = (Movement) nextMov;
-                    BlockPos src1 = currentMov.getSrc();
-                    BlockPos dest1 = currentMov.getDest();
-                    BlockPos src2 = next.getSrc();
-                    BlockPos dest2 = next.getDest();
-                    
-                    int dx1 = dest1.getX() - src1.getX();
-                    int dz1 = dest1.getZ() - src1.getZ();
-                    int dy1 = dest1.getY() - src1.getY();
-                    
-                    int dx2 = dest2.getX() - src2.getX();
-                    int dz2 = dest2.getZ() - src2.getZ();
-                    int dy2 = dest2.getY() - src2.getY();
-                    
-                    if (dy1 == 0 && dy2 == 0 && (dx1 != 0 || dz1 != 0) && (dx2 != 0 || dz2 != 0)) {
-                        if (dx1 != dx2 || dz1 != dz2) {
-                            int ox = dx1 > 0 ? 1 : (dx1 < 0 ? -1 : 0);
-                            int oz = dz1 > 0 ? 1 : (dz1 < 0 ? -1 : 0);
-                            BlockPos overshootPos = dest1.offset(ox, 0, oz);
-                            
-                            BlockStateInterface bsiTemp = new BlockStateInterface(ctx);
-                            if (MovementHelper.canWalkThrough(bsiTemp, overshootPos.getX(), overshootPos.getY(), overshootPos.getZ())
-                                    && MovementHelper.canWalkThrough(bsiTemp, overshootPos.getX(), overshootPos.getY() + 1, overshootPos.getZ())
-                                    && MovementHelper.canWalkOn(bsiTemp, overshootPos.getX(), overshootPos.getY() - 1, overshootPos.getZ())) {
-                                overshootTicksRemaining = new java.util.Random().nextInt(3) + 2;
-                                overshootOx = ox;
-                                overshootOz = oz;
-                                // GCD-quantize the overshoot rotation so the deltas fed to the look
-                                // behavior (and hence the server) are always multiples of the mouse
-                                // GCD — anti-cheats flag non-GCD rotation deltas.
-                                overshootRotation = MouseGCD.quantize(RotationUtils.calcRotationFromVec3d(
-                                        ctx.playerHead(),
-                                        VecUtils.getBlockPosCenter(overshootPos),
-                                        ctx.playerRotations()
-                                ), MouseGCD.step(ctx));
-                                
-                                behavior.baritone.getLookBehavior().updateTarget(overshootRotation, true);
-                                behavior.baritone.getInputOverrideHandler().clearAllKeys();
-                                behavior.baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
-                                behavior.baritone.getInputOverrideHandler().setInputForceState(Input.SPRINT, true);
-                                return false;
-                            }
-                        }
-                    }
-                }
+            // Enhancements #49 & #50: Record observed movement ticks & optional debug telemetry
+            if (Baritone.settings().movementAdaptiveTuning.value) {
+                MovementTelemetry.recordSuccess(
+                        movement.getClass().getSimpleName(),
+                        Math.max(1, ticksOnCurrent),
+                        currentMovementOriginalCostEstimate != null ? currentMovementOriginalCostEstimate : 4.6
+                );
             }
-            //System.out.println("Movement done, next path");
+            if (Baritone.settings().movementDebugTelemetry.value) {
+                double dev = Math.hypot(
+                        ctx.player().position().x - (movement.getDest().x + 0.5),
+                        ctx.player().position().z - (movement.getDest().z + 0.5));
+                logDebug(String.format("[MoveDebug] %s OK in %dt (est %.1f) dev=%.2f",
+                        movement.getClass().getSimpleName(), ticksOnCurrent,
+                        currentMovementOriginalCostEstimate != null ? currentMovementOriginalCostEstimate : 0.0, dev));
+            }
             pathPosition++;
             onChangeInPathPosition();
             onTick();
             return true;
         } else {
+            // Enhancement #9: Stuck / circle detector — catch orbiting on the same block
+            if (Baritone.settings().movementStuckCircleDetector.value
+                    && movementStatus == RUNNING
+                    && toBreak.isEmpty() && toPlace.isEmpty()
+                    && ctx.player().onGround()) {
+                double px = ctx.player().position().x;
+                double py = ctx.player().position().y;
+                double pz = ctx.player().position().z;
+                if (Double.isNaN(circleAnchorX)
+                        || Math.hypot(px - circleAnchorX, pz - circleAnchorZ) > 0.55
+                        || Math.abs(py - circleAnchorY) > 0.5) {
+                    circleAnchorX = px;
+                    circleAnchorY = py;
+                    circleAnchorZ = pz;
+                    circleTicks = 0;
+                } else if (++circleTicks >= 24 && canCancel) {
+                    logDebug("Stuck/circle detected on " + movement.getClass().getSimpleName() + " for " + circleTicks + " ticks. Replanning.");
+                    recordMovementFailure(movement);
+                    circleTicks = 0;
+                    cancel();
+                    return true;
+                }
+            } else {
+                circleTicks = 0;
+            }
+
             sprintNextTick = shouldSprintNextTick();
             if (!sprintNextTick) {
                 ctx.player().setSprinting(false); // letting go of control doesn't make you stop sprinting actually
@@ -341,6 +369,7 @@ public class PathExecutor implements IPathExecutor, Helper {
                 // as you break the blocks required, the remaining cost goes down, to the point where
                 // ticksOnCurrent is greater than recalculateCost + 100
                 // this is why we cache cost at the beginning, and don't recalculate for this comparison every tick
+                recordMovementFailure(movement);
                 logDebug("This movement has taken too long (" + ticksOnCurrent + " ticks, expected " + currentMovementOriginalCostEstimate + "). Cancelling.");
                 cancel();
                 return true;
@@ -469,7 +498,8 @@ public class PathExecutor implements IPathExecutor, Helper {
     private boolean shouldSprintNextTick() {
         boolean normalSprint = shouldSprintNextTick0();
         if (normalSprint) {
-            if (Baritone.settings().humanizeMovements.value) {
+            if (Baritone.settings().humanizeMovements.value
+                    && !(pathPosition < path.length() && path.movements().get(pathPosition) instanceof MovementParkour)) {
                 if (sprintDropTicksRemaining > 0) {
                     sprintDropTicksRemaining--;
                     return false;
@@ -737,6 +767,62 @@ public class PathExecutor implements IPathExecutor, Helper {
     private void onChangeInPathPosition() {
         clearKeys();
         ticksOnCurrent = 0;
+        circleTicks = 0;
+    }
+
+    private void recordMovementFailure(Movement movement) {
+        if (Baritone.settings().movementFailureMemory.value && movement != null) {
+            MovementTelemetry.recordFailure(
+                    movement.getSrc().x, movement.getSrc().y, movement.getSrc().z,
+                    movement.getDest().x, movement.getDest().y, movement.getDest().z,
+                    movement.getClass().getSimpleName()
+            );
+        }
+    }
+
+    /**
+     * Enhancements #47 & #48: Emergency water-bucket clutch & nearby ladder/vine grab when falling off-path.
+     * Returns true if a recovery action is actively executing this tick.
+     */
+    private boolean attemptEmergencyFallRecovery() {
+        if (ctx.player().onGround() || ctx.player().getDeltaMovement().y > -0.52) {
+            return false;
+        }
+        BetterBlockPos feet = ctx.playerFeet();
+        // 1. Check adjacent ladder/vine to grab onto while falling
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (dx == 0 && dz == 0) continue;
+                BetterBlockPos adj = new BetterBlockPos(feet.x + dx, feet.y, feet.z + dz);
+                if (MovementHelper.isClimbable(BlockStateInterface.getBlock(ctx, adj))) {
+                    Rotation toLadder = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.calculateBlockCenter(ctx.world(), adj), ctx.playerRotations());
+                    behavior.baritone.getLookBehavior().updateTarget(toLadder, true);
+                    behavior.baritone.getInputOverrideHandler().clearAllKeys();
+                    behavior.baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
+                    return true;
+                }
+            }
+        }
+        // 2. Water bucket clutch if falling fast above solid ground (not in Nether)
+        if (Baritone.settings().allowWaterBucketFall.value && ctx.world().dimension() != Level.NETHER) {
+            int waterSlot = ctx.player().getInventory().findSlotMatchingItem(EMERGENCY_WATER_BUCKET);
+            if (Inventory.isHotbarSlot(waterSlot)) {
+                for (int dy = 1; dy <= 4; dy++) {
+                    BetterBlockPos below = new BetterBlockPos(feet.x, feet.y - dy, feet.z);
+                    if (MovementHelper.canWalkOn(ctx, below)) {
+                        ctx.player().getInventory().setSelectedSlot(waterSlot);
+                        Rotation down = new Rotation(ctx.playerRotations().getYaw(), 90.0f);
+                        behavior.baritone.getLookBehavior().updateTarget(down, true);
+                        behavior.baritone.getInputOverrideHandler().clearAllKeys();
+                        if (ctx.playerRotations().getPitch() > 80.0f) {
+                            behavior.baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_RIGHT, true);
+                        }
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private void clearKeys() {
@@ -771,6 +857,9 @@ public class PathExecutor implements IPathExecutor, Helper {
             ret.currentMovementOriginalCostEstimate = currentMovementOriginalCostEstimate;
             ret.costEstimateIndex = costEstimateIndex;
             ret.ticksOnCurrent = ticksOnCurrent;
+            // Enhancement #18: Preserve sprint continuity across SplicedPath boundaries
+            ret.sprintNextTick = sprintNextTick;
+            ret.ticksSprinting = ticksSprinting;
             return ret;
         }).orElseGet(this::cutIfTooLong); // dont actually call cutIfTooLong every tick if we won't actually use it, use a method reference
     }
@@ -792,6 +881,9 @@ public class PathExecutor implements IPathExecutor, Helper {
                 ret.costEstimateIndex = costEstimateIndex - cutoffAmt;
             }
             ret.ticksOnCurrent = ticksOnCurrent;
+            // Enhancement #18: Preserve sprint continuity across CutoffPath boundaries
+            ret.sprintNextTick = sprintNextTick;
+            ret.ticksSprinting = ticksSprinting;
             return ret;
         }
         return this;

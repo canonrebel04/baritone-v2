@@ -49,7 +49,11 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -125,19 +129,31 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     private LandingSearchState landingSearchState;
     /** True after the current low-rocket/durability landing has already been announced. */
     private boolean safetyLandingAnnounced;
+    private boolean safetyLandingForDurability;
     private boolean soughtHighGround;
     private int seekHighGroundTicks;
+    private int rocketTakeoffTicks;
+    private int mendingTicks;
+    private UUID followTargetUuid;
+    private BlockPos lastFollowGoalPos;
+    private int followUpdateTicks;
 
     @Override
     public void onLostControl() {
+        this.followTargetUuid = null;
+        this.lastFollowGoalPos = null;
+        this.followUpdateTicks = 0;
         onLostControl(true);
     }
 
     public void onLostControl(boolean destroyNpf) {
         this.state = State.START_FLYING; // TODO: null state?
         this.safetyLandingAnnounced = false;
+        this.safetyLandingForDurability = false;
         this.soughtHighGround = false;
         this.seekHighGroundTicks = 0;
+        this.rocketTakeoffTicks = 0;
+        this.mendingTicks = 0;
         this.goingToLandingSpot = false;
         this.landingSpot = null;
         this.landingSearchState = null;
@@ -215,6 +231,36 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
 
         this.behavior.onTick();
 
+        if (this.followTargetUuid != null) {
+            Entity followTarget = findFollowTarget();
+            if (followTarget != null && followTarget.isAlive()) {
+                this.followUpdateTicks++;
+                boolean flightPathActive = ctx.player().isFallFlying() || !Baritone.settings().elytraAutoJump.value;
+                boolean pathDoneFarAway = flightPathActive
+                        && this.behavior.pathManager.isComplete()
+                        && !this.behavior.pathManager.isRecalculating()
+                        && followTarget.blockPosition().distSqr(ctx.playerFeet()) > 64.0D;
+                boolean emptyPathRetry = flightPathActive
+                        && this.followUpdateTicks >= 15
+                        && this.behavior.pathManager.getPath().isEmpty()
+                        && !this.behavior.pathManager.isRecalculating();
+                if (this.followUpdateTicks >= 15 || pathDoneFarAway) {
+                    BlockPos updatedGoal = computeFollowLeadGoal(followTarget);
+                    boolean goalMoved = this.lastFollowGoalPos == null || updatedGoal.distSqr(this.lastFollowGoalPos) > 64.0D;
+                    if (goalMoved || emptyPathRetry) {
+                        this.followUpdateTicks = 0;
+                        retargetFollowGoal(updatedGoal);
+                    } else if (this.followUpdateTicks >= 15) {
+                        this.followUpdateTicks = 0;
+                    }
+                }
+            } else if (followTarget != null && !followTarget.isAlive()) {
+                this.followTargetUuid = null;
+                this.lastFollowGoalPos = null;
+                this.followUpdateTicks = 0;
+            }
+        }
+
         if (calcFailed) {
             onLostControl();
             logDirect(AUTO_JUMP_FAILURE_MSG);
@@ -229,6 +275,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                     this.safetyLandingAnnounced = true;
                 }
                 safetyLanding = true;
+                this.safetyLandingForDurability = isLowDurability() && countFireworks() > 10;
             } else if (!this.safetyLandingAnnounced) {
                 logDirect("almost out of elytra durability or fireworks, but I'm going to continue since elytraAllowEmergencyLand is false");
                 this.safetyLandingAnnounced = true;
@@ -236,7 +283,17 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         } else {
             this.safetyLandingAnnounced = false;
         }
-        if (ctx.player().isFallFlying() && this.state != State.LANDING && (this.behavior.pathManager.isComplete() || safetyLanding)) {
+        boolean holdAirborneForFollow = false;
+        if (this.followTargetUuid != null && !safetyLanding) {
+            Entity followTarget = findFollowTarget();
+            if (followTarget != null && followTarget.isAlive()
+                    && ((followTarget instanceof LivingEntity le && le.isFallFlying())
+                        || followTarget.blockPosition().distSqr(ctx.playerFeet()) > 64.0D)) {
+                holdAirborneForFollow = true;
+            }
+        }
+        if (ctx.player().isFallFlying() && this.state != State.LANDING && !holdAirborneForFollow
+                && ((this.behavior.pathManager.isComplete() && !this.behavior.pathManager.isRecalculating()) || safetyLanding)) {
             final BetterBlockPos last = this.behavior.pathManager.path.getLast();
             if (last != null && (last.distToCenterSqr(ctx.player().position()) < (48 * 48) || safetyLanding) && (!goingToLandingSpot || (safetyLanding && this.landingSpot == null))) {
                 if (this.landingSearchState == null) {
@@ -316,6 +373,16 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                 return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
             }
             baritone.getInputOverrideHandler().clearAllKeys();
+            if (this.safetyLandingForDurability
+                    && Baritone.settings().elytraAutoMendPitstop.value
+                    && hasExpBottles()
+                    && countFireworks() > 10) {
+                this.safetyLandingForDurability = false;
+                this.mendingTicks = 0;
+                this.state = State.MENDING_PITSTOP;
+                logDirect("Pit-stop: mending elytra with XP bottles...");
+                return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+            }
             if (this.tripLegs != null && !isFinalTripLeg()) {
                 // multi-leg trip: continue straight to the next leg without tearing the process down
                 this.advanceTripLeg();
@@ -377,9 +444,11 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                         .filter(movement -> movement instanceof MovementFall)
                         .findFirst().orElse(null);
                 final boolean skyClearDrop = fall != null
-                        && (ctx.world().dimension() != Level.OVERWORLD || ctx.world().canSeeSky(fall.getDest()));
+                        && (ctx.world().dimension() != Level.OVERWORLD
+                            || (ctx.world().canSeeSky(fall.getDest())
+                                && ctx.world().getFluidState(fall.getDest()).isEmpty()));
 
-                if (fall != null && (skyClearDrop || this.soughtHighGround)) {
+                if (fall != null && skyClearDrop) {
                     final BetterBlockPos from = new BetterBlockPos(
                             (fall.getSrc().x + fall.getDest().x) / 2,
                             (fall.getSrc().y + fall.getDest().y) / 2,
@@ -410,6 +479,13 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                     this.goal = new GoalYLevel(Math.min(ctx.world().getMaxY() - 16, ctx.playerFeet().y + 10));
                     logDirect("No open cliff nearby, climbing nearby high ground...");
                     return new PathingCommandContext(this.goal, PathingCommandType.SET_GOAL_AND_PATH, new WalkOffCalculationContext(baritone));
+                } else if (Baritone.settings().elytraRocketTakeoff.value
+                        && countFireworks() > 0
+                        && ctx.world().canSeeSky(ctx.playerFeet())) {
+                    this.rocketTakeoffTicks = 0;
+                    this.state = State.ROCKET_TAKEOFF;
+                    logDirect("No cliff found; attempting flat-ground rocket takeoff...");
+                    return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
                 } else {
                     onLostControl();
                     logDirect(AUTO_JUMP_FAILURE_MSG);
@@ -419,10 +495,63 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             return new PathingCommandContext(this.goal, PathingCommandType.SET_GOAL_AND_PAUSE, new WalkOffCalculationContext(baritone));
         }
 
+        if (this.state == State.ROCKET_TAKEOFF) {
+            this.rocketTakeoffTicks++;
+            baritone.getInputOverrideHandler().clearAllKeys();
+            BlockPos dest = this.currentDestination();
+            float yaw = dest != null
+                    ? RotationUtils.calcRotationFromVec3d(ctx.playerHead(), Vec3.atCenterOf(dest), ctx.playerRotations()).getYaw()
+                    : ctx.playerRotations().getYaw();
+            baritone.getLookBehavior().updateTarget(new Rotation(yaw, -65.0f), true);
+
+            if (this.rocketTakeoffTicks == 1) {
+                baritone.getInputOverrideHandler().setInputForceState(Input.JUMP, true);
+                return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+            }
+            if (!ctx.player().onGround() && !ctx.player().isFallFlying() && ctx.player().getDeltaMovement().y < -0.05) {
+                // Rising-edge jump input triggers LocalPlayer's native elytra deploy + START_FALL_FLYING packet
+                baritone.getInputOverrideHandler().setInputForceState(Input.JUMP, true);
+                ctx.player().connection.send(new ServerboundPlayerCommandPacket(ctx.player(), ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
+            }
+            if (ctx.player().isFallFlying()) {
+                if (baritone.getInventoryBehavior().throwaway(true, ElytraBehavior::isFireworks)) {
+                    ctx.playerController().processRightClick(ctx.player(), ctx.world(), InteractionHand.MAIN_HAND);
+                }
+                this.state = State.FLYING;
+                return new PathingCommand(null, PathingCommandType.CANCEL_AND_SET_GOAL);
+            }
+            if (this.rocketTakeoffTicks > 40) {
+                onLostControl();
+                logDirect(AUTO_JUMP_FAILURE_MSG);
+                return new PathingCommand(null, PathingCommandType.CANCEL_AND_SET_GOAL);
+            }
+            return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+        }
+
+        if (this.state == State.MENDING_PITSTOP) {
+            this.mendingTicks++;
+            baritone.getInputOverrideHandler().clearAllKeys();
+            baritone.getLookBehavior().updateTarget(new Rotation(ctx.playerRotations().getYaw(), 90.0f), true);
+            ItemStack chest = ctx.player().getItemBySlot(EquipmentSlot.CHEST);
+            boolean mended = !chest.isEmpty() && chest.isDamageableItem()
+                    && (chest.getMaxDamage() - chest.getDamageValue()) >= (int) (chest.getMaxDamage() * 0.85);
+            if (mended || !hasExpBottles() || this.mendingTicks > 200) {
+                this.soughtHighGround = false;
+                this.goal = null;
+                this.state = State.LOCATE_JUMP;
+                logDirect(mended ? "Elytra mended, resuming flight..." : "Pit-stop finished, resuming flight...");
+                return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+            }
+            if (this.mendingTicks % 2 == 0 && baritone.getInventoryBehavior().throwaway(true, stack -> stack.is(Items.EXPERIENCE_BOTTLE))) {
+                ctx.playerController().processRightClick(ctx.player(), ctx.world(), InteractionHand.MAIN_HAND);
+            }
+            return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+        }
+
         if (this.state == State.SEEK_HIGH_GROUND) {
             this.seekHighGroundTicks++;
-            final boolean finished = this.seekHighGroundTicks > 200
-                    || (this.seekHighGroundTicks > 5 && !baritone.getPathingBehavior().isPathing());
+            final boolean finished = this.seekHighGroundTicks > 400
+                    || (this.seekHighGroundTicks > 10 && !baritone.getPathingBehavior().isPathing());
             if (finished) {
                 this.goal = null;
                 this.state = State.LOCATE_JUMP;
@@ -537,7 +666,98 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             throw new IllegalArgumentException("The player must be within bounds to use elytra flight.");
         }
 
+        this.followTargetUuid = null;
+        this.lastFollowGoalPos = null;
+        this.followUpdateTicks = 0;
         this.pathTo0(destination, false);
+    }
+
+    @Override
+    public void followEntity(Entity target) {
+        if (target == null) {
+            throw new IllegalArgumentException("Target entity cannot be null");
+        }
+        if (ctx.player() == null || ctx.world() == null) {
+            return;
+        }
+        if (!target.isAlive() || target.level() != ctx.world()) {
+            throw new IllegalArgumentException("Target entity is not alive in the current dimension");
+        }
+        BlockPos goalPos = computeFollowLeadGoal(target);
+        if (!isSupportedPos(goalPos)) {
+            throw new IllegalArgumentException("The target position must be within bounds to use elytra flight.");
+        }
+        if (!isSupportedPos(ctx.playerFeet())) {
+            throw new IllegalArgumentException("The player must be within bounds to use elytra flight.");
+        }
+        this.followTargetUuid = target.getUUID();
+        this.lastFollowGoalPos = goalPos;
+        this.followUpdateTicks = 0;
+        this.pathTo0(goalPos, false);
+    }
+
+    private void retargetFollowGoal(BlockPos goalPos) {
+        if (ctx.player() == null || !isSupportedPos(goalPos) || !isSupportedPos(ctx.playerFeet())) {
+            return;
+        }
+        this.goingToLandingSpot = false;
+        this.landingSpot = null;
+        this.landingSearchState = null;
+        this.reachedGoal = false;
+        if (this.behavior != null && ctx.player().isFallFlying()) {
+            this.lastFollowGoalPos = goalPos;
+            if (this.state == State.LANDING) {
+                this.state = State.FLYING;
+            }
+            this.behavior.retarget(goalPos, false);
+        } else if (this.behavior != null && !Baritone.settings().elytraAutoJump.value
+                && this.state != State.LANDING && this.state != State.MENDING_PITSTOP) {
+            this.lastFollowGoalPos = goalPos;
+            this.behavior.retarget(goalPos, false);
+        } else if (this.behavior != null && this.state != State.LANDING) {
+            // Still taking off or mending on the ground: preserve takeoff/pitstop state and packed chunks
+            // while updating the pending destination, and force an in-place retarget once airborne.
+            this.behavior.destination = new BetterBlockPos(goalPos);
+            this.lastFollowGoalPos = null;
+        } else {
+            this.lastFollowGoalPos = goalPos;
+            this.pathTo0(goalPos, false);
+        }
+    }
+
+    private Entity findFollowTarget() {
+        if (this.followTargetUuid == null || ctx.world() == null) {
+            return null;
+        }
+        return ctx.entitiesStream()
+                .filter(e -> this.followTargetUuid.equals(e.getUUID()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private BlockPos computeFollowLeadGoal(Entity target) {
+        Vec3 pos = target.position();
+        Vec3 vel = target.getDeltaMovement();
+        if (vel.lengthSqr() <= 1.0E-4) {
+            Vec3 known = target.getKnownSpeed();
+            if (known.lengthSqr() <= 16.0) {
+                vel = known;
+            }
+        } else if (vel.lengthSqr() > 16.0) {
+            vel = Vec3.ZERO;
+        }
+        int leadTicks = Math.max(0, Baritone.settings().followLeadTicks.value);
+        Vec3 predicted = pos.add(vel.x * leadTicks, vel.y * leadTicks, vel.z * leadTicks);
+        int minY = ctx.world().dimensionType().minY();
+        boolean isNether = ctx.world().dimension() == Level.NETHER;
+        int maxY = (isNether && !Baritone.settings().elytraAllowAboveRoof.value)
+                ? 126
+                : Math.min(minY + 383, ctx.world().dimensionType().height() + minY - 1);
+        if (!Baritone.settings().elytraAllowAboveBuildLimit.value && !isNether) {
+            maxY = Math.min(maxY, ctx.world().getMaxY() - 1);
+        }
+        int y = Math.max(minY + 1, Math.min(maxY, (int) Math.round(predicted.y)));
+        return BlockPos.containing(predicted.x, y, predicted.z);
     }
 
     private void pathTo0(BlockPos destination, boolean appendDestination) {
@@ -842,6 +1062,22 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         return !enforceMaxY || pos.getY() < maxY;
     }
 
+    private boolean isLowDurability() {
+        ItemStack chest = ctx.player().getItemBySlot(EquipmentSlot.CHEST);
+        return chest.isEmpty() || !chest.isDamageableItem()
+                || chest.getMaxDamage() - chest.getDamageValue() < Baritone.settings().elytraMinimumDurability.value;
+    }
+
+    private boolean hasExpBottles() {
+        NonNullList<ItemStack> inv = ctx.player().getInventory().getNonEquipmentItems();
+        for (int i = 0; i < 36; i++) {
+            if (inv.get(i).is(Items.EXPERIENCE_BOTTLE)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean shouldLandForSafety() {
         ItemStack chest = ctx.player().getItemBySlot(EquipmentSlot.CHEST);
         if (chest.getItem() != Items.ELYTRA || chest.getMaxDamage() - chest.getDamageValue() < Baritone.settings().elytraMinimumDurability.value) {
@@ -965,6 +1201,8 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     public enum State {
         NONE("None"),
         SEEK_HIGH_GROUND("Moving to higher ground"),
+        ROCKET_TAKEOFF("Rocket takeoff"),
+        MENDING_PITSTOP("Mending elytra"),
         LOCATE_JUMP("Finding spot to jump off"),
         PAUSE("Waiting for elytra path"),
         GET_TO_JUMP("Walking to takeoff"),

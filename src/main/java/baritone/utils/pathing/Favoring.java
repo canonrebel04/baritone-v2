@@ -19,6 +19,7 @@ package baritone.utils.pathing;
 
 import baritone.api.pathing.calc.IPath;
 import baritone.api.utils.BetterBlockPos;
+import baritone.api.utils.CombatFavoringStorage;
 import baritone.api.utils.Helper;
 import baritone.api.utils.IPlayerContext;
 import baritone.pathing.movement.CalculationContext;
@@ -56,14 +57,34 @@ public final class Favoring {
     @baritone.KeepName
     public static java.util.function.LongToDoubleFunction combatFavoringSupplier = null;
 
+    public void applySetbacks(SetbackTracker tracker, long nowMs, long decayMs, double baseCoeff) {
+        if (tracker != null) {
+            tracker.applyTo(favorings, nowMs, decayMs, baseCoeff);
+        }
+    }
+
     public boolean isEmpty() {
-        return favorings.isEmpty() && avoidances.isEmpty() && combatFavoringSupplier == null;
+        return favorings.isEmpty()
+                && avoidances.isEmpty()
+                && combatFavoringSupplier == null
+                && CombatFavoringStorage.get() == null;
     }
 
     public double calculate(int x, int y, int z, long hash) {
         double val = favorings.get(hash);
-        if (combatFavoringSupplier != null) {
-            val *= combatFavoringSupplier.applyAsDouble(hash);
+        java.util.function.LongToDoubleFunction directSupplier = combatFavoringSupplier;
+        if (directSupplier != null) {
+            double mult = directSupplier.applyAsDouble(hash);
+            if (mult > 0 && Double.isFinite(mult)) {
+                val *= mult;
+            }
+        }
+        java.util.function.LongToDoubleFunction apiSupplier = CombatFavoringStorage.get();
+        if (apiSupplier != null) {
+            double mult = apiSupplier.applyAsDouble(hash);
+            if (mult > 0 && Double.isFinite(mult)) {
+                val *= mult;
+            }
         }
         if (!avoidances.isEmpty()) {
             for (Avoidance avoidance : avoidances) {

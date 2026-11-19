@@ -18,12 +18,18 @@
 package baritone.utils.pathing;
 
 import baritone.Baritone;
+import baritone.api.BaritoneAPI;
 import baritone.api.utils.IPlayerContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.boss.wither.WitherBoss;
+import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.monster.Enderman;
 import net.minecraft.world.entity.monster.spider.Spider;
 import net.minecraft.world.entity.monster.zombie.ZombifiedPiglin;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.hurtingprojectile.WitherSkull;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -80,6 +86,30 @@ public class Avoidance {
                     .filter(entity -> !(entity instanceof ZombifiedPiglin) || ((ZombifiedPiglin) entity).getLastHurtByMob() != null)
                     .filter(entity -> !(entity instanceof Enderman) || ((Enderman) entity).isCreepy())
                     .forEach(entity -> res.add(new Avoidance(entity.blockPosition(), mobCoeff, Baritone.settings().mobAvoidanceRadius.value)));
+        }
+        double crystalCoeff = Baritone.settings().crystalAvoidanceCoefficient.value;
+        int crystalRadius = Baritone.settings().crystalAvoidanceRadius.value;
+        double explosiveCoeff = Baritone.settings().explosiveAvoidanceCoefficient.value;
+        int explosiveRadius = Baritone.settings().explosiveAvoidanceRadius.value;
+        double playerCoeff = Baritone.settings().playerAvoidanceCoefficient.value;
+        int playerRadius = Baritone.settings().playerAvoidanceRadius.value;
+        if ((crystalCoeff != 1.0D && crystalRadius > 0)
+                || (explosiveCoeff != 1.0D && explosiveRadius > 0)
+                || (playerCoeff != 1.0D && playerRadius > 0)) {
+            ctx.entitiesStream().forEach(entity -> {
+                if (entity instanceof EndCrystal && crystalCoeff != 1.0D && crystalRadius > 0) {
+                    res.add(new Avoidance(entity.blockPosition(), crystalCoeff, crystalRadius));
+                } else if ((entity instanceof PrimedTnt || entity instanceof WitherBoss || entity instanceof WitherSkull)
+                        && explosiveCoeff != 1.0D && explosiveRadius > 0) {
+                    res.add(new Avoidance(entity.blockPosition(), explosiveCoeff, explosiveRadius));
+                } else if (entity instanceof Player other
+                        && entity != ctx.player()
+                        && playerCoeff != 1.0D
+                        && playerRadius > 0
+                        && !BaritoneAPI.getFriendFilter().test(other.getUUID())) {
+                    res.add(new Avoidance(entity.blockPosition(), playerCoeff, playerRadius));
+                }
+            });
         }
         return res;
     }

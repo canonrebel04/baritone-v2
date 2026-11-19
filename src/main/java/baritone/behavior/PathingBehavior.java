@@ -20,6 +20,8 @@ package baritone.behavior;
 import baritone.Baritone;
 import baritone.api.behavior.IPathingBehavior;
 import baritone.api.event.events.*;
+import baritone.api.event.events.type.EventState;
+import baritone.api.pathing.movement.IMovement;
 import baritone.api.utils.input.Input;
 import baritone.api.pathing.calc.IPath;
 import baritone.api.pathing.goals.Goal;
@@ -39,10 +41,12 @@ import baritone.utils.FrontierMapRenderer;
 import baritone.utils.PathingCommandContext;
 import baritone.cache.CachedWorld;
 import baritone.utils.pathing.Favoring;
+import baritone.utils.pathing.SetbackTracker;
 import baritone.api.BaritoneAPI;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -57,6 +61,8 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
 
     private Goal goal;
     private CalculationContext context;
+
+    private final SetbackTracker setbackTracker = new SetbackTracker();
 
     /*eta*/
     private int ticksElapsedSoFar;
@@ -585,6 +591,14 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
             }
         }
         Favoring favoring = new Favoring(context.getBaritone().getPlayerContext(), previous, context);
+        if (Baritone.settings().setbackAvoidance.value) {
+            favoring.applySetbacks(
+                    setbackTracker,
+                    System.currentTimeMillis(),
+                    Baritone.settings().setbackAvoidanceDecayMs.value,
+                    Baritone.settings().setbackAvoidanceCoefficient.value
+            );
+        }
         BetterBlockPos feet = ctx.playerFeet();
         var realStart = new BetterBlockPos(start);
         var sub = feet.subtract(realStart);
@@ -593,6 +607,23 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
         }
         return new AStarPathFinder(realStart, start.getX(), start.getY(), start.getZ(), transformed, favoring, context);
 
+    }
+
+    @Override
+    public void onReceivePacket(PacketEvent event) {
+        if (event.getState() != EventState.PRE || !(event.getPacket() instanceof ClientboundPlayerPositionPacket)) {
+            return;
+        }
+        if (!Baritone.settings().setbackAvoidance.value) {
+            return;
+        }
+        PathExecutor exec = current;
+        if (exec != null && exec.getPath() != null && exec.getPosition() < exec.getPath().movements().size()) {
+            IMovement mv = exec.getPath().movements().get(exec.getPosition());
+            long now = System.currentTimeMillis();
+            setbackTracker.recordSetback(mv.getSrc(), now);
+            setbackTracker.recordSetback(mv.getDest(), now);
+        }
     }
 
     @Override

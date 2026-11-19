@@ -203,13 +203,20 @@ public class MovementDescend extends Movement {
             if (MovementHelper.isBottomSlab(ontoBlock)) {
                 return false; // falling onto a half slab is really glitchy, and can cause more fall damage than we'd expect
             }
-            if (reachedMinimum && unprotectedFallHeight <= context.maxFallHeightNoWater + 1) {
+            // Enhancement #38: Soft landing blocks (slime, hay, honey, bed) mitigate fall damage
+            double fallDmgMult = context.landingFallDamageMultiplier(ontoBlock.getBlock());
+            int effectiveMaxFallNoWater = fallDmgMult <= 0.0
+                    ? Math.max(context.maxFallHeightNoWater, 24)
+                    : (fallDmgMult < 1.0
+                        ? Math.max(context.maxFallHeightNoWater, (int) Math.floor(context.maxFallHeightNoWater / fallDmgMult))
+                        : context.maxFallHeightNoWater);
+            if (reachedMinimum && unprotectedFallHeight <= effectiveMaxFallNoWater + 1) {
                 // fallHeight = maxFallHeightNoWater + 1 means onto.up() is maxFallHeightNoWater blocks down,
                 // which is the max safe fall distance (SAFE_FALL_DISTANCE attribute, incl. Feather Falling)
                 res.x = destX;
                 res.y = newY + 1;
                 res.z = destZ;
-                res.cost = tentativeCost;
+                res.cost = tentativeCost + (fallDmgMult < 1.0 && unprotectedFallHeight > context.maxFallHeightNoWater + 1 ? 2.0 : 0.0);
                 return false;
             }
             if (reachedMinimum && context.hasWaterBucket && unprotectedFallHeight <= context.maxFallHeightBucket + 1) {
@@ -265,6 +272,12 @@ public class MovementDescend extends Movement {
                 MovementHelper.moveTowards(ctx, state, fakeDest);
             } else {
                 MovementHelper.moveTowards(ctx, state, dest);
+            }
+            // Enhancement #14: Descend->Traverse flow — preserve sprint across safe 1-block descents
+            if (Baritone.settings().movementFlowChaining.value && !safeMode() && continuesStraight() && nextMovement instanceof MovementTraverse) {
+                state.setInput(Input.SPRINT, true);
+            } else {
+                MovementHelper.applyCornerAndBrakeControl(ctx, state, src, dest, isNextTurnSharp());
             }
         }
         return state;

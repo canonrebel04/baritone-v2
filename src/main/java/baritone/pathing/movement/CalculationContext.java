@@ -21,6 +21,8 @@ import baritone.Baritone;
 import baritone.api.IBaritone;
 import baritone.api.pathing.movement.ActionCosts;
 import baritone.cache.WorldData;
+import baritone.pathing.movement.sim.MovementSimulator;
+import baritone.pathing.movement.sim.PlayerPhysics;
 import baritone.pathing.precompute.PrecomputedData;
 import baritone.utils.BlockStateInterface;
 import baritone.utils.ToolSet;
@@ -28,6 +30,8 @@ import baritone.utils.pathing.BetterWorldBorder;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -38,6 +42,7 @@ import net.minecraft.world.item.enchantment.*;
 import net.minecraft.world.item.enchantment.effects.EnchantmentAttributeEffect;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
@@ -51,7 +56,14 @@ import static baritone.api.pathing.movement.ActionCosts.COST_INF;
  */
 public class CalculationContext {
 
-    private static final ItemStack STACK_BUCKET_WATER = new ItemStack(Items.WATER_BUCKET);
+    private static ItemStack stackBucketWater;
+
+    private static ItemStack getStackBucketWater() {
+        if (stackBucketWater == null) {
+            stackBucketWater = new ItemStack(Items.WATER_BUCKET);
+        }
+        return stackBucketWater;
+    }
 
     public final boolean safeForThreadedUse;
     public final IBaritone baritone;
@@ -87,6 +99,27 @@ public class CalculationContext {
     public final boolean allowWalkOnMagmaBlocks;
     public final BetterWorldBorder worldBorder;
     public final boolean combatMode;
+    public final double combatBlastResistantFootingFavor;
+    public final boolean combatDisallowSlowBreak;
+
+    // Deep movement enhancement fields (cached per A* search for consistency)
+    public final int speedLevel;
+    public final int slownessLevel;
+    public final int jumpBoostLevel;
+    public final double baseMovementSpeed;
+    public final double speedCostScale;
+    public final MovementSimulator.SimConfig simConfig;
+    public final double turnPenalty;
+    public final double tightClearancePenalty;
+    public final boolean allowDiagonalParkour;
+    public final boolean allowParkourFiveGap;
+    public final boolean allowDescendingParkour;
+    public final boolean allowNeoJump;
+    public final boolean allowHeadHitterJump;
+    public final boolean allowSwimSprint;
+    public final boolean allowBubbleColumnTravel;
+    public final boolean useFailureMemory;
+    public final boolean useAdaptiveTuning;
 
     public final PrecomputedData precomputedData;
 
@@ -94,8 +127,67 @@ public class CalculationContext {
         this(baritone, false);
     }
 
+    protected CalculationContext(PrecomputedData precomputedData, boolean combatMode, double combatBlastResistantFootingFavor, boolean combatDisallowSlowBreak) {
+        this.combatMode = combatMode;
+        this.combatBlastResistantFootingFavor = combatBlastResistantFootingFavor;
+        this.combatDisallowSlowBreak = combatDisallowSlowBreak;
+        this.precomputedData = precomputedData != null ? precomputedData : new PrecomputedData();
+        this.safeForThreadedUse = false;
+        this.baritone = null;
+        this.world = null;
+        this.worldData = null;
+        this.bsi = null;
+        this.toolSet = null;
+        this.hasWaterBucket = false;
+        this.hasThrowaway = false;
+        this.canSprint = true;
+        this.placeBlockCost = 20.0D;
+        this.allowBreak = true;
+        this.allowBreakAnyway = java.util.Collections.emptyList();
+        this.allowParkour = false;
+        this.allowParkourPlace = false;
+        this.allowJumpAtBuildLimit = false;
+        this.allowParkourAscend = false;
+        this.assumeWalkOnWater = false;
+        this.allowFallIntoLava = false;
+        this.frostWalker = 0;
+        this.allowDiagonalDescend = false;
+        this.allowDiagonalAscend = false;
+        this.allowDownward = false;
+        this.minFallHeight = 3;
+        this.maxFallHeightNoWater = 3;
+        this.maxFallHeightBucket = 0;
+        this.waterWalkSpeed = ActionCosts.WALK_ONE_IN_WATER_COST;
+        this.breakBlockAdditionalCost = 0.0D;
+        this.backtrackCostFavoringCoefficient = 1.0D;
+        this.jumpPenalty = 0.0D;
+        this.canStepUp = false;
+        this.walkOnWaterOnePenalty = 0.0D;
+        this.allowWalkOnMagmaBlocks = false;
+        this.worldBorder = null;
+        this.speedLevel = 0;
+        this.slownessLevel = 0;
+        this.jumpBoostLevel = 0;
+        this.baseMovementSpeed = PlayerPhysics.BASE_MOVEMENT_SPEED;
+        this.speedCostScale = 1.0;
+        this.simConfig = MovementSimulator.SimConfig.vanillaDefault();
+        this.turnPenalty = 0.0;
+        this.tightClearancePenalty = 0.0;
+        this.allowDiagonalParkour = false;
+        this.allowParkourFiveGap = false;
+        this.allowDescendingParkour = false;
+        this.allowNeoJump = false;
+        this.allowHeadHitterJump = false;
+        this.allowSwimSprint = true;
+        this.allowBubbleColumnTravel = true;
+        this.useFailureMemory = false;
+        this.useAdaptiveTuning = false;
+    }
+
     public CalculationContext(IBaritone baritone, boolean forUseOnAnotherThread) {
         this.combatMode = Baritone.settings().combatMode.value;
+        this.combatBlastResistantFootingFavor = Baritone.settings().combatBlastResistantFootingFavor.value;
+        this.combatDisallowSlowBreak = Baritone.settings().combatDisallowSlowBreak.value;
         this.precomputedData = new PrecomputedData();
         this.safeForThreadedUse = forUseOnAnotherThread;
         this.baritone = baritone;
@@ -105,7 +197,7 @@ public class CalculationContext {
         this.bsi = new BlockStateInterface(baritone.getPlayerContext(), forUseOnAnotherThread);
         this.toolSet = new ToolSet(player);
         this.hasThrowaway = Baritone.settings().allowPlace.value && ((Baritone) baritone).getInventoryBehavior().hasGenericThrowaway();
-        this.hasWaterBucket = Baritone.settings().allowWaterBucketFall.value && Inventory.isHotbarSlot(player.getInventory().findSlotMatchingItem(STACK_BUCKET_WATER)) && world.dimension() != Level.NETHER;
+        this.hasWaterBucket = Baritone.settings().allowWaterBucketFall.value && Inventory.isHotbarSlot(player.getInventory().findSlotMatchingItem(getStackBucketWater())) && world.dimension() != Level.NETHER;
         // Sprint is allowed when food > 6 (survival), OR when the player is
         // invulnerable (Creative / Spectator — food is always 0 in these modes).
         this.canSprint = Baritone.settings().allowSprint.value
@@ -185,6 +277,54 @@ public class CalculationContext {
         // because if some movements are calculated one way and others are calculated another way,
         // then you get a wildly inconsistent path that isn't optimal for either scenario.
         this.worldBorder = new BetterWorldBorder(world.getWorldBorder());
+
+        // Enhancements #19, #20, #34-#39: cache potion effects, attributes, and movement settings
+        boolean effectAware = Baritone.settings().movementEffectAwareness.value;
+        int spd = 0;
+        int slw = 0;
+        int jmp = 0;
+        double baseSpd = PlayerPhysics.BASE_MOVEMENT_SPEED;
+        if (effectAware) {
+            MobEffectInstance speedEff = player.getEffect(MobEffects.SPEED);
+            if (speedEff != null) {
+                spd = speedEff.getAmplifier() + 1;
+            }
+            MobEffectInstance slowEff = player.getEffect(MobEffects.SLOWNESS);
+            if (slowEff != null) {
+                slw = slowEff.getAmplifier() + 1;
+            }
+            MobEffectInstance jumpEff = player.getEffect(MobEffects.JUMP_BOOST);
+            if (jumpEff != null) {
+                jmp = jumpEff.getAmplifier() + 1;
+            }
+            AttributeInstance moveSpeedAttr = player.getAttribute(Attributes.MOVEMENT_SPEED);
+            if (moveSpeedAttr != null && moveSpeedAttr.getBaseValue() > 0.01) {
+                baseSpd = moveSpeedAttr.getBaseValue();
+            }
+        }
+        this.speedLevel = spd;
+        this.slownessLevel = slw;
+        this.jumpBoostLevel = jmp;
+        this.baseMovementSpeed = baseSpd;
+        double effSpeed = PlayerPhysics.effectiveGroundSpeed(baseSpd, spd, slw, false);
+        this.speedCostScale = effSpeed > 0.01 ? Math.max(0.4, Math.min(2.5, PlayerPhysics.BASE_MOVEMENT_SPEED / effSpeed)) : 1.0;
+        this.simConfig = new MovementSimulator.SimConfig(
+                baseSpd, spd, slw, jmp,
+                PlayerPhysics.BASE_GROUND_SLIPPERINESS,
+                PlayerPhysics.NORMAL_SPEED_FACTOR,
+                false, false
+        );
+        this.turnPenalty = Math.max(0.0, Baritone.settings().movementTurnPenalty.value);
+        this.tightClearancePenalty = Math.max(0.0, Baritone.settings().movementTightClearancePenalty.value);
+        this.allowDiagonalParkour = Baritone.settings().allowDiagonalParkour.value;
+        this.allowParkourFiveGap = Baritone.settings().allowParkourFiveGap.value;
+        this.allowDescendingParkour = Baritone.settings().allowDescendingParkour.value;
+        this.allowNeoJump = Baritone.settings().allowNeoJump.value;
+        this.allowHeadHitterJump = Baritone.settings().allowHeadHitterJump.value;
+        this.allowSwimSprint = Baritone.settings().allowSwimSprint.value;
+        this.allowBubbleColumnTravel = Baritone.settings().allowBubbleColumnTravel.value;
+        this.useFailureMemory = Baritone.settings().movementFailureMemory.value;
+        this.useAdaptiveTuning = Baritone.settings().movementAdaptiveTuning.value;
     }
 
     public final IBaritone getBaritone() {
@@ -266,6 +406,9 @@ public class CalculationContext {
         if (isPossiblyProtected(x, y, z)) {
             return COST_INF;
         }
+        if (combatMode && combatDisallowSlowBreak && current.getDestroySpeed(world, new BlockPos(x, y, z)) > 0.3f) {
+            return COST_INF;
+        }
         return 1;
     }
 
@@ -276,5 +419,89 @@ public class CalculationContext {
     public boolean isPossiblyProtected(int x, int y, int z) {
         // TODO more protection logic here; see #220
         return false;
+    }
+
+    /**
+     * Enhancement #32 & #35: Returns the surface cost multiplier for walking on {@code below}
+     * while feet are in {@code feet} (accounts for ice, blue ice, slime, soul sand, honey,
+     * cobweb, powder snow, and active Speed/Slowness effects).
+     */
+    public double surfaceCostMultiplier(BlockState below, BlockState feet) {
+        Block belowBlock = below.getBlock();
+        Block feetBlock = feet.getBlock();
+        double slip = PlayerPhysics.BASE_GROUND_SLIPPERINESS;
+        double speedFactor = PlayerPhysics.NORMAL_SPEED_FACTOR;
+        if (belowBlock == Blocks.BLUE_ICE) {
+            slip = PlayerPhysics.BLUE_ICE_SLIPPERINESS;
+        } else if (belowBlock == Blocks.ICE || belowBlock == Blocks.PACKED_ICE || belowBlock == Blocks.FROSTED_ICE) {
+            slip = PlayerPhysics.ICE_SLIPPERINESS;
+        } else if (belowBlock == Blocks.SLIME_BLOCK) {
+            slip = PlayerPhysics.SLIME_SLIPPERINESS;
+        } else if (belowBlock == Blocks.SOUL_SAND) {
+            speedFactor = PlayerPhysics.SOUL_SAND_SPEED_FACTOR;
+        } else if (belowBlock == Blocks.HONEY_BLOCK) {
+            speedFactor = PlayerPhysics.HONEY_SPEED_FACTOR;
+        }
+        boolean inCobweb = feetBlock == Blocks.COBWEB;
+        boolean inPowderSnow = feetBlock == Blocks.POWDER_SNOW;
+        return PlayerPhysics.surfaceCostMultiplier(slip, speedFactor, inCobweb, inPowderSnow) * speedCostScale;
+    }
+
+    /**
+     * Enhancement #38: Fall damage mitigation multiplier for soft landing blocks
+     * (hay bale = 0.2, honey = 0.2, bed = 0.5, slime = 0.0, cobweb = 0.0).
+     */
+    public double landingFallDamageMultiplier(Block landingBlock) {
+        if (landingBlock == Blocks.SLIME_BLOCK || landingBlock == Blocks.COBWEB || landingBlock == Blocks.WATER) {
+            return 0.0;
+        }
+        if (landingBlock == Blocks.HAY_BLOCK || landingBlock == Blocks.HONEY_BLOCK) {
+            return 0.2;
+        }
+        if (landingBlock instanceof net.minecraft.world.level.block.BedBlock) {
+            return 0.5;
+        }
+        return 1.0;
+    }
+
+    /**
+     * Enhancement #39: Small additive penalty when a destination node has tight horizontal clearance
+     * (adjacent lethal drop or hazard/solid wall pinch).
+     */
+    public double tightClearanceCost(int x, int y, int z) {
+        if (tightClearancePenalty <= 0.0 || bsi == null) {
+            return 0.0;
+        }
+        int pinchedSides = 0;
+        if (!MovementHelper.canWalkThrough(this, x + 1, y, z)) pinchedSides++;
+        if (!MovementHelper.canWalkThrough(this, x - 1, y, z)) pinchedSides++;
+        if (!MovementHelper.canWalkThrough(this, x, y, z + 1)) pinchedSides++;
+        if (!MovementHelper.canWalkThrough(this, x, y, z - 1)) pinchedSides++;
+        if (pinchedSides >= 3) {
+            return tightClearancePenalty;
+        }
+        return 0.0;
+    }
+
+    /**
+     * Enhancement #19, #20, #22: Maximum cardinal parkour gap in blocks given current
+     * sprint capability, Speed/Jump Boost effects, and settings.
+     */
+    public int maxCardinalParkourGap(boolean iceRunup) {
+        if (!canSprint) {
+            return jumpBoostLevel > 0 ? 3 : 2;
+        }
+        int base = 4;
+        if (allowParkourFiveGap && (speedLevel >= 1 || jumpBoostLevel >= 1 || iceRunup)) {
+            double span = MovementSimulator.maxReachableJumpSpan(
+                    6, 0.0, true,
+                    iceRunup ? new MovementSimulator.SimConfig(
+                            baseMovementSpeed, speedLevel, slownessLevel, jumpBoostLevel,
+                            PlayerPhysics.ICE_SLIPPERINESS, 1.0, false, false) : simConfig);
+            if (span >= 5.05) {
+                base = 5;
+            }
+        }
+        return base;
     }
 }

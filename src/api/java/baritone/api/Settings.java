@@ -494,6 +494,51 @@ public final class Settings {
     public final Setting<Integer> mobAvoidanceRadius = new Setting<>(8);
 
     /**
+     * Distance to avoid End Crystals during walking pathing (requires {@link #avoidance}).
+     */
+    public final Setting<Integer> crystalAvoidanceRadius = new Setting<>(8);
+
+    /**
+     * Cost multiplier near End Crystals (1.0 disables).
+     */
+    public final Setting<Double> crystalAvoidanceCoefficient = new Setting<>(10.0);
+
+    /**
+     * Distance to avoid TNT, Withers, and Wither Skulls during walking pathing (requires {@link #avoidance}).
+     */
+    public final Setting<Integer> explosiveAvoidanceRadius = new Setting<>(10);
+
+    /**
+     * Cost multiplier near explosives (1.0 disables).
+     */
+    public final Setting<Double> explosiveAvoidanceCoefficient = new Setting<>(12.0);
+
+    /**
+     * Distance to avoid non-friend players during walking pathing (0 disables, requires {@link #avoidance}).
+     */
+    public final Setting<Integer> playerAvoidanceRadius = new Setting<>(0);
+
+    /**
+     * Cost multiplier near non-friend players (1.0 disables).
+     */
+    public final Setting<Double> playerAvoidanceCoefficient = new Setting<>(4.0);
+
+    /**
+     * Penalize walking path nodes that triggered server position setbacks (rubberbands).
+     */
+    public final Setting<Boolean> setbackAvoidance = new Setting<>(true);
+
+    /**
+     * How long (ms) a setback penalty persists before decaying completely.
+     */
+    public final Setting<Long> setbackAvoidanceDecayMs = new Setting<>(60_000L);
+
+    /**
+     * Base cost multiplier applied to nodes that triggered a server setback.
+     */
+    public final Setting<Double> setbackAvoidanceCoefficient = new Setting<>(5.0);
+
+    /**
      * When running a goto towards a container block (chest, ender chest, furnace, etc),
      * right click and open it once you arrive.
      */
@@ -620,6 +665,18 @@ public final class Settings {
      * Timeout for primary path searches when combatMode is enabled
      */
     public final Setting<Long> combatTimeoutMS = new Setting<>(200L);
+
+    /**
+     * Cost multiplier applied when walking onto blast-resistant footing (bedrock, obsidian,
+     * crying obsidian, reinforced deepslate) while {@link #combatMode} is enabled.
+     */
+    public final Setting<Double> combatBlastResistantFootingFavor = new Setting<>(0.78D);
+
+    /**
+     * Disallow breaking slow blocks (destroy speed &gt; 0.3) during path calculation when
+     * {@link #combatMode} is enabled.
+     */
+    public final Setting<Boolean> combatDisallowSlowBreak = new Setting<>(true);
 
     /**
      * Humanize movement transitions (corner overshoot, sprint drop) to reduce mechanical profile
@@ -829,14 +886,14 @@ public final class Settings {
      * rate of the eased animation (reached mid-turn); the camera accelerates toward it from rest and
      * decelerates into the target. Higher values turn faster, lower values look smoother and more human.
      */
-    public final Setting<Double> maxLookTurnSpeed = new Setting<>(35.0);
+    public final Setting<Double> maxLookTurnSpeed = new Setting<>(95.0);
 
     /**
      * The number of ticks forming the time constant of the smooth-look chase
      * ({@code smoothLook}); higher values give smoother but lazier camera motion
-     * (the critically-damped spring's tau is this value divided by 3). Default 5.
+     * (the critically-damped spring's tau is this value divided by 3). Default 3.
      */
-    public final Setting<Integer> smoothLookTicks = new Setting<>(5);
+    public final Setting<Integer> smoothLookTicks = new Setting<>(3);
 
     /**
      * When true, the player will remain with its existing look direction as often as possible.
@@ -1310,6 +1367,12 @@ public final class Settings {
     public final Setting<Double> followGoalQuantization = new Setting<>(1.0D);
 
     /**
+     * Number of ticks ahead to project a moving follow target's XZ velocity when computing follow goals.
+     * Set to 0 to disable velocity leading.
+     */
+    public final Setting<Integer> followLeadTicks = new Setting<>(8);
+
+    /**
      * Turn this on if your exploration filter is enormous, you don't want it to check if it's done,
      * and you are just fine with it just hanging on completion
      */
@@ -1691,6 +1754,16 @@ public final class Settings {
     public final Setting<Integer> elytraLongDistanceThreshold = new Setting<>(500);
 
     /**
+     * When on flat ground with no nearby cliff drop and fireworks available, jump and launch with a rocket.
+     */
+    public final Setting<Boolean> elytraRocketTakeoff = new Setting<>(true);
+
+    /**
+     * When emergency-landing due to low elytra durability, throw XP bottles to mend above 85% and relaunch.
+     */
+    public final Setting<Boolean> elytraAutoMendPitstop = new Setting<>(false);
+
+    /**
      * Whether elytra flight should scan for and evade threats (hostile fireball-type projectiles and hostile players)
      */
     public final Setting<Boolean> elytraThreatAware = new Setting<>(true);
@@ -1766,6 +1839,155 @@ public final class Settings {
      * Sneak when magma blocks are under feet
      */
     public final Setting<Boolean> allowWalkOnMagmaBlocks = new Setting<>(false);
+
+    // =========================================================================
+    // Deep Movement Enhancements (Anticheat-Safe Defaults)
+    // =========================================================================
+
+    /**
+     * Use lateral PD velocity damping in MovementHelper to eliminate block drift and corner wobble.
+     */
+    public final Setting<Boolean> movementLateralPDControl = new Setting<>(true);
+
+    /**
+     * Predict stopping distance from velocity and surface friction and release forward early before stops/turns.
+     */
+    public final Setting<Boolean> movementBrakePrediction = new Setting<>(true);
+
+    /**
+     * Automatically micro-sneak when approaching a drop/lethal edge right before a sharp turn or stop.
+     */
+    public final Setting<Boolean> movementSneakEdgeLock = new Setting<>(true);
+
+    /**
+     * Pre-turn camera yaw ahead of 90-degree corners based on horizontal speed to prevent corner overshoot.
+     */
+    public final Setting<Boolean> movementCornerPreTurn = new Setting<>(true);
+
+    /**
+     * Use next-tick physics edge-crossing prediction for jump timing in parkour and ascend movements.
+     */
+    public final Setting<Boolean> movementTickExactJump = new Setting<>(true);
+
+    /**
+     * Damp residual horizontal overshoot immediately upon landing from a fall or parkour jump.
+     */
+    public final Setting<Boolean> movementLandingSnap = new Setting<>(true);
+
+    /**
+     * Detect circling/stuck orbiting on the same block and trigger re-snap or replan with node penalty.
+     */
+    public final Setting<Boolean> movementStuckCircleDetector = new Setting<>(true);
+
+    /**
+     * Debounce 1-tick opposite input flips (forward/back, left/right) to prevent anticheat-unfriendly jitter.
+     */
+    public final Setting<Boolean> movementInputDebounce = new Setting<>(true);
+
+    /**
+     * Chain vanilla sprint-jumps on long straight flat runs (opt-in for anticheat servers).
+     */
+    public final Setting<Boolean> movementChainSprintJump = new Setting<>(false);
+
+    /**
+     * Chain vanilla sprint-jumps on long unobstructed diagonal runs (opt-in for anticheat servers).
+     */
+    public final Setting<Boolean> movementDiagonalSprintJump = new Setting<>(false);
+
+    /**
+     * Preserve forward momentum across Ascend->Traverse and Descend->Traverse transitions.
+     */
+    public final Setting<Boolean> movementFlowChaining = new Setting<>(true);
+
+    /**
+     * Scale movement costs and execution thresholds by Speed/Slowness/Jump Boost potion effects and attributes.
+     */
+    public final Setting<Boolean> movementEffectAwareness = new Setting<>(true);
+
+    /**
+     * Allow diagonal parkour jumps (2x1, 3x1, 3x2) (opt-in for anticheat servers).
+     */
+    public final Setting<Boolean> allowDiagonalParkour = new Setting<>(false);
+
+    /**
+     * Allow extended 5-block gap parkour when Speed effect or ice run-up makes it physically reachable (opt-in).
+     */
+    public final Setting<Boolean> allowParkourFiveGap = new Setting<>(false);
+
+    /**
+     * Allow descending parkour jumps (-1/-2 Y over 4-5 block gaps) (opt-in for anticheat servers).
+     */
+    public final Setting<Boolean> allowDescendingParkour = new Setting<>(false);
+
+    /**
+     * Allow neo jumps around 1-block wall corners (opt-in for anticheat servers).
+     */
+    public final Setting<Boolean> allowNeoJump = new Setting<>(false);
+
+    /**
+     * Allow ceiling head-hitter sprint-jumps for extra speed/distance (opt-in for anticheat servers).
+     */
+    public final Setting<Boolean> allowHeadHitterJump = new Setting<>(false);
+
+    /**
+     * Use swim-sprint and water-edge exit jumps when traversing water.
+     */
+    public final Setting<Boolean> allowSwimSprint = new Setting<>(true);
+
+    /**
+     * Use soul-sand / magma bubble columns for vertical water travel.
+     */
+    public final Setting<Boolean> allowBubbleColumnTravel = new Setting<>(true);
+
+    /**
+     * Penalize sharp heading changes in A* pathfinding to prefer smoother, lower-overshoot paths.
+     */
+    public final Setting<Double> movementTurnPenalty = new Setting<>(0.6);
+
+    /**
+     * Additional cost penalty for tight-clearance movements (adjacent walls/hazards or narrow ledges).
+     */
+    public final Setting<Double> movementTightClearancePenalty = new Setting<>(0.4);
+
+    /**
+     * Aim ahead along the upcoming path curve instead of snapping to immediate block centers.
+     */
+    public final Setting<Boolean> movementLookAhead = new Setting<>(true);
+
+    /**
+     * Keep camera pitch level during pure movement unless mining, placing, or climbing.
+     */
+    public final Setting<Boolean> movementDecouplePitch = new Setting<>(true);
+
+    /**
+     * Use continuous yaw-error strafe/forward steering instead of hard binary forward/stop gates.
+     */
+    public final Setting<Boolean> movementContinuousSteering = new Setting<>(true);
+
+    /**
+     * Re-verify the next N movements every tick for world changes and replan early before hitting an obstacle.
+     */
+    public final Setting<Integer> movementEarlyStopValidationLookahead = new Setting<>(3);
+
+    /**
+     * Remember physical movement failures (e.g. missed parkour) per edge and penalize retrying them.
+     */
+    public final Setting<Boolean> movementFailureMemory = new Setting<>(true);
+
+    /**
+     * Attempt local safe-block recovery or emergency water-bucket/ladder grab when falling off-path.
+     */
+    public final Setting<Boolean> movementOffPathRecovery = new Setting<>(true);
+
+    /**
+     * Adaptive per-movement session cost tuning based on observed success rates and execution times.
+     */
+    public final Setting<Boolean> movementAdaptiveTuning = new Setting<>(true);
+
+    /**
+     * Enable movement debug telemetry logging (trajectory deviation, slip, and stuck diagnostics).
+     */
+    public final Setting<Boolean> movementDebugTelemetry = new Setting<>(false);
 
     /**
      * A map of lowercase setting field names to their respective setting

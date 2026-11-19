@@ -336,8 +336,22 @@ public class MovementDiagonal extends Movement {
 
         if (reachedWaypoint) {
             MovementHelper.moveTowards(ctx, state, dest);
+            MovementHelper.applyCornerAndBrakeControl(ctx, state, src, dest, isNextTurnSharp());
         } else {
             MovementHelper.moveTowards(ctx, state, new Vec3(midX, src.y, midZ));
+        }
+
+        // Enhancements #15 & #27: Diagonal sprint-jump on long unobstructed flat/descending diagonal runs (opt-in)
+        if (Baritone.settings().movementDiagonalSprintJump.value
+                && cellAOpen && cellBOpen
+                && dest.y <= src.y
+                && ctx.player().onGround()
+                && sprint()
+                && continuesStraight()
+                && nextMovement instanceof MovementDiagonal
+                && MovementHelper.fullyPassable(ctx, src.above(2))
+                && MovementHelper.fullyPassable(ctx, dest.above(2))) {
+            state.setInput(Input.JUMP, true);
         }
         return state;
     }

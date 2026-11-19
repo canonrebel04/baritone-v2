@@ -18,7 +18,12 @@
 package baritone.api;
 
 import baritone.api.behavior.look.ILookPriorityHub;
+import baritone.api.utils.CombatFavoringStorage;
 import baritone.api.utils.SettingsUtil;
+
+import java.util.UUID;
+import java.util.function.LongToDoubleFunction;
+import java.util.function.Predicate;
 
 /**
  * Exposes the {@link IBaritoneProvider} instance and the {@link Settings} instance for API usage.
@@ -30,6 +35,7 @@ public final class BaritoneAPI {
 
     private static final IBaritoneProvider provider;
     private static final Settings settings;
+    private static volatile Predicate<UUID> friendFilter = uuid -> false;
 
     static {
         settings = new Settings();
@@ -68,5 +74,38 @@ public final class BaritoneAPI {
      */
     public static ILookPriorityHub getLookPriorityHub(IBaritone baritone) {
         return baritone.getLookBehavior().getPriorityHub();
+    }
+
+    /**
+     * Predicate identifying friendly players (by UUID) that should be excluded from player avoidance.
+     */
+    public static Predicate<UUID> getFriendFilter() {
+        return friendFilter;
+    }
+
+    /**
+     * Registers a friend predicate (e.g. from Meteor's Friends system).
+     */
+    public static void setFriendFilter(Predicate<UUID> filter) {
+        friendFilter = filter != null ? filter : uuid -> false;
+    }
+
+    /**
+     * Returns the live combat favoring cost-multiplier supplier, or {@code null} if none is active.
+     *
+     * @return The active combat favoring supplier, or {@code null}
+     */
+    public static LongToDoubleFunction getCombatFavoringSupplier() {
+        return CombatFavoringStorage.get();
+    }
+
+    /**
+     * Registers a live combat favoring function mapping packed block coordinates
+     * ({@link baritone.api.utils.BetterBlockPos#longHash(int, int, int)}) to path cost multipliers.
+     *
+     * @param supplier The favoring supplier, or {@code null} to clear
+     */
+    public static void setCombatFavoringSupplier(LongToDoubleFunction supplier) {
+        CombatFavoringStorage.set(supplier);
     }
 }
