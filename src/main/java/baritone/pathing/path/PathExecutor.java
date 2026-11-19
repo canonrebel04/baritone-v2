@@ -305,6 +305,10 @@ public class PathExecutor implements IPathExecutor, Helper {
         // Enhancements #1 & #11: Supply next movement for approach vectors, corner pre-turn, and momentum hand-off
         IMovement nextMovement = (pathPosition + 1 < path.movements().size()) ? path.movements().get(pathPosition + 1) : null;
         movement.setNextMovement(nextMovement);
+        if (movement instanceof Movement m && Baritone.settings().movementSplineHeading.value) {
+            m.setUpcomingFlat(flatRunAhead(pathPosition, 5));
+        }
+        preselectToolForNext(movement, nextMovement);
 
         MovementStatus movementStatus = movement.update();
         if (movementStatus == UNREACHABLE || movementStatus == FAILED) {
@@ -921,5 +925,64 @@ public class PathExecutor implements IPathExecutor, Helper {
 
     public boolean isSprinting() {
         return sprintNextTick;
+    }
+
+    /**
+     * S16/S20: node centers of the current movement's destination followed by up to {@code max} further flat
+     * walking nodes (Traverse, or a Diagonal with both corner cells open) at the same Y that are already clear
+     * (standable floor, two passable blocks). Null when there's nothing to smooth towards.
+     */
+    private double[] flatRunAhead(int from, int max) {
+        List<IMovement> moves = path.movements();
+        IMovement cur = moves.get(from);
+        int y = cur.getDest().y;
+        java.util.ArrayList<Double> out = new java.util.ArrayList<>();
+        out.add(cur.getDest().x + 0.5);
+        out.add(cur.getDest().z + 0.5);
+        for (int i = from + 1; i < moves.size() && i <= from + max; i++) {
+            IMovement m = moves.get(i);
+            BetterBlockPos d = m.getDest();
+            BetterBlockPos sPos = m.getSrc();
+            if (d.y != y || sPos.y != y) break;
+            if (m instanceof MovementDiagonal) {
+                if (!clearColumn(new BetterBlockPos(sPos.x, y, d.z)) || !clearColumn(new BetterBlockPos(d.x, y, sPos.z))) break;
+            } else if (!(m instanceof MovementTraverse)) {
+                break;
+            }
+            if (!clearColumn(d) || !MovementHelper.canWalkOn(ctx, d.below())) break;
+            out.add(d.x + 0.5);
+            out.add(d.z + 0.5);
+        }
+        if (out.size() < 4) return null;
+        double[] arr = new double[out.size()];
+        for (int i = 0; i < arr.length; i++) arr[i] = out.get(i);
+        return arr;
+    }
+
+    private boolean clearColumn(BetterBlockPos p) {
+        return MovementHelper.canWalkThrough(ctx, p) && MovementHelper.canWalkThrough(ctx, p.above())
+                && !MovementHelper.avoidWalkingInto(ctx.world().getBlockState(p))
+                && !MovementHelper.avoidWalkingInto(ctx.world().getBlockState(p.above()));
+    }
+
+    /**
+     * S45: while finishing a movement with nothing of its own to break, select the tool for the first block the
+     * next movement will break, so mining starts on arrival.
+     */
+    private void preselectToolForNext(IMovement movement, IMovement next) {
+        if (!Baritone.settings().toolPreselect.value || next == null || !(next instanceof Movement nm)
+                || !(movement instanceof Movement cm) || !Baritone.settings().autoTool.value
+                || Baritone.settings().assumeExternalAutoTool.value) {
+            return;
+        }
+        BlockStateInterface bsi = new BlockStateInterface(ctx);
+        if (!cm.toBreak(bsi).isEmpty() || !cm.toPlace(bsi).isEmpty()) return;
+        double dist = Math.hypot(cm.getDest().x + 0.5 - ctx.player().position().x, cm.getDest().z + 0.5 - ctx.player().position().z);
+        if (dist > 1.6) return;
+        List<BlockPos> breaks = nm.toBreak(bsi);
+        if (breaks.isEmpty()) return;
+        net.minecraft.world.level.block.state.BlockState st = bsi.get0(breaks.get(0));
+        if (st.isAir()) return;
+        MovementHelper.switchToBestToolFor(ctx, st);
     }
 }

@@ -30,6 +30,7 @@ import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.MovementState;
+import baritone.pathing.path.smooth.PathSmoother;
 import baritone.utils.BlockStateInterface;
 import com.google.common.collect.ImmutableSet;
 import net.minecraft.core.BlockPos;
@@ -323,7 +324,16 @@ public class MovementTraverse extends Movement {
 
             // Enhancements #1, #5, #41: Per-movement approach vector, corner pre-turn, and look-ahead aiming
             Vec3 moveTarget = MovementHelper.safeBlockTarget(ctx, positionsToBreak[0]);
-            if (nextMovement != null && Baritone.settings().movementLookAhead.value) {
+            double[] flat = Baritone.settings().movementSplineHeading.value ? upcomingFlat : null;
+            if (flat != null && flat.length >= 4 && !inWater && ctx.player().onGround()) {
+                // S16/S17/S20: pure-pursuit carrot along the upcoming flat nodes, never cutting a node by > 0.2
+                flat = flat.clone();
+                flat[0] = moveTarget.x;
+                flat[1] = moveTarget.z;
+                double speed = Math.hypot(ctx.player().getDeltaMovement().x, ctx.player().getDeltaMovement().z);
+                double[] c = PathSmoother.carrot(ctx.player().position().x, ctx.player().position().z, flat, PathSmoother.lookahead(speed));
+                moveTarget = new Vec3(c[0], moveTarget.y, c[1]);
+            } else if (nextMovement != null && Baritone.settings().movementLookAhead.value) {
                 double distToDest = Math.hypot((dest.x + 0.5) - ctx.player().position().x, (dest.z + 0.5) - ctx.player().position().z);
                 if (continuesStraight() && distToDest < 1.05) {
                     Vec3 nextCenter = VecUtils.calculateBlockCenter(ctx.world(), nextMovement.getDest());
@@ -339,6 +349,10 @@ public class MovementTraverse extends Movement {
 
             // Enhancements #3 & #4: Brake-to-stop prediction & sneak-edge lock before sharp turns/stops
             MovementHelper.applyCornerAndBrakeControl(ctx, state, src, dest, isNextTurnSharp());
+            MovementHelper.applySpeedProfile(ctx, state, upcomingFlat);
+            MovementHelper.applyCrowdSteer(ctx, state, moveTarget);
+
+            preOpenDoorAhead(state);
 
             // Enhancement #12: Chain-sprint-jump on long straight flat runs (opt-in for anticheat safety)
             if (Baritone.settings().movementChainSprintJump.value
@@ -442,5 +456,67 @@ public class MovementTraverse extends Movement {
             }
         }
         return super.prepared(state);
+    }
+
+    private BlockPos preOpened;
+    private int preOpenHold;
+
+    /**
+     * S23: the closed wooden door / fence gate this traverse would have to open, or null. Same rules as the
+     * stop-and-open handling in {@link #updateState}; iron doors are never "openable".
+     */
+    public BlockPos closedOpenable() {
+        BlockState pb0 = BlockStateInterface.get(ctx, positionsToBreak[0]);
+        BlockState pb1 = BlockStateInterface.get(ctx, positionsToBreak[1]);
+        if (Blocks.IRON_DOOR.equals(pb0.getBlock()) || Blocks.IRON_DOOR.equals(pb1.getBlock())) {
+            return null;
+        }
+        if (pb0.getBlock() instanceof DoorBlock && !MovementHelper.isDoorPassable(ctx, src, dest)) {
+            return positionsToBreak[0];
+        }
+        if (pb1.getBlock() instanceof DoorBlock && !MovementHelper.isDoorPassable(ctx, dest, src)) {
+            return positionsToBreak[1];
+        }
+        if (pb0.getBlock() instanceof FenceGateBlock && !MovementHelper.isGatePassable(ctx, positionsToBreak[0], src.above())) {
+            return positionsToBreak[0];
+        }
+        if (pb1.getBlock() instanceof FenceGateBlock && !MovementHelper.isGatePassable(ctx, positionsToBreak[1], src)) {
+            return positionsToBreak[1];
+        }
+        return null;
+    }
+
+    /** S23: while walking up to a closed door/gate on the next step, look at it and open it without stopping. */
+    private void preOpenDoorAhead(MovementState state) {
+        if (!Baritone.settings().movementDoorPreOpen.value || !(nextMovement instanceof MovementTraverse next)) {
+            return;
+        }
+        BlockPos door = next.closedOpenable();
+        if (door == null) {
+            preOpenHold = 0;
+            return;
+        }
+        if (door.equals(preOpened) && preOpenHold <= 0) {
+            return; // already clicked once for this door: never toggle it shut again; the next traverse takes over
+        }
+        double d = ctx.playerHead().distanceTo(Vec3.atCenterOf(door));
+        if (d > 2.8 || d < 0.9) {
+            return;
+        }
+        Optional<Rotation> rot = RotationUtils.reachable(ctx, door);
+        if (rot.isEmpty()) {
+            return;
+        }
+        state.setTarget(new MovementState.MovementTarget(rot.get(), true));
+        if (ctx.isLookingAt(door)) {
+            if (!door.equals(preOpened)) {
+                preOpened = door;
+                // two ticks covers a jitter-delayed press; one if clicks could repeat every tick
+                preOpenHold = Baritone.settings().rightClickSpeed.value > 2 ? 2 : 1;
+            }
+            if (preOpenHold-- > 0) {
+                state.setInput(Input.CLICK_RIGHT, true);
+            }
+        }
     }
 }

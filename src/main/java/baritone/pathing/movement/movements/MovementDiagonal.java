@@ -26,6 +26,7 @@ import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.MovementState;
+import baritone.pathing.path.smooth.PathSmoother;
 import baritone.utils.BlockStateInterface;
 import baritone.utils.pathing.MutableMoveResult;
 import com.google.common.collect.ImmutableSet;
@@ -334,7 +335,16 @@ public class MovementDiagonal extends Movement {
             reachedWaypoint = ((playerX - midX) * dx + (playerZ - midZ) * dz) >= 0;
         }
 
-        if (reachedWaypoint) {
+        double[] flat = Baritone.settings().movementSplineHeading.value ? upcomingFlat : null;
+        if (flat != null && flat.length >= 4 && cellAOpen && cellBOpen && dest.y == src.y && ctx.player().onGround()
+                && !MovementHelper.isLiquid(ctx, ctx.playerFeet())) {
+            // S16/S17/S20: open diagonal on a flat run: steer along the smoothed path ahead
+            double speed = Math.hypot(ctx.player().getDeltaMovement().x, ctx.player().getDeltaMovement().z);
+            double[] c = PathSmoother.carrot(playerX, playerZ, flat, PathSmoother.lookahead(speed));
+            MovementHelper.moveTowards(ctx, state, new Vec3(c[0], src.y, c[1]));
+            MovementHelper.applySpeedProfile(ctx, state, flat);
+            MovementHelper.applyCrowdSteer(ctx, state, new Vec3(c[0], src.y, c[1]));
+        } else if (reachedWaypoint) {
             MovementHelper.moveTowards(ctx, state, dest);
             MovementHelper.applyCornerAndBrakeControl(ctx, state, src, dest, isNextTurnSharp());
         } else {

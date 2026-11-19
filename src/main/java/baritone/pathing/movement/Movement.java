@@ -275,6 +275,16 @@ public abstract class Movement implements IMovement, MovementHelper {
         this.nextMovement = nextMovement;
     }
 
+    /**
+     * S16/S20: centers {x0, z0, x1, z1, ...} of this movement's destination and the following flat, already
+     * clear walking nodes (same Y, nothing to break or place), supplied by the path executor; null if none.
+     */
+    protected double[] upcomingFlat;
+
+    public void setUpcomingFlat(double[] nodes) {
+        this.upcomingFlat = nodes;
+    }
+
     public IMovement getNextMovement() {
         return nextMovement;
     }

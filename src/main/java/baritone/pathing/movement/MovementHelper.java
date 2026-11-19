@@ -736,11 +736,19 @@ public interface MovementHelper extends ActionCosts, Helper {
             }
 
             if (executionTick != -1 && currentTick >= executionTick) {
-                if (ctx.player().getInventory().getSelectedSlot() != targetSlot) {
-                    ctx.player().getInventory().setSelectedSlot(targetSlot);
+                int now = ctx.player().getInventory().getSelectedSlot();
+                // S39: scroll through neighbouring slots / number key, per pace, instead of an instant jump
+                int next = Baritone.settings().hotbarScroll.value
+                        ? baritone.api.utils.pacing.HotbarScroll.next(now, targetSlot,
+                        baritone.api.utils.pacing.Pace.fromProfile(Baritone.settings().lookProfile.value))
+                        : targetSlot;
+                if (now != next) {
+                    ctx.player().getInventory().setSelectedSlot(next);
                 }
-                targetSlot = -1;
-                executionTick = -1;
+                if (next == targetSlot) {
+                    targetSlot = -1;
+                    executionTick = -1;
+                }
             }
         }
     }
@@ -786,7 +794,9 @@ public interface MovementHelper extends ActionCosts, Helper {
                 }
             } else if (yawDiff > 18.0f) {
                 state.setInput(Input.MOVE_FORWARD, true);
-                state.setInput(Input.SPRINT, false);
+                if (!Baritone.settings().movementSprintHysteresis.value) {
+                    state.setInput(Input.SPRINT, false);
+                }
                 if (signedYawDiff > 12.0f) {
                     state.setInput(Input.MOVE_LEFT, true);
                 } else if (signedYawDiff < -12.0f) {
@@ -815,6 +825,13 @@ public interface MovementHelper extends ActionCosts, Helper {
                             state.setInput(Input.MOVE_RIGHT, true);
                         }
                     }
+                }
+            }
+            if (Baritone.settings().movementSprintHysteresis.value) {
+                // S19: sprint drops above 28 degrees of heading error and only comes back under 18
+                SprintLatch.latched = baritone.pathing.path.smooth.PathSmoother.sprintLatch(SprintLatch.latched, yawDiff);
+                if (!SprintLatch.latched) {
+                    state.setInput(Input.SPRINT, false);
                 }
             }
         } else {
@@ -894,6 +911,74 @@ public interface MovementHelper extends ActionCosts, Helper {
 
     static void moveTowards(IPlayerContext ctx, MovementState state, BlockPos pos) {
         moveTowards(ctx, state, safeBlockTarget(ctx, pos));
+    }
+
+    /** S19 sprint latch (one local player). */
+    class SprintLatch {
+        static boolean latched = true;
+    }
+
+    /**
+     * S18: let go of sprint ahead of a sharp (> 60 degree) turn on the upcoming flat nodes once it's within about
+     * braking distance, so the corner is taken at walking speed.
+     */
+    static void applySpeedProfile(IPlayerContext ctx, MovementState state, double[] nodes) {
+        if (!Baritone.settings().movementSpeedProfile.value || nodes == null || nodes.length < 6 || !ctx.player().onGround()) {
+            return;
+        }
+        double speed = Math.hypot(ctx.player().getDeltaMovement().x, ctx.player().getDeltaMovement().z);
+        double d = baritone.pathing.path.smooth.PathSmoother.distanceToTurn(ctx.player().position().x, ctx.player().position().z, nodes, 60);
+        if (baritone.pathing.path.smooth.PathSmoother.releaseSprintForTurn(d, speed)) {
+            state.setInput(Input.SPRINT, false);
+        }
+    }
+
+    /**
+     * S34: drift sideways around a living entity standing on the line ahead, only on the ground and only towards
+     * a side whose floor is solid and safe and whose two blocks are passable.
+     */
+    static void applyCrowdSteer(IPlayerContext ctx, MovementState state, Vec3 target) {
+        if (!Baritone.settings().movementCrowdSteer.value || !ctx.player().onGround()
+                || state.getInputStates().getOrDefault(Input.MOVE_LEFT, false)
+                || state.getInputStates().getOrDefault(Input.MOVE_RIGHT, false)
+                || state.getInputStates().getOrDefault(Input.SNEAK, false)) {
+            return;
+        }
+        double px = ctx.player().position().x;
+        double pz = ctx.player().position().z;
+        double hx = target.x - px;
+        double hz = target.z - pz;
+        double len = Math.hypot(hx, hz);
+        if (len < 0.3) {
+            return;
+        }
+        hx /= len;
+        hz /= len;
+        java.util.List<net.minecraft.world.entity.Entity> near = ctx.world().getEntities(ctx.player(),
+                ctx.player().getBoundingBox().inflate(2.5, 1.0, 2.5),
+                e -> e instanceof net.minecraft.world.entity.LivingEntity && e.isAlive() && !e.isSpectator());
+        if (near.isEmpty()) {
+            return;
+        }
+        double[] rel = new double[near.size() * 2];
+        for (int i = 0; i < near.size(); i++) {
+            rel[2 * i] = near.get(i).getX() - px;
+            rel[2 * i + 1] = near.get(i).getZ() - pz;
+        }
+        int side = baritone.pathing.path.smooth.PathSmoother.crowdSide(hx, hz, rel);
+        if (side == 0) {
+            return;
+        }
+        double rx = -hz * side;
+        double rz = hx * side;
+        BetterBlockPos feet = ctx.playerFeet();
+        BetterBlockPos to = Math.abs(rx) >= Math.abs(rz)
+                ? new BetterBlockPos(feet.x + (int) Math.signum(rx), feet.y, feet.z)
+                : new BetterBlockPos(feet.x, feet.y, feet.z + (int) Math.signum(rz));
+        if (canWalkOn(ctx, to.below()) && canWalkThrough(ctx, to) && canWalkThrough(ctx, to.above())
+                && !avoidWalkingInto(ctx.world().getBlockState(to)) && !avoidWalkingInto(ctx.world().getBlockState(to.below()))) {
+            state.setInput(side > 0 ? Input.MOVE_RIGHT : Input.MOVE_LEFT, true);
+        }
     }
 
     static void moveTowardsWithoutRotation(IPlayerContext ctx, MovementState state, float idealYaw) {
