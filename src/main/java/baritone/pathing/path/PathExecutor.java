@@ -31,6 +31,8 @@ import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.movements.*;
+import baritone.pathing.movement.sim.MovementTelemetry;
+import baritone.pathing.path.smooth.PathSmoother;
 import baritone.utils.BlockStateInterface;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
@@ -74,6 +76,7 @@ public class PathExecutor implements IPathExecutor, Helper {
     private final IPlayerContext ctx;
 
     private boolean sprintNextTick;
+    private boolean sprintLatched = true;
 
     public PathExecutor(PathingBehavior behavior, IPath path) {
         this.behavior = behavior;
@@ -222,23 +225,33 @@ public class PathExecutor implements IPathExecutor, Helper {
         }
         MovementStatus movementStatus = movement.update();
         if (movementStatus == UNREACHABLE || movementStatus == FAILED) {
+            MovementTelemetry.recordFailure(
+                    movement.getSrc().x, movement.getSrc().y, movement.getSrc().z,
+                    movement.getDest().x, movement.getDest().y, movement.getDest().z,
+                    telemetryMoveName(movement));
             logDebug("Movement returns status " + movementStatus);
             cancel();
             return true;
         }
         if (movementStatus == SUCCESS) {
-            //System.out.println("Movement done, next path");
+            double est = currentMovementOriginalCostEstimate != null ? currentMovementOriginalCostEstimate : 1.0;
+            MovementTelemetry.recordSuccess(telemetryMoveName(movement), Math.max(1, ticksOnCurrent), est);
             pathPosition++;
             onChangeInPathPosition();
             onTick();
             return true;
         } else {
+            applySplineLookahead(movement);
             sprintNextTick = shouldSprintNextTick();
             if (!sprintNextTick) {
                 ctx.player().setSprinting(false); // letting go of control doesn't make you stop sprinting actually
             }
             ticksOnCurrent++;
             if (ticksOnCurrent > currentMovementOriginalCostEstimate + Baritone.settings().movementTimeoutTicks.value) {
+                MovementTelemetry.recordFailure(
+                        movement.getSrc().x, movement.getSrc().y, movement.getSrc().z,
+                        movement.getDest().x, movement.getDest().y, movement.getDest().z,
+                        telemetryMoveName(movement));
                 // only cancel if the total time has exceeded the initial estimate
                 // as you break the blocks required, the remaining cost goes down, to the point where
                 // ticksOnCurrent is greater than recalculateCost + 100
@@ -376,8 +389,11 @@ public class PathExecutor implements IPathExecutor, Helper {
             }
         }
 
-        // if the movement requested sprinting, then we're done
+        // Apply speed profile braking before sharp turns and yaw-error sprint hysteresis
         if (requested) {
+            if (!allowSprintForSmoothness(current)) {
+                return false;
+            }
             return true;
         }
 
@@ -462,7 +478,7 @@ public class PathExecutor implements IPathExecutor, Helper {
                 BetterBlockPos fallDest = new BetterBlockPos(data.second());
                 if (!path.positions().contains(fallDest)) {
                     throw new IllegalStateException(String.format(
-                            "Fall override at %s %s %s returned illegal destination %s %s %s",
+                            "Fall override at %s returned illegal destination %s",
                             current.getSrc(), fallDest));
                 }
                 if (ctx.playerFeet().equals(fallDest)) {
@@ -577,15 +593,121 @@ public class PathExecutor implements IPathExecutor, Helper {
         if (!MovementHelper.canWalkOn(ctx, current.getDest().offset(current.getDirection()))) {
             return false;
         }
-        if (next instanceof MovementTraverse && next.getDirection().equals(current.getDirection())) {
+        if (next instanceof MovementTraverse && next.getDirection().equals(current.getDirection().above())) {
             return true;
         }
         return next instanceof MovementDiagonal && Baritone.settings().allowOvershootDiagonalDescend.value;
     }
 
+    /**
+     * Collects upcoming flat, unobstructed movement destination centers starting at pathPosition.
+     */
+    private double[] collectUpcomingFlatNodes(int maxNodes) {
+        List<BetterBlockPos> pts = new ArrayList<>(maxNodes);
+        int baseY = path.movements().get(pathPosition).getDest().y;
+        for (int i = pathPosition; i < path.movements().size() && pts.size() < maxNodes; i++) {
+            Movement m = (Movement) path.movements().get(i);
+            boolean flat = (m instanceof MovementTraverse || m instanceof MovementDiagonal) && m.getDest().y == baseY;
+            if (!flat || (m.toBreakCached != null && !m.toBreakCached.isEmpty()) || (m.toPlaceCached != null && !m.toPlaceCached.isEmpty())) {
+                break;
+            }
+            if (m instanceof MovementDiagonal && m.toWalkIntoCached != null && !m.toWalkIntoCached.isEmpty()) {
+                // Never spline-cut past a diagonal with a solid corner block
+                break;
+            }
+            pts.add(m.getDest());
+        }
+        double[] nodes = new double[pts.size() * 2];
+        for (int i = 0; i < pts.size(); i++) {
+            nodes[2 * i] = pts.get(i).x + 0.5;
+            nodes[2 * i + 1] = pts.get(i).z + 0.5;
+        }
+        return nodes;
+    }
+
+    /**
+     * Steers along the PathSmoother pure-pursuit carrot on flat, unobstructed runs without cutting corners.
+     */
+    private void applySplineLookahead(Movement current) {
+        if (!Baritone.settings().movementSplineHeading.value || !ctx.player().onGround()) {
+            return;
+        }
+        if (!(current instanceof MovementTraverse || current instanceof MovementDiagonal)) {
+            return;
+        }
+        if ((current.toBreakCached != null && !current.toBreakCached.isEmpty())
+                || (current.toPlaceCached != null && !current.toPlaceCached.isEmpty())) {
+            return;
+        }
+        if (current instanceof MovementDiagonal && current.toWalkIntoCached != null && !current.toWalkIntoCached.isEmpty()) {
+            return;
+        }
+        double[] nodes = collectUpcomingFlatNodes(6);
+        if (nodes.length < 4) {
+            return;
+        }
+        double px = ctx.player().position().x;
+        double pz = ctx.player().position().z;
+        double speed = Math.hypot(ctx.player().getDeltaMovement().x, ctx.player().getDeltaMovement().z);
+        double[] carrot = PathSmoother.carrot(px, pz, nodes, PathSmoother.lookahead(speed));
+        Vec3 target = new Vec3(carrot[0], current.getDest().y + 0.5, carrot[1]);
+        Rotation rot = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), target, ctx.playerRotations())
+                .withPitch(ctx.playerRotations().getPitch());
+        behavior.baritone.getLookBehavior().updateTarget(rot, false);
+    }
+
+    /**
+     * Evaluates PathSmoother turn speed-profile braking and sprint yaw-error hysteresis.
+     */
+    private boolean allowSprintForSmoothness(IMovement current) {
+        if (current instanceof MovementParkour) {
+            return true; // MovementParkour manages its own yaw-gated sprint & takeoff
+        }
+        double px = ctx.player().position().x;
+        double pz = ctx.player().position().z;
+        double speed = Math.hypot(ctx.player().getDeltaMovement().x, ctx.player().getDeltaMovement().z);
+        if (Baritone.settings().movementSpeedProfile.value) {
+            double[] nodes = collectUpcomingFlatNodes(6);
+            if (nodes.length >= 4) {
+                double distToTurn = PathSmoother.distanceToTurn(px, pz, nodes, 60.0);
+                if (PathSmoother.releaseSprintForTurn(distToTurn, speed)) {
+                    return false;
+                }
+            }
+        }
+        if (Baritone.settings().movementSprintHysteresis.value) {
+            Rotation ideal = RotationUtils.calcRotationFromVec3d(
+                    ctx.playerHead(), VecUtils.getBlockPosCenter(current.getDest()), ctx.playerRotations());
+            float yawErr = Math.abs(Rotation.yawDistanceFromOffset(ctx.playerRotations().getYaw(), ideal.getYaw()));
+            sprintLatched = PathSmoother.sprintLatch(sprintLatched, yawErr);
+            return sprintLatched;
+        }
+        return true;
+    }
+
+    private static String telemetryMoveName(Movement m) {
+        BlockPos d = m.getDirection();
+        int dx = Integer.signum(d.getX());
+        int dz = Integer.signum(d.getZ());
+        if (m instanceof MovementDownward) return "DOWNWARD";
+        if (m instanceof MovementPillar) return "PILLAR";
+        if (m instanceof MovementDiagonal) {
+            String ns = dz < 0 ? "NORTH" : "SOUTH";
+            String ew = dx > 0 ? "EAST" : "WEST";
+            return "DIAGONAL_" + ns + ew;
+        }
+        String cardinal = dz < 0 ? "NORTH" : dz > 0 ? "SOUTH" : dx > 0 ? "EAST" : "WEST";
+        if (m instanceof MovementTraverse) return "TRAVERSE_" + cardinal;
+        if (m instanceof MovementAscend) return "ASCEND_" + cardinal;
+        if (m instanceof MovementDescend || m instanceof MovementFall) return "DESCEND_" + cardinal;
+        if (m instanceof MovementParkour) return "PARKOUR_" + cardinal;
+        return m.getClass().getSimpleName();
+    }
+
     private void onChangeInPathPosition() {
         clearKeys();
         ticksOnCurrent = 0;
+        sprintLatched = true;
     }
 
     private void clearKeys() {

@@ -150,6 +150,7 @@ public final class MovementSimulator {
 
         boolean sprinting = input.sprint && !input.sneak && input.forward > 0.0;
         state.sprinting = sprinting;
+        double floorY = Math.floor(state.y);
 
         // 1. Jump impulse if grounded and jump pressed
         if (input.jump && state.onGround) {
@@ -171,7 +172,7 @@ public final class MovementSimulator {
         }
 
         if (config.inWater) {
-            double accel = sprinting ? 0.02 : 0.02;
+            double accel = sprinting ? PlayerPhysics.SPRINT_AIR_ACCELERATION : PlayerPhysics.AIR_ACCELERATION;
             applyRelativeMove(state, str, fwd, accel, input.yawDegrees);
             state.x += state.vx;
             state.y += state.vy;
@@ -199,9 +200,9 @@ public final class MovementSimulator {
         state.y += state.vy;
         state.z += state.vz;
 
-        // Head-hitter ceiling clamp (2-block ceiling clips upward velocity)
-        if (config.headHitterCeiling && state.vy > 0.0 && state.y > 0.2001) {
-            state.y = 0.2;
+        // Head-hitter ceiling clamp (2-block ceiling above the current floor clips upward velocity)
+        if (config.headHitterCeiling && state.vy > 0.0 && (state.y - floorY) > 0.2001) {
+            state.y = floorY + 0.2;
             state.vy = 0.0;
         }
 
@@ -247,7 +248,9 @@ public final class MovementSimulator {
         boolean jumped = false;
 
         for (int t = 1; t <= maxTicks; t++) {
+            double prevX = s.x;
             double prevY = s.y;
+            double prevZ = s.z;
             SimInput input = SimInput.forward(yawDegrees, sprint, !jumped && s.onGround);
             if (!jumped && s.onGround) {
                 jumped = true;
@@ -257,11 +260,11 @@ public final class MovementSimulator {
                 maxY = s.y;
             }
             if (jumped && s.vy <= 0.0 && prevY >= targetY && s.y <= targetY) {
-                // Interpolate landing position within the tick
+                // Interpolate landing position using actual pre-drag tick displacement (prev -> s)
                 double denom = prevY - s.y;
                 double frac = denom > 1e-9 ? (prevY - targetY) / denom : 1.0;
-                double landX = (s.x - s.vx) + s.vx * frac;
-                double landZ = (s.z - s.vz) + s.vz * frac;
+                double landX = prevX + (s.x - prevX) * frac;
+                double landZ = prevZ + (s.z - prevZ) * frac;
                 double dist = Math.hypot(landX - startX, landZ - startZ);
                 return new JumpResult(true, t, dist, landX, targetY, landZ, maxY);
             }
@@ -310,14 +313,42 @@ public final class MovementSimulator {
     public static boolean willLeaveBlockNextTick(double posX, double posZ, double vx, double vz,
                                                  int blockX, int blockZ, int dirX, int dirZ,
                                                  double edgeMargin) {
+        double dirLen = Math.hypot(dirX, dirZ);
+        if (dirLen < 1e-9) {
+            return false;
+        }
+        double ux = dirX / dirLen;
+        double uz = dirZ / dirLen;
         double nextX = posX + vx;
         double nextZ = posZ + vz;
         double relX = nextX - (blockX + 0.5);
         double relZ = nextZ - (blockZ + 0.5);
-        double forwardNext = relX * dirX + relZ * dirZ;
-        // Player's hitbox edge extends 0.3 blocks; block edge is at +0.5.
-        // Leaving the block means forwardNext exceeds (0.5 - edgeMargin).
+        double forwardNext = relX * ux + relZ * uz;
         return forwardNext >= (0.5 - edgeMargin);
+    }
+
+    /**
+     * Physics-accurate edge-drop detector for parkour takeoff.
+     * A player standing on {@code (blockX, blockZ)} stays supported until their center exceeds
+     * {@code +0.5 + PLAYER_HALF_WIDTH (0.8)} along the takeoff axis. Including next-tick
+     * forward acceleration {@code nextAccel} ensures we jump on the exact last grounded tick.
+     */
+    public static boolean willStepOffEdgeNextTick(double posX, double posZ, double vx, double vz,
+                                                  int blockX, int blockZ, int dirX, int dirZ,
+                                                  double nextAccel, double safetyMargin) {
+        double dirLen = Math.hypot(dirX, dirZ);
+        if (dirLen < 1e-9) {
+            return false;
+        }
+        double ux = dirX / dirLen;
+        double uz = dirZ / dirLen;
+        double nextVx = vx + ux * nextAccel;
+        double nextVz = vz + uz * nextAccel;
+        double relNextX = (posX + nextVx) - (blockX + 0.5);
+        double relNextZ = (posZ + nextVz) - (blockZ + 0.5);
+        double forwardNext = relNextX * ux + relNextZ * uz;
+        double supportLimit = 0.5 + PlayerPhysics.PLAYER_HALF_WIDTH - safetyMargin;
+        return forwardNext >= supportLimit;
     }
 
     /**
@@ -326,6 +357,19 @@ public final class MovementSimulator {
      */
     public static double predictStoppingDistance(double vx, double vz, boolean onGround, double slipperiness) {
         return PlayerPhysics.stoppingDistance(Math.hypot(vx, vz), onGround, slipperiness);
+    }
+
+    /**
+     * Returns true if releasing forward input now is needed to avoid overshooting a target
+     * {@code distRemaining} blocks ahead along the current velocity vector.
+     */
+    public static boolean shouldBrakeBeforeTarget(double distRemaining, double forwardSpeed,
+                                                  boolean onGround, double slipperiness, double margin) {
+        if (forwardSpeed <= PlayerPhysics.VELOCITY_ZERO_THRESHOLD) {
+            return false;
+        }
+        double stopDist = PlayerPhysics.stoppingDistance(forwardSpeed, onGround, slipperiness);
+        return stopDist + margin >= distRemaining;
     }
 
     /**

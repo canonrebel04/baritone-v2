@@ -21,6 +21,9 @@ import baritone.Baritone;
 import baritone.api.IBaritone;
 import baritone.api.pathing.movement.MovementStatus;
 import baritone.api.utils.BetterBlockPos;
+import baritone.api.utils.Rotation;
+import baritone.api.utils.RotationUtils;
+import baritone.api.utils.VecUtils;
 import baritone.api.utils.input.Input;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
@@ -38,10 +41,13 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 public class MovementDiagonal extends Movement {
 
     private static final double SQRT_2 = Math.sqrt(2);
+    /** Hitbox half-width (0.3) + corner clearance safety margin (0.08). */
+    private static final double CORNER_CLEARANCE = 0.38;
 
     public MovementDiagonal(IBaritone baritone, BetterBlockPos start, Direction dir1, Direction dir2, int dy) {
         this(baritone, start, start.relative(dir1), start.relative(dir2), dir2, dy);
@@ -166,7 +172,7 @@ public class MovementDiagonal extends Movement {
             return;
         }
         BlockState cuttingOver2 = context.get(destX, y - 1, z);
-        if ((!context.allowWalkOnMagmaBlocks && cuttingOver1.is(Blocks.MAGMA_BLOCK)) || MovementHelper.isLava(cuttingOver2)) {
+        if ((!context.allowWalkOnMagmaBlocks && cuttingOver2.is(Blocks.MAGMA_BLOCK)) || MovementHelper.isLava(cuttingOver2)) {
             return;
         }
         boolean water = false;
@@ -248,7 +254,7 @@ public class MovementDiagonal extends Movement {
                 multiplier *= SPRINT_MULTIPLIER;
             }
         }
-        res.cost = multiplier * SQRT_2;
+        res.cost = multiplier * SQRT_2 * context.blastResistantFootingMultiplier(destWalkOn);
         if (descend) {
             res.cost += Math.max(FALL_N_BLOCKS_COST[1], CENTER_AFTER_FALL_COST);
             res.y = y - 1;
@@ -271,15 +277,66 @@ public class MovementDiagonal extends Movement {
         } else if (!playerInValidPosition() && !(MovementHelper.isLiquid(ctx, src) && getValidPositions().contains(ctx.playerFeet().above()))) {
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
-        if (dest.y > src.y && ctx.player().position().y < src.y + 0.1 && ctx.player().horizontalCollision) {
-            state.setInput(Input.JUMP, true);
+
+        Vec3 steerTarget = computeCornerClearanceTarget();
+        MovementHelper.moveTowards(ctx, state, steerTarget);
+
+        // Check yaw alignment before sprinting or jumping so smoothed turns don't launch us off-axis
+        float targetYaw = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), steerTarget, ctx.playerRotations()).getYaw();
+        float yawErr = Math.abs(Rotation.yawDistanceFromOffset(ctx.playerRotations().getYaw(), targetYaw));
+
+        if (dest.y > src.y && ctx.player().position().y < src.y + 0.1) {
+            double flatDistToDest = Math.hypot((dest.x + 0.5) - ctx.player().position().x, (dest.z + 0.5) - ctx.player().position().z);
+            boolean proactiveJump = Baritone.settings().movementTickExactJump.value
+                    && ctx.player().onGround()
+                    && flatDistToDest <= 1.05
+                    && yawErr < 30.0f;
+            if (ctx.player().horizontalCollision || proactiveJump) {
+                state.setInput(Input.JUMP, true);
+            }
         }
-        if (sprint()) {
+        if (sprint() && yawErr < 28.0f) {
             state.setInput(Input.SPRINT, true);
         }
         state.setInput(Input.SNEAK, Baritone.settings().allowWalkOnMagmaBlocks.value && MovementHelper.steppingOnBlocks(ctx).stream().anyMatch(block -> ctx.world().getBlockState(block).is(Blocks.MAGMA_BLOCK)));
-        MovementHelper.moveTowards(ctx, state, dest);
         return state;
+    }
+
+    /**
+     * When one of the two side blocks adjacent to the diagonal is solid, steer around the corner
+     * through the open side quadrant until the player's 0.3-half-width hitbox clears the solid corner.
+     */
+    private Vec3 computeCornerClearanceTarget() {
+        BetterBlockPos cornerA = new BetterBlockPos(src.x, src.y, dest.z);
+        BetterBlockPos cornerB = new BetterBlockPos(dest.x, src.y, src.z);
+        boolean blockedA = !MovementHelper.canWalkThrough(ctx, cornerA) || !MovementHelper.canWalkThrough(ctx, cornerA.above());
+        boolean blockedB = !MovementHelper.canWalkThrough(ctx, cornerB) || !MovementHelper.canWalkThrough(ctx, cornerB.above());
+
+        if (blockedA == blockedB) {
+            return VecUtils.getBlockPosCenter(dest);
+        }
+
+        double px = ctx.player().position().x;
+        double pz = ctx.player().position().z;
+        int dx = dest.x - src.x; // +1 or -1
+        int dz = dest.z - src.z; // +1 or -1
+        double sharedEdgeX = Math.max(src.x, dest.x);
+        double sharedEdgeZ = Math.max(src.z, dest.z);
+
+        if (blockedA) {
+            // cornerA (src.x, dest.z) is solid -> swing through open cornerB (dest.x, src.z) until X clears cornerA
+            double clearanceX = (px - sharedEdgeX) * dx;
+            if (clearanceX < CORNER_CLEARANCE) {
+                return new Vec3(dest.x + 0.5, dest.y, src.z + 0.5);
+            }
+        } else {
+            // cornerB (dest.x, src.z) is solid -> swing through open cornerA (src.x, dest.z) until Z clears cornerB
+            double clearanceZ = (pz - sharedEdgeZ) * dz;
+            if (clearanceZ < CORNER_CLEARANCE) {
+                return new Vec3(src.x + 0.5, dest.y, dest.z + 0.5);
+            }
+        }
+        return VecUtils.getBlockPosCenter(dest);
     }
 
     private boolean sprint() {

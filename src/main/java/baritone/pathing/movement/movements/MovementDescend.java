@@ -232,7 +232,7 @@ public class MovementDescend extends Movement {
 
         BlockPos playerFeet = ctx.playerFeet();
         BlockPos fakeDest = new BlockPos(dest.getX() * 2 - src.getX(), dest.getY(), dest.getZ() * 2 - src.getZ());
-        if ((playerFeet.equals(dest) || playerFeet.equals(fakeDest)) && (MovementHelper.isLiquid(ctx, dest) || ctx.player().position().y - dest.getY() < 0.5)) { // lilypads
+        if ((playerFeet.equals(dest) || playerFeet.equals(fakeDest)) && (MovementHelper.isLiquid(ctx, dest) || (ctx.player().onGround() && ctx.player().position().y - dest.getY() < 0.5))) { // lilypads
             // Wait until we're actually on the ground before saying we're done because sometimes we continue to fall if the next action starts immediately
             return state.setStatus(MovementStatus.SUCCESS);
             /* else {
@@ -284,6 +284,10 @@ public class MovementDescend extends Movement {
             if (MovementHelper.avoidWalkingInto(BlockStateInterface.get(ctx, into.above(y)))) {
                 return true;
             }
+        }
+        // Also enable safeMode if there is a drop-off past dest so fakeDest steering cannot walk off a cliff
+        if (!MovementHelper.canWalkOn(ctx, into.below())) {
+            return true;
         }
         return false;
     }

@@ -21,11 +21,16 @@ import baritone.Baritone;
 import baritone.api.IBaritone;
 import baritone.api.pathing.movement.MovementStatus;
 import baritone.api.utils.BetterBlockPos;
+import baritone.api.utils.Rotation;
+import baritone.api.utils.RotationUtils;
+import baritone.api.utils.VecUtils;
 import baritone.api.utils.input.Input;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.MovementState;
+import baritone.pathing.movement.sim.MovementSimulator;
+import baritone.pathing.movement.sim.PlayerPhysics;
 import baritone.utils.BlockStateInterface;
 import baritone.utils.pathing.MutableMoveResult;
 import net.minecraft.core.Direction;
@@ -34,6 +39,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.WaterFluid;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -45,12 +51,19 @@ public class MovementParkour extends Movement {
     private final Direction direction;
     private final int dist;
     private final boolean ascend;
+    private boolean hasJumped = false;
 
     private MovementParkour(IBaritone baritone, BetterBlockPos src, int dist, Direction dir, boolean ascend) {
         super(baritone, src, src.relative(dir, dist).above(ascend ? 1 : 0), EMPTY, src.relative(dir, dist).below(ascend ? 0 : 1));
         this.direction = dir;
         this.dist = dist;
         this.ascend = ascend;
+    }
+
+    @Override
+    public void reset() {
+        super.reset();
+        this.hasJumped = false;
     }
 
     public static MovementParkour cost(CalculationContext context, BetterBlockPos src, Direction direction) {
@@ -101,13 +114,16 @@ public class MovementParkour extends Movement {
         if (!context.get(x, y, z).getFluidState().isEmpty()) {
             return; // can't jump out of water
         }
+        Block standingBlock = standingOn.getBlock();
+        boolean iceRunup = standingBlock == Blocks.ICE || standingBlock == Blocks.PACKED_ICE
+                || standingBlock == Blocks.BLUE_ICE || standingBlock == Blocks.FROSTED_ICE;
         int maxJump;
         if (context.allowWalkOnMagmaBlocks && standingOn.is(Blocks.MAGMA_BLOCK)) {
             maxJump = 2;
-        } else if (standingOn.getBlock() == Blocks.SOUL_SAND) {
+        } else if (standingBlock == Blocks.SOUL_SAND) {
             maxJump = 2; // 1 block gap
         } else if (context.canSprint) {
-            maxJump = 4;
+            maxJump = context.maxCardinalParkourGap(iceRunup);
         } else {
             maxJump = 3;
         }
@@ -129,7 +145,11 @@ public class MovementParkour extends Movement {
             // check for ascend landing position
             BlockState destInto = context.bsi.get0(destX, y, destZ);
             if (!MovementHelper.fullyPassable(context, destX, y, destZ, destInto)) {
-                if (i <= 3 && context.allowParkourAscend && context.canSprint && MovementHelper.canWalkOn(context, destX, y, destZ, destInto) && checkOvershootSafety(context.bsi, destX + xDiff, y + 1, destZ + zDiff)) {
+                if (i <= 3 && context.allowParkourAscend && context.canSprint
+                        && MovementHelper.fullyPassable(context, x, y + 3, z)
+                        && MovementHelper.fullyPassable(context, x + xDiff, y + 3, z + zDiff)
+                        && MovementHelper.canWalkOn(context, destX, y, destZ, destInto)
+                        && checkOvershootSafety(context.bsi, destX + xDiff, y + 1, destZ + zDiff)) {
                     res.x = destX;
                     res.y = y + 1;
                     res.z = destZ;
@@ -208,13 +228,15 @@ public class MovementParkour extends Movement {
     private static double costFromJumpDistance(int dist) {
         switch (dist) {
             case 2:
-                return WALK_ONE_BLOCK_COST * 2; // IDK LOL
+                return WALK_ONE_BLOCK_COST * 2;
             case 3:
                 return WALK_ONE_BLOCK_COST * 3;
             case 4:
                 return SPRINT_ONE_BLOCK_COST * 4;
+            case 5:
+                return SPRINT_ONE_BLOCK_COST * 5;
             default:
-                throw new IllegalStateException("LOL " + dist);
+                return SPRINT_ONE_BLOCK_COST * Math.max(2, dist);
         }
     }
 
@@ -259,47 +281,121 @@ public class MovementParkour extends Movement {
             logDebug("sorry");
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
-        if (dist >= 4 || ascend) {
-            state.setInput(Input.SPRINT, true);
+
+        int xDiff = direction.getStepX();
+        int zDiff = direction.getStepZ();
+        double px = ctx.player().position().x;
+        double py = ctx.player().position().y;
+        double pz = ctx.player().position().z;
+        double vx = ctx.player().getDeltaMovement().x;
+        double vz = ctx.player().getDeltaMovement().z;
+        boolean onGround = ctx.player().onGround();
+
+        double forwardSpeed = vx * xDiff + vz * zDiff;
+        double relFromSrc = (px - (src.x + 0.5)) * xDiff + (pz - (src.z + 0.5)) * zDiff;
+        double distToDestAxis = ((dest.x + 0.5) - px) * xDiff + ((dest.z + 0.5) - pz) * zDiff;
+
+        if (!onGround && py > src.y + 0.05) {
+            hasJumped = true;
         }
+
         if (Baritone.settings().allowWalkOnMagmaBlocks.value && ctx.world().getBlockState(ctx.playerFeet().below()).is(Blocks.MAGMA_BLOCK)) {
             state.setInput(Input.SNEAK, true);
         }
 
-        MovementHelper.moveTowards(ctx, state, dest);
+        // Aim at dest center and measure yaw alignment
+        Vec3 destCenter = VecUtils.getBlockPosCenter(dest);
+        float targetYaw = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), destCenter, ctx.playerRotations()).getYaw();
+        float yawErr = Math.abs(Rotation.yawDistanceFromOffset(ctx.playerRotations().getYaw(), targetYaw));
+
         if (ctx.playerFeet().equals(dest)) {
             Block d = BlockStateInterface.getBlock(ctx, dest);
             if (d == Blocks.VINE || d == Blocks.LADDER) {
-                // it physically hurt me to add support for parkour jumping onto a vine
-                // but i did it anyway
                 return state.setStatus(MovementStatus.SUCCESS);
             }
-            if (ctx.player().position().y - ctx.playerFeet().getY() < 0.094) { // lilypads
-                state.setStatus(MovementStatus.SUCCESS);
-            }
-        } else if (!ctx.playerFeet().equals(src)) {
-            if (ctx.playerFeet().equals(src.relative(direction)) || ctx.player().position().y - src.y > 0.0001) {
-                if (Baritone.settings().allowPlace.value // see PR #3775
-                        && ((Baritone) baritone).getInventoryBehavior().hasGenericThrowaway()
-                        && !MovementHelper.canWalkOn(ctx, dest.below())
-                        && !ctx.player().onGround()
-                        && MovementHelper.attemptToPlaceABlock(state, baritone, dest.below(), true, false) == PlaceResult.READY_TO_PLACE
-                ) {
-                    // go in the opposite order to check DOWN before all horizontals -- down is preferable because you don't have to look to the side while in midair, which could mess up the trajectory
-                    state.setInput(Input.CLICK_RIGHT, true);
-                }
-                // prevent jumping too late by checking for ascend
-                if (dist == 3 && !ascend) { // this is a 2 block gap, dest = src + direction * 3
-                    double xDiff = (src.x + 0.5) - ctx.player().position().x;
-                    double zDiff = (src.z + 0.5) - ctx.player().position().z;
-                    double distFromStart = Math.max(Math.abs(xDiff), Math.abs(zDiff));
-                    if (distFromStart < 0.7) {
+            if (py - ctx.playerFeet().getY() < 0.094) { // lilypads
+                // Landing snap: brake if the block past dest is a drop-off
+                if (Baritone.settings().movementLandingSnap.value && !MovementHelper.canWalkOn(ctx, dest.relative(direction).below())) {
+                    if (forwardSpeed > 0.08) {
+                        MovementHelper.moveTowards(ctx, state, destCenter);
+                        state.setInput(Input.MOVE_FORWARD, false);
+                        state.setInput(Input.SPRINT, false);
+                        state.setInput(Input.SNEAK, true);
                         return state;
                     }
                 }
+                return state.setStatus(MovementStatus.SUCCESS);
+            }
+        }
 
+        // Pre-jump run-up & yaw alignment while still grounded on src
+        if (onGround && !hasJumped && ctx.playerFeet().equals(src)) {
+            boolean needsSprintRunup = dist >= 4 || ascend;
+            // Wait for camera yaw to converge before running off a narrow takeoff block
+            if (yawErr > 22.0f && relFromSrc < 0.25) {
+                MovementHelper.moveTowards(ctx, state, destCenter);
+                state.setInput(Input.MOVE_FORWARD, false);
+                return state;
+            }
+            // If we need full sprint momentum for a 4-5 block or ascend jump but started near the front edge at low speed, back up slightly first
+            if (needsSprintRunup && forwardSpeed < 0.14 && relFromSrc > 0.15) {
+                MovementHelper.moveTowards(ctx, state, destCenter);
+                state.setInput(Input.MOVE_FORWARD, false);
+                state.setInput(Input.MOVE_BACK, true);
+                state.setInput(Input.SPRINT, false);
+                return state;
+            }
+        }
+
+        MovementHelper.moveTowards(ctx, state, destCenter);
+        boolean wantsSprint = (dist >= 4 || ascend) && yawErr < 25.0f;
+        if (wantsSprint) {
+            state.setInput(Input.SPRINT, true);
+        }
+
+        // Landing snap while airborne approaching a 1x1 / cliff landing
+        if (hasJumped && Baritone.settings().movementLandingSnap.value
+                && !MovementHelper.canWalkOn(ctx, dest.relative(direction).below())
+                && distToDestAxis < 0.65 && distToDestAxis > -0.3) {
+            double slip = onGround ? PlayerPhysics.BASE_GROUND_SLIPPERINESS : PlayerPhysics.AIR_DRAG;
+            if (MovementSimulator.shouldBrakeBeforeTarget(Math.max(0.0, distToDestAxis), forwardSpeed, onGround, slip, 0.12)) {
+                state.setInput(Input.SPRINT, false);
+                state.setInput(Input.MOVE_FORWARD, false);
+                if (distToDestAxis < 0.15 && forwardSpeed > 0.12) {
+                    state.setInput(Input.MOVE_BACK, true);
+                }
+                return state;
+            }
+        }
+
+        // Midair parkour-place block placement
+        if (!onGround && (ctx.playerFeet().equals(src.relative(direction)) || py - src.y > 0.0001)) {
+            if (Baritone.settings().allowPlace.value
+                    && ((Baritone) baritone).getInventoryBehavior().hasGenericThrowaway()
+                    && !MovementHelper.canWalkOn(ctx, dest.below())
+                    && MovementHelper.attemptToPlaceABlock(state, baritone, dest.below(), true, false) == PlaceResult.READY_TO_PLACE) {
+                state.setInput(Input.CLICK_RIGHT, true);
+            }
+        }
+
+        // Tick-exact takeoff prediction: fire JUMP on the exact last grounded tick before hitbox leaves src
+        if (onGround && !hasJumped) {
+            if (Baritone.settings().movementTickExactJump.value) {
+                double effSpeed = PlayerPhysics.effectiveGroundSpeed(PlayerPhysics.BASE_MOVEMENT_SPEED, 0, 0, wantsSprint);
+                double nextAccel = PlayerPhysics.groundAcceleration(effSpeed, PlayerPhysics.BASE_GROUND_SLIPPERINESS) * PlayerPhysics.WALK_INPUT_MULTIPLIER;
+                // Tighter edge margin (0.04) for long/ascend jumps to maximize horizontal reach; slightly earlier (0.12) for 2-block hops
+                double margin = (dist >= 4 || ascend) ? 0.04 : 0.12;
+                if (MovementSimulator.willStepOffEdgeNextTick(px, pz, vx, vz, src.x, src.z, xDiff, zDiff, nextAccel, margin)) {
+                    state.setInput(Input.JUMP, true);
+                    hasJumped = true;
+                    return state;
+                }
+            }
+            // Fallback if already past block center onto adjacent air cell
+            if (!ctx.playerFeet().equals(src) && (ctx.playerFeet().equals(src.relative(direction)) || py - src.y > 0.0001)) {
                 state.setInput(Input.JUMP, true);
-            } else if (!ctx.playerFeet().equals(dest.relative(direction, -1))) {
+                hasJumped = true;
+            } else if (!ctx.playerFeet().equals(src) && !ctx.playerFeet().equals(dest.relative(direction, -1))) {
                 state.setInput(Input.SPRINT, false);
                 if (ctx.playerFeet().equals(src.relative(direction, -1))) {
                     MovementHelper.moveTowards(ctx, state, src);

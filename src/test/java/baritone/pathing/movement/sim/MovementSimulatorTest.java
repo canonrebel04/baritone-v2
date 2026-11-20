@@ -111,4 +111,29 @@ public class MovementSimulatorTest {
         assertTrue("High failure rate should raise adaptive cost multiplier, got " + mult, mult > 1.3 && mult <= 1.8);
         MovementTelemetry.reset();
     }
+
+    @Test
+    public void testWillStepOffEdgeNextTickAccountsForHitboxOverhang() {
+        // Player at x=0.95 moving +X at 0.20 + accel 0.12 -> nextX=1.27 -> rel=+0.77 >= 0.80 - 0.04
+        assertTrue(MovementSimulator.willStepOffEdgeNextTick(0.95, 0.5, 0.20, 0.0, 0, 0, 1, 0, 0.12, 0.04));
+        // Player at x=0.60 moving +X at 0.20 + accel 0.12 -> nextX=0.92 -> rel=+0.42 < 0.76 (still supported)
+        assertFalse(MovementSimulator.willStepOffEdgeNextTick(0.60, 0.5, 0.20, 0.0, 0, 0, 1, 0, 0.12, 0.04));
+    }
+
+    @Test
+    public void testShouldBrakeBeforeTarget() {
+        assertTrue(MovementSimulator.shouldBrakeBeforeTarget(0.3, 0.28, true, PlayerPhysics.BASE_GROUND_SLIPPERINESS, 0.05));
+        assertFalse(MovementSimulator.shouldBrakeBeforeTarget(2.0, 0.28, true, PlayerPhysics.BASE_GROUND_SLIPPERINESS, 0.05));
+    }
+
+    @Test
+    public void testHeadHitterCeilingWorksAtNonZeroY() {
+        MovementSimulator.SimConfig ceiling = new MovementSimulator.SimConfig(
+                PlayerPhysics.BASE_MOVEMENT_SPEED, 0, 0, 0,
+                PlayerPhysics.BASE_GROUND_SLIPPERINESS, 1.0, false, true);
+        MovementSimulator.SimState s = new MovementSimulator.SimState(0.0, 64.0, 0.0, 0.0, 0.0, 0.25, true, true);
+        MovementSimulator.step(s, MovementSimulator.SimInput.forward(0.0f, true, true), ceiling);
+        assertEquals(64.2, s.y, 1e-6);
+        assertTrue(s.vy <= 0.0);
+    }
 }

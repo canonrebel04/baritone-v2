@@ -29,6 +29,7 @@ import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.MovementState;
 import baritone.pathing.movement.MovementState.MovementTarget;
+import baritone.pathing.movement.sim.PlayerPhysics;
 import baritone.utils.pathing.MutableMoveResult;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -53,8 +54,16 @@ public class MovementFall extends Movement {
     private static final ItemStack STACK_BUCKET_WATER = new ItemStack(Items.WATER_BUCKET);
     private static final ItemStack STACK_BUCKET_EMPTY = new ItemStack(Items.BUCKET);
 
+    private Boolean cachedWillPlaceBucket = null;
+
     public MovementFall(IBaritone baritone, BetterBlockPos src, BetterBlockPos dest) {
         super(baritone, src, dest, MovementFall.buildPositionsToBreak(src, dest));
+    }
+
+    @Override
+    public void reset() {
+        super.reset();
+        this.cachedWillPlaceBucket = null;
     }
 
     @Override
@@ -78,9 +87,12 @@ public class MovementFall extends Movement {
     }
 
     private boolean willPlaceBucket() {
-        CalculationContext context = new CalculationContext(baritone);
-        MutableMoveResult result = new MutableMoveResult();
-        return MovementDescend.dynamicFallCost(context, src.x, src.y, src.z, dest.x, dest.z, 0, context.get(dest.x, src.y - 2, dest.z), result);
+        if (cachedWillPlaceBucket == null) {
+            CalculationContext context = new CalculationContext(baritone);
+            MutableMoveResult result = new MutableMoveResult();
+            cachedWillPlaceBucket = MovementDescend.dynamicFallCost(context, src.x, src.y, src.z, dest.x, dest.z, 0, context.get(dest.x, src.y - 2, dest.z), result);
+        }
+        return cachedWillPlaceBucket;
     }
 
     @Override
@@ -106,12 +118,14 @@ public class MovementFall extends Movement {
                 return state.setStatus(MovementStatus.UNREACHABLE);
             }
 
-            if (ctx.player().position().y - dest.getY() < ctx.playerController().getBlockReachDistance() && !ctx.player().onGround()) {
+            double yAboveDest = ctx.player().position().y - dest.getY();
+            double fallSpeed = Math.abs(ctx.player().getDeltaMovement().y);
+            double reach = ctx.playerController().getBlockReachDistance();
+            // Pre-aim straight down ~3 ticks before entering reach so smoothed look finishes rotating in time
+            if (yAboveDest < reach + fallSpeed * 3.0 && !ctx.player().onGround()) {
                 ctx.player().getInventory().setSelectedSlot(ctx.player().getInventory().findSlotMatchingItem(STACK_BUCKET_WATER));
-
                 targetRotation = new Rotation(toDest.getYaw(), 90.0F);
-
-                if (ctx.isLookingAt(dest) || ctx.isLookingAt(dest.below())) {
+                if (yAboveDest < reach && (ctx.isLookingAt(dest) || ctx.isLookingAt(dest.below()))) {
                     state.setInput(Input.CLICK_RIGHT, true);
                 }
             }
@@ -139,27 +153,55 @@ public class MovementFall extends Movement {
                 return state.setStatus(MovementStatus.SUCCESS);
             }
         }
-        Vec3 destCenter = VecUtils.getBlockPosCenter(dest); // we are moving to the 0.5 center not the edge (like if we were falling on a ladder)
-        if (Math.abs(ctx.player().position().x + ctx.player().getDeltaMovement().x - destCenter.x) > 0.1 || Math.abs(ctx.player().position().z + ctx.player().getDeltaMovement().z - destCenter.z) > 0.1) {
-            if (!ctx.player().onGround() && Math.abs(ctx.player().getDeltaMovement().y) > 0.4) {
-                state.setInput(Input.SNEAK, true);
-            }
-            state.setInput(Input.MOVE_FORWARD, true);
-        }
+
+        Vec3 destCenter = VecUtils.getBlockPosCenter(dest);
+        double px = ctx.player().position().x;
+        double py = ctx.player().position().y;
+        double pz = ctx.player().position().z;
+        double vx = ctx.player().getDeltaMovement().x;
+        double vy = ctx.player().getDeltaMovement().y;
+        double vz = ctx.player().getDeltaMovement().z;
+
+        // Predict horizontal landing position using geometric air-drag decay over remaining fall ticks
+        double estTicksLeft = (!ctx.player().onGround() && vy < -0.05)
+                ? Math.max(1.0, Math.min(20.0, (py - dest.getY()) / Math.max(0.15, -vy)))
+                : 2.0;
+        double dragFactor = (1.0 - Math.pow(PlayerPhysics.AIR_DRAG, estTicksLeft)) / (1.0 - PlayerPhysics.AIR_DRAG);
+        double predX = px + vx * dragFactor;
+        double predZ = pz + vz * dragFactor;
+
         Vec3i avoid = Optional.ofNullable(avoid()).map(Direction::getUnitVec3i).orElse(null);
         if (avoid == null) {
             avoid = src.subtract(dest);
         } else {
-            double dist = Math.abs(avoid.getX() * (destCenter.x - avoid.getX() / 2.0 - ctx.player().position().x)) + Math.abs(avoid.getZ() * (destCenter.z - avoid.getZ() / 2.0 - ctx.player().position().z));
+            double dist = Math.abs(avoid.getX() * (destCenter.x - avoid.getX() / 2.0 - px)) + Math.abs(avoid.getZ() * (destCenter.z - avoid.getZ() / 2.0 - pz));
             if (dist < 0.6) {
                 state.setInput(Input.MOVE_FORWARD, true);
             } else if (!ctx.player().onGround()) {
                 state.setInput(Input.SNEAK, false);
             }
         }
-        if (targetRotation == null) {
-            Vec3 destCenterOffset = new Vec3(destCenter.x + 0.125 * avoid.getX(), destCenter.y, destCenter.z + 0.125 * avoid.getZ());
-            state.setTarget(new MovementTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), destCenterOffset, ctx.playerRotations()), false));
+
+        // Target destCenter directly once airborne; bias slightly toward src only while avoiding ladders
+        Vec3 aimPoint = new Vec3(destCenter.x + 0.125 * avoid.getX(), destCenter.y, destCenter.z + 0.125 * avoid.getZ());
+        double errX = destCenter.x - predX;
+        double errZ = destCenter.z - predZ;
+        double predErr = Math.hypot(errX, errZ);
+
+        if (predErr > 0.08) {
+            if (!ctx.player().onGround() && Math.abs(vy) > 0.4) {
+                state.setInput(Input.SNEAK, true);
+            }
+            // Steer toward the error correction direction (pulls back if predicted landing overshoots destCenter)
+            Vec3 corrTarget = ctx.player().onGround()
+                    ? aimPoint
+                    : new Vec3(px + errX, destCenter.y, pz + errZ);
+            if (targetRotation == null) {
+                state.setTarget(new MovementTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), corrTarget, ctx.playerRotations()), false));
+            }
+            state.setInput(Input.MOVE_FORWARD, true);
+        } else if (targetRotation == null) {
+            state.setTarget(new MovementTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), aimPoint, ctx.playerRotations()), false));
         }
         return state;
     }
