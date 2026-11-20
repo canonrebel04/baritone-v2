@@ -448,7 +448,8 @@ public class MixinAuditTest {
     @Test
     public void testAllMixinsResolveAgainstMinecraft26_3() throws Exception {
         List<Path> launchDirs = new ArrayList<>();
-        for (String entry : System.getProperty("java.class.path", "").split(File.pathSeparator)) {
+        String classpath = System.getProperty("baritone.test.classpath", System.getProperty("java.class.path", ""));
+        for (String entry : classpath.split(File.pathSeparator)) {
             if (entry.isBlank()) continue;
             Path p = Path.of(entry);
             if (Files.isRegularFile(p) && entry.endsWith(".jar")) {
