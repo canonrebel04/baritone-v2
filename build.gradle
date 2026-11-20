@@ -179,6 +179,11 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
 }
 
+tasks.named('test', Test) {
+    // The Gradle test worker's java.class.path can contain only its bootstrap jar.
+    systemProperty 'baritone.test.classpath', classpath.asPath
+}
+
 jar {
     from sourceSets.main.output, sourceSets.launch.output, sourceSets.api.output
 }
