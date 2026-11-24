@@ -32,9 +32,12 @@ import baritone.api.utils.BetterBlockPos;
 import baritone.api.utils.Helper;
 import baritone.api.utils.PathCalculationResult;
 import baritone.api.utils.interfaces.IGoalRenderPos;
+import baritone.api.pathing.movement.ActionCosts;
 import baritone.pathing.calc.AStarPathFinder;
 import baritone.pathing.calc.AbstractNodeCostSearch;
+import baritone.pathing.calc.PathCommit;
 import baritone.pathing.movement.CalculationContext;
+import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.path.PathExecutor;
 import baritone.utils.PathRenderer;
@@ -64,6 +67,7 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
 
     private PathExecutor current;
     private PathExecutor next;
+    private IPath lastCommittedPath;
 
     private Goal goal;
     private CalculationContext context;
@@ -180,6 +184,8 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
             }
             safeToCancel = current.onTick();
             if (current.failed() || current.finished()) {
+                // A failed or completed segment should not pin the next search to this route
+                lastCommittedPath = null;
                 current = null;
                 if (goal == null || goal.isInGoal(ctx.playerFeet())) {
                     logDebug("All done. At " + goal);
@@ -393,6 +399,11 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
         synchronized (pathPlanLock) {
             getInProgress().ifPresent(AbstractNodeCostSearch::cancel);
             if (current != null) {
+                if (!current.failed()) {
+                    lastCommittedPath = current.getPath();
+                } else {
+                    lastCommittedPath = null;
+                }
                 current = null;
                 next = null;
                 baritone.getInputOverrideHandler().clearAllKeys();
@@ -544,8 +555,16 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
                 if (current == null) {
                     if (executor.isPresent()) {
                         if (executor.get().getPath().positions().contains(expectedSegmentStart)) {
+                            PathExecutor accepted = executor.get();
+                            PathExecutor kept = tryKeepCommitted(accepted);
+                            if (kept != null) {
+                                logDebug("Keeping committed path; new path not better by hysteresis margin");
+                                accepted = kept;
+                            } else {
+                                lastCommittedPath = accepted.getPath();
+                            }
                             queuePathEvent(PathEvent.CALC_FINISHED_NOW_EXECUTING);
-                            current = executor.get();
+                            current = accepted;
                             resetEstimatedTicksToGoal(start);
                         } else {
                             logDebug("Warning: discarding orphan path segment with incorrect start");
@@ -588,6 +607,50 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
         });
     }
 
+    private PathExecutor tryKeepCommitted(PathExecutor incoming) {
+        if (!Baritone.settings().pathCommitHysteresis.value || lastCommittedPath == null || incoming == null) {
+            return null;
+        }
+        IPath candidate = incoming.getPath();
+        java.util.List<BetterBlockPos> positions = lastCommittedPath.positions();
+        BetterBlockPos onPath = ctx.playerFeet();
+        int idx = positions.indexOf(onPath);
+        if (idx < 0) {
+            onPath = expectedSegmentStart;
+            idx = positions.indexOf(onPath);
+        }
+        if (idx < 0 || idx >= positions.size() - 1) {
+            return null;
+        }
+        Goal committedGoal = lastCommittedPath.getGoal();
+        Goal newGoal = candidate.getGoal();
+        if (committedGoal != null && newGoal != null && !committedGoal.equals(newGoal)) {
+            return null;
+        }
+        CalculationContext calc = context != null ? context : new CalculationContext(baritone, false);
+        java.util.List<baritone.api.pathing.movement.IMovement> moves = lastCommittedPath.movements();
+        int end = Math.min(moves.size(), idx + 3);
+        for (int i = idx; i < end; i++) {
+            baritone.api.pathing.movement.IMovement raw = moves.get(i);
+            if (raw instanceof Movement movement) {
+                double cost = movement.calculateCost(calc);
+                if (cost >= ActionCosts.COST_INF) {
+                    return null;
+                }
+            }
+        }
+        double remaining = lastCommittedPath.ticksRemainingFrom(idx);
+        double newCost = candidate.ticksRemainingFrom(0);
+        if (!PathCommit.shouldKeepCommitted(remaining, newCost, Baritone.settings().pathCommitHysteresisTicks.value)) {
+            return null;
+        }
+        PathExecutor reuse = new PathExecutor(this, lastCommittedPath);
+        if (!reuse.snipsnapifpossible()) {
+            return null;
+        }
+        return reuse;
+    }
+
     private AbstractNodeCostSearch createPathfinder(BlockPos start, Goal goal, IPath previous, CalculationContext context) {
         Goal transformed = goal;
         if (Baritone.settings().simplifyUnloadedYCoord.value && goal instanceof IGoalRenderPos) {
@@ -596,7 +659,8 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
                 transformed = new GoalXZ(pos.getX(), pos.getZ());
             }
         }
-        Favoring favoring = new Favoring(context.getBaritone().getPlayerContext(), previous, context);
+        IPath favorPath = previous != null ? previous : lastCommittedPath;
+        Favoring favoring = new Favoring(context.getBaritone().getPlayerContext(), favorPath, context);
         if (Baritone.settings().setbackAvoidance.value) {
             favoring.applySetbacks(
                     setbackTracker,

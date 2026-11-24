@@ -2115,6 +2115,30 @@ public final class Settings {
      */
     public final Setting<Boolean> pathingSnapMovementYaw = new Setting<>(true);
 
+    /**
+     * S24 (limited): while already on a ladder or vine, only correct heading when drifting
+     * off the column. Entry and exit still use normal dest-center lock-on.
+     */
+    public final Setting<Boolean> movementLadderClimbBlend = new Setting<>(true);
+
+    /**
+     * S30: after a mid-path cancel, keep the last committed route unless a new path is
+     * cheaper by at least {@link #pathCommitHysteresisTicks}. Stops left/right dithering
+     * between near-equal alternatives.
+     */
+    public final Setting<Boolean> pathCommitHysteresis = new Setting<>(true);
+
+    /**
+     * S30: minimum improvement in ticks required before replacing a still-valid committed path.
+     */
+    public final Setting<Double> pathCommitHysteresisTicks = new Setting<>(25.0);
+
+    /**
+     * S37: while finishing the current break, start looking at the next block once
+     * destroy progress is high. Only runs during mining, not while walking or jumping.
+     */
+    public final Setting<Boolean> movementBreakLookHandoff = new Setting<>(true);
+
 
     /**
      * Re-verify the next N movements every tick for world changes and replan early before hitting an obstacle.

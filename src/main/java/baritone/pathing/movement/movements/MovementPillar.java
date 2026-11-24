@@ -174,6 +174,10 @@ public class MovementPillar extends Movement {
                 return state.setStatus(MovementStatus.SUCCESS);
             }
 
+            if (Baritone.settings().movementLadderClimbBlend.value
+                    && MovementHelper.blendClimbInputsWhileClimbing(ctx, state, dest)) {
+                return state;
+            }
             MovementHelper.moveTowards(ctx, state, dest);
             state.setInput(Input.JUMP, true);
             return state;

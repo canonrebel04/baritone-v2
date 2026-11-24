@@ -24,7 +24,9 @@ import baritone.api.pathing.movement.MovementStatus;
 import baritone.api.utils.*;
 import baritone.api.utils.input.Input;
 import baritone.behavior.PathingBehavior;
+import baritone.pathing.path.PathExecutor;
 import baritone.utils.BlockStateInterface;
+import baritone.utils.accessor.IPlayerControllerMP;
 import java.util.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -155,6 +157,7 @@ public abstract class Movement implements IMovement, MovementHelper {
             return true;
         }
         boolean somethingInTheWay = false;
+        BetterBlockPos handoffNext = Baritone.settings().movementBreakLookHandoff.value ? nextBreakTarget() : null;
         for (BetterBlockPos blockPos : positionsToBreak) {
             if (!ctx.world().getEntitiesOfClass(FallingBlockEntity.class, new AABB(0, 0, 0, 1, 1.1, 1).move(blockPos)).isEmpty() && Baritone.settings().pauseMiningForFallingBlocks.value) {
                 return false;
@@ -165,7 +168,14 @@ public abstract class Movement implements IMovement, MovementHelper {
                 Optional<Rotation> reachable = RotationUtils.reachable(ctx, blockPos, ctx.playerController().getBlockReachDistance());
                 if (reachable.isPresent()) {
                     Rotation rotTowardsBlock = reachable.get();
-                    state.setTarget(new MovementState.MovementTarget(rotTowardsBlock, true));
+                    Rotation look = rotTowardsBlock;
+                    if (handoffNext != null && !handoffNext.equals(blockPos) && shouldHandOffBreakLook(blockPos)) {
+                        Optional<Rotation> nextRot = RotationUtils.reachable(ctx, handoffNext, ctx.playerController().getBlockReachDistance());
+                        if (nextRot.isPresent()) {
+                            look = nextRot.get();
+                        }
+                    }
+                    state.setTarget(new MovementState.MovementTarget(look, true));
                     if (ctx.isLookingAt(blockPos) || ctx.playerRotations().isReallyCloseTo(rotTowardsBlock)) {
                         state.setInput(Input.CLICK_LEFT, true);
                     }
@@ -292,5 +302,47 @@ public abstract class Movement implements IMovement, MovementHelper {
 
     public BlockPos[] toBreakAll() {
         return positionsToBreak;
+    }
+
+    private BetterBlockPos nextBreakTarget() {
+        boolean seenCurrent = false;
+        for (BetterBlockPos pos : positionsToBreak) {
+            if (MovementHelper.canWalkThrough(ctx, pos)) {
+                continue;
+            }
+            if (seenCurrent) {
+                return pos;
+            }
+            seenCurrent = true;
+        }
+        PathExecutor exec = ((PathingBehavior) baritone.getPathingBehavior()).getCurrent();
+        if (exec == null || exec.getPath() == null) {
+            return null;
+        }
+        java.util.List<IMovement> moves = exec.getPath().movements();
+        int idx = exec.getPosition();
+        if (idx < 0 || idx + 1 >= moves.size()) {
+            return null;
+        }
+        IMovement raw = moves.get(idx + 1);
+        if (!(raw instanceof Movement next)) {
+            return null;
+        }
+        for (BlockPos pos : next.toBreakAll()) {
+            BetterBlockPos bb = pos instanceof BetterBlockPos better ? better : new BetterBlockPos(pos);
+            if (!MovementHelper.canWalkThrough(ctx, bb)) {
+                return bb;
+            }
+        }
+        return null;
+    }
+
+    private boolean shouldHandOffBreakLook(BlockPos current) {
+        var gameMode = ctx.minecraft().gameMode;
+        if (gameMode == null || !gameMode.isDestroying() || gameMode.getDestroyStage() < 8) {
+            return false;
+        }
+        BlockPos breaking = ((IPlayerControllerMP) gameMode).getCurrentBlock();
+        return breaking != null && breaking.equals(current);
     }
 }

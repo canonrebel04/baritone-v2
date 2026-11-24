@@ -674,6 +674,28 @@ public interface MovementHelper extends ActionCosts, Helper {
         }
     }
 
+    /**
+     * While already inside a ladder/vine, hold jump and only correct heading when
+     * drifting off the column. Returns false when not already climbing so callers
+     * keep their normal dest-center entry/exit lock-on.
+     */
+    static boolean blendClimbInputsWhileClimbing(IPlayerContext ctx, MovementState state, BlockPos dest) {
+        BlockPos feet = ctx.playerFeet();
+        boolean alreadyClimbing = isClimbable(BlockStateInterface.getBlock(ctx, feet))
+                || isClimbable(BlockStateInterface.getBlock(ctx, feet.above()))
+                || isClimbable(BlockStateInterface.getBlock(ctx, feet.below()));
+        if (!alreadyClimbing) {
+            return false;
+        }
+        Vec3 destCenter = VecUtils.getBlockPosCenter(dest);
+        double horiz = Math.hypot(destCenter.x - ctx.player().position().x, destCenter.z - ctx.player().position().z);
+        state.setInput(Input.JUMP, true);
+        if (horiz > 0.15) {
+            moveTowards(ctx, state, dest);
+        }
+        return true;
+    }
+
     static void moveTowards(IPlayerContext ctx, MovementState state, BlockPos pos) {
         moveTowards(ctx, state, VecUtils.getBlockPosCenter(pos));
     }

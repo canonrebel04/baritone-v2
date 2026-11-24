@@ -29,6 +29,8 @@ import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.MovementState;
+import baritone.pathing.path.PathExecutor;
+import baritone.behavior.PathingBehavior;
 import baritone.utils.BlockStateInterface;
 import com.google.common.collect.ImmutableSet;
 import net.minecraft.core.BlockPos;
@@ -282,7 +284,14 @@ public class MovementTraverse extends Movement {
             if (feet.getY() != dest.getY() && ladder && MovementHelper.isClimbable(destDown.getBlock())) {
                 state.setInput(Input.JUMP, true);
             }
+            if (Baritone.settings().movementLadderClimbBlend.value
+                    && (MovementHelper.isClimbable(low) || MovementHelper.isClimbable(high))
+                    && MovementHelper.blendClimbInputsWhileClimbing(ctx, state, positionsToBreak[0])) {
+                preOpenDoorAhead(state);
+                return state;
+            }
             MovementHelper.moveTowards(ctx, state, positionsToBreak[0]);
+            preOpenDoorAhead(state);
             return state;
         } else {
             wasTheBridgeBlockAlwaysThere = false;
@@ -374,5 +383,86 @@ public class MovementTraverse extends Movement {
             }
         }
         return super.prepared(state);
+    }
+
+    private BlockPos preOpened;
+    private int preOpenHold;
+
+    /**
+     * The closed wooden door / fence gate this traverse would have to open, or null.
+     * Iron doors are never treated as openable.
+     */
+    public BlockPos closedOpenable() {
+        BlockState pb0 = BlockStateInterface.get(ctx, positionsToBreak[0]);
+        BlockState pb1 = BlockStateInterface.get(ctx, positionsToBreak[1]);
+        if (Blocks.IRON_DOOR.equals(pb0.getBlock()) || Blocks.IRON_DOOR.equals(pb1.getBlock())) {
+            return null;
+        }
+        if (pb0.getBlock() instanceof DoorBlock && !MovementHelper.isDoorPassable(ctx, src, dest)) {
+            return positionsToBreak[0];
+        }
+        if (pb1.getBlock() instanceof DoorBlock && !MovementHelper.isDoorPassable(ctx, dest, src)) {
+            return positionsToBreak[1];
+        }
+        if (pb0.getBlock() instanceof FenceGateBlock && !MovementHelper.isGatePassable(ctx, positionsToBreak[0], src.above())) {
+            return positionsToBreak[0];
+        }
+        if (pb1.getBlock() instanceof FenceGateBlock && !MovementHelper.isGatePassable(ctx, positionsToBreak[1], src)) {
+            return positionsToBreak[1];
+        }
+        return null;
+    }
+
+    /**
+     * S23 limited: right-click a closed door/gate on the next traverse while walking
+     * up to it. Never changes walk yaw; may adjust pitch only, and only clicks when
+     * the current heading can already see the door.
+     */
+    private void preOpenDoorAhead(MovementState state) {
+        if (!Baritone.settings().movementDoorPreOpen.value) {
+            return;
+        }
+        PathExecutor exec = ((PathingBehavior) baritone.getPathingBehavior()).getCurrent();
+        if (exec == null || exec.getPath() == null) {
+            return;
+        }
+        java.util.List<baritone.api.pathing.movement.IMovement> moves = exec.getPath().movements();
+        int idx = exec.getPosition();
+        if (idx < 0 || idx + 1 >= moves.size() || !(moves.get(idx + 1) instanceof MovementTraverse next)) {
+            return;
+        }
+        BlockPos door = next.closedOpenable();
+        if (door == null) {
+            preOpenHold = 0;
+            return;
+        }
+        if (door.equals(preOpened) && preOpenHold <= 0) {
+            return;
+        }
+        double d = ctx.playerHead().distanceTo(Vec3.atCenterOf(door));
+        if (d > 2.8 || d < 0.9) {
+            return;
+        }
+        Optional<Rotation> rot = RotationUtils.reachable(ctx, door);
+        if (rot.isEmpty()) {
+            return;
+        }
+        float walkYaw = state.getTarget().getRotation()
+                .orElse(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.getBlockPosCenter(dest), ctx.playerRotations()))
+                .getYaw();
+        if (Math.abs(Rotation.yawDistanceFromOffset(walkYaw, rot.get().getYaw())) > 15.0f) {
+            return; // would need to override walk heading
+        }
+        // Keep walk yaw; only tip pitch enough to click. This does not change MOVE_FORWARD heading.
+        state.setTarget(new MovementState.MovementTarget(new Rotation(walkYaw, rot.get().getPitch()), true));
+        if (ctx.isLookingAt(door) || ctx.playerRotations().isReallyCloseTo(new Rotation(walkYaw, rot.get().getPitch()))) {
+            if (!door.equals(preOpened)) {
+                preOpened = door;
+                preOpenHold = Baritone.settings().rightClickSpeed.value > 2 ? 2 : 1;
+            }
+            if (preOpenHold-- > 0) {
+                state.setInput(Input.CLICK_RIGHT, true);
+            }
+        }
     }
 }
