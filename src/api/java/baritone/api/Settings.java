@@ -2108,6 +2108,15 @@ public final class Settings {
     public final Setting<Boolean> lookSilentToCameraBlend = new Setting<>(true);
 
     /**
+     * When true, Baritone pathing/movement look requests that are not block interactions
+     * snap the yaw used for walking (and the silent server rotation) to the requested
+     * angle immediately (GCD-quantized). Smoothing still applies to combat/hub requests,
+     * block mining and placing, idle gaze, and the free-look camera.
+     */
+    public final Setting<Boolean> pathingSnapMovementYaw = new Setting<>(true);
+
+
+    /**
      * Re-verify the next N movements every tick for world changes and replan early before hitting an obstacle.
      */
     public final Setting<Integer> movementEarlyStopValidationLookahead = new Setting<>(3);

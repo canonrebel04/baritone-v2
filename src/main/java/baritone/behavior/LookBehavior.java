@@ -344,6 +344,30 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
         }
         this.idleTicks = 0;
 
+        // Pathing/movement yaw snap: walk with the exact requested heading so
+        // MOVE_FORWARD cannot leave a block while a saccade is still turning.
+        // Combat/hub requests, block interacts, elytra, and idle gaze stay smoothed.
+        final boolean hubWins = highestExternal.isPresent()
+                && (this.target == null || highestExternal.get().getPriority() > ILookPriorityHub.DEFAULT_BARITONE_PRIORITY);
+        final boolean pathingSnap = settings.pathingSnapMovementYaw.value
+                && !hubWins
+                && !blockInteract
+                && !flying
+                && this.target != null;
+        if (pathingSnap) {
+            this.lastAppliedMode = targetMode;
+            Rotation snapped = this.processor.peekRotation(targetRotation, true);
+            final float snapGcd = MouseGCD.step(ctx);
+            this.clientAim.invalidate();
+            this.serverAim.invalidate();
+            this.chase = null;
+            this.plan(snapped, snapGcd, true);
+            if (targetMode == Target.Mode.SERVER) {
+                this.serverReturnTicks = SERVER_RETURN_MAX_TICKS;
+            }
+            return;
+        }
+
         // S9: look at the ground a few blocks ahead on the path when the movement doesn't care about pitch
         boolean gazeApplied = false;
         if (pitchFree && !blockInteract && !legacy && profile.gaze && settings.lookPathGaze.value) {
