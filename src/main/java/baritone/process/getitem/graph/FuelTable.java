@@ -20,16 +20,22 @@ package baritone.process.getitem.graph;
 import java.util.*;
 import java.util.function.ToIntFunction;
 
-/** Furnace burn times in ticks (plan A23 fuel planning). Runtime replaces this with {@code level.fuelValues()}. */
+/**
+ * Furnace burn times in ticks (plan A23 / live fuel leftover). Minecraft 26.3 removed {@code Level.fuelValues()};
+ * planning uses this table (including lava buckets and the usual wood/plant fuels). While a furnace is open,
+ * {@code SmeltTask} waits on the menu's live lit/cook progress instead of this estimate alone.
+ */
 public final class FuelTable {
     private static final Map<String, Integer> VANILLA = new LinkedHashMap<>();
 
     static {
+        VANILLA.put("minecraft:lava_bucket", 20000);
         VANILLA.put("minecraft:coal_block", 16000);
+        VANILLA.put("minecraft:dried_kelp_block", 4000);
+        VANILLA.put("minecraft:blaze_rod", 2400);
         VANILLA.put("minecraft:coal", 1600);
         VANILLA.put("minecraft:charcoal", 1600);
-        VANILLA.put("minecraft:blaze_rod", 2400);
-        VANILLA.put("minecraft:dried_kelp_block", 4000);
+        VANILLA.put("minecraft:boat", 1200);
         VANILLA.put("minecraft:stick", 100);
         VANILLA.put("minecraft:bamboo", 50);
     }

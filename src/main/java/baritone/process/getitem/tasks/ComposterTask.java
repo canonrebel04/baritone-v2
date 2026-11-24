@@ -39,6 +39,7 @@ public final class ComposterTask extends GatherTask {
     private final Set<BlockPos> blacklist;
     private BlockPos pos;
     private int waitTicks;
+    private PlaceStationTask placer;
 
     public ComposterTask(Baritone baritone, GameData data, PlanStep step, Set<BlockPos> blacklist) {
         super(baritone, data, step);
@@ -59,7 +60,21 @@ public final class ComposterTask extends GatherTask {
                     break;
                 }
             }
-            if (pos == null) return fail("no composter nearby");
+            if (pos == null) {
+                if (!Baritone.settings().getItemPlaceStations.value) return fail("no composter nearby");
+                if (placer == null) {
+                    placer = new PlaceStationTask(baritone, data, PlanStep.place("minecraft:composter", 0, 3));
+                }
+                PathingCommand placed = placer.tick();
+                if (placer.failure() != null) return fail(placer.failure());
+                if (placer.isDone()) {
+                    pos = placer.placedAt();
+                    placer = null;
+                    if (pos == null) return fail("placed a composter but couldn't find it");
+                    return pause();
+                }
+                return placed;
+            }
         }
         ItemEntity drop = nearestDrop(Vec3.atCenterOf(pos), 3);
         if (drop != null) return pickUp(drop);
@@ -80,6 +95,11 @@ public final class ComposterTask extends GatherTask {
         PathingCommand cmd = useBlock(pos);
         if (stalled() > 2400) return fail("composting is taking too long");
         return cmd == null ? pause() : cmd;
+    }
+
+    @Override
+    public void stop() {
+        if (placer != null) placer.stop();
     }
 
     @Override

@@ -68,7 +68,6 @@ public final class SourceCatalog {
         List<Source> out = new ArrayList<>();
         for (FarmRegistry.Farm f : farms) {
             if (f.animals || !Objects.equals(f.dim, dim) || f.ready <= 0) continue;
-            if ("minecraft:sweet_berry_bush".equals(f.type)) continue; // FarmProcess breaks crops; berries need right-click picking
             Object[] crop = Yields.CROPS.get(f.type);
             if (crop == null) continue;
             double d = dist(f.x, f.y, f.z, px, py, pz);

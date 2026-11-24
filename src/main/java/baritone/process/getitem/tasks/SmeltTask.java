@@ -147,9 +147,12 @@ public final class SmeltTask extends StepTask {
                     ctx.playerController().windowClick(m.containerId, 2, 0, ContainerInput.QUICK_MOVE, ctx.player());
                     return pause();
                 }
-                boolean idle = m.getSlot(0).getItem().isEmpty() && out.isEmpty();
+                // Live leftover: trust the furnace menu's remaining fuel / cook progress, not only the plan estimate.
+                boolean lit = m.isLit();
+                boolean cooking = lit || m.getBurnProgress() > 0 || !out.isEmpty();
+                boolean idle = m.getSlot(0).getItem().isEmpty() && out.isEmpty() && !cooking;
                 int cook = step.recipe.cookTime <= 0 ? 200 : step.recipe.cookTime;
-                if (idle && stageTicks > 40 || stageTicks > step.batches * cook + 400) {
+                if (idle && stageTicks > 40 || !cooking && stageTicks > step.batches * cook + 400) {
                     stage = Stage.UNLOAD; // ran out (fuel/inputs) or stuck: re-plan from what we got
                 }
                 return pause();

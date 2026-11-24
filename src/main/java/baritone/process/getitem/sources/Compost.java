@@ -62,6 +62,11 @@ public final class Compost {
      * need (bread, baked potatoes, pies) are skipped.
      */
     public static List<Source> sources(Map<String, Integer> inventory, Set<String> keep, double setupSeconds, String ref) {
+        return sources(inventory, keep, setupSeconds, ref, null);
+    }
+
+    /** {@code tool} is a block that must be held / placed (a composter) but is not consumed per batch; null if one is already there. */
+    public static List<Source> sources(Map<String, Integer> inventory, Set<String> keep, double setupSeconds, String ref, String tool) {
         List<Source> out = new ArrayList<>();
         for (Map.Entry<String, Integer> e : inventory.entrySet()) {
             Double ch = CHANCE.get(e.getKey());
@@ -71,7 +76,7 @@ public final class Compost {
             if (batches <= 0) continue;
             Map<String, Integer> in = new LinkedHashMap<>();
             in.put(e.getKey(), per);
-            out.add(new Source(Source.Kind.COMPOST, "minecraft:bone_meal", 1, per * 0.4 + 1, setupSeconds, batches, in, null, ref,
+            out.add(new Source(Source.Kind.COMPOST, "minecraft:bone_meal", 1, per * 0.4 + 1, setupSeconds, batches, in, tool, ref,
                     "Compost " + e.getKey().replace("minecraft:", "")));
         }
         return out;

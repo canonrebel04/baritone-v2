@@ -508,11 +508,14 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
         if (Baritone.settings().getItemUseTrees.value) out.addAll(SourceCatalog.trees(Baritone.settings().getItemTreeBoneMeal.value));
         if (Baritone.settings().getItemCompost.value) {
             List<BlockPos> composters = data.findBlocks(Collections.singleton(Blocks.COMPOSTER), Baritone.settings().getItemStationSearchRadius.value);
+            Set<String> keep = new HashSet<>(data.protectedItems());
+            if (goal != null) keep.addAll(goal.options);
             if (!composters.isEmpty()) {
                 BlockPos c = composters.get(0);
-                Set<String> keep = new HashSet<>(data.protectedItems());
-                if (goal != null) keep.addAll(goal.options);
                 out.addAll(Compost.sources(data.inventory(), keep, 3 + Math.sqrt(c.distSqr(me)) / 4.3, c.getX() + "," + c.getY() + "," + c.getZ()));
+            } else if (Baritone.settings().getItemPlaceStations.value) {
+                // No composter in range: plan as if we will place one (tool = the block, so the planner crafts it if needed).
+                out.addAll(Compost.sources(data.inventory(), keep, 3 + 3, "place", "minecraft:composter"));
             }
         }
         out.addAll(SourceCatalog.mobFarms(Baritone.settings().getItemMobFarms.value, me.getX(), me.getY(), me.getZ()));
@@ -995,6 +998,8 @@ public final class GetItemProcess extends BaritoneProcessHelper implements IGetI
                     case TRADE:
                         return new TradeTask(baritone, data, knowledge, step);
                     case HARVEST:
+                        if ("minecraft:sweet_berries".equals(step.source.item)) return new BerryTask(baritone, data, step);
+                        if ("minecraft:kelp".equals(step.source.item)) return new KelpTask(baritone, data, step);
                         return new HarvestTask(baritone, data, step);
                     case TREE:
                         return new TreeTask(baritone, data, step);

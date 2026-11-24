@@ -102,6 +102,7 @@ public final class Yields {
         c.put("minecraft:nether_wart", new Object[]{"minecraft:nether_wart", 2.0});
         c.put("minecraft:cocoa", new Object[]{"minecraft:cocoa_beans", 2.0});
         c.put("minecraft:sweet_berry_bush", new Object[]{"minecraft:sweet_berries", 2.0});
+        c.put("minecraft:kelp", new Object[]{"minecraft:kelp", 1.0});
         CROPS = Collections.unmodifiableMap(c);
 
         Map<String, Object[]> t = new LinkedHashMap<>();

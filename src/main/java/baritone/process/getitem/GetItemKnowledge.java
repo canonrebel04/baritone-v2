@@ -79,7 +79,7 @@ public final class GetItemKnowledge implements AbstractGameEventListener {
     private static final Set<Block> CROPS = new HashSet<>(Arrays.asList(
             Blocks.WHEAT, Blocks.CARROTS, Blocks.POTATOES, Blocks.BEETROOTS, Blocks.SUGAR_CANE, Blocks.PUMPKIN_STEM,
             Blocks.MELON_STEM, Blocks.NETHER_WART, Blocks.SWEET_BERRY_BUSH, Blocks.ATTACHED_MELON_STEM, Blocks.ATTACHED_PUMPKIN_STEM,
-            Blocks.COCOA, Blocks.BAMBOO, Blocks.CACTUS));
+            Blocks.COCOA, Blocks.BAMBOO, Blocks.CACTUS, Blocks.KELP, Blocks.KELP_PLANT));
     private volatile Census census = Census.EMPTY;
     /** Last fishing-bobber splash heard (A29 bite detection): nanoTime and position. */
     private volatile long splashNanos;
@@ -124,6 +124,7 @@ public final class GetItemKnowledge implements AbstractGameEventListener {
     static String farmType(Block b) {
         if (b == Blocks.ATTACHED_MELON_STEM) return "minecraft:melon_stem";
         if (b == Blocks.ATTACHED_PUMPKIN_STEM) return "minecraft:pumpkin_stem";
+        if (b == Blocks.KELP || b == Blocks.KELP_PLANT) return "minecraft:kelp";
         return GameData.id(b);
     }
 
@@ -136,6 +137,10 @@ public final class GetItemKnowledge implements AbstractGameEventListener {
         if (b == Blocks.COCOA) return st.getValue(CocoaBlock.AGE) >= 2;
         if (b == Blocks.ATTACHED_MELON_STEM || b == Blocks.ATTACHED_PUMPKIN_STEM) return true;
         if (b == Blocks.SUGAR_CANE || b == Blocks.BAMBOO || b == Blocks.CACTUS) return ctx.world().getBlockState(p.below()).getBlock() == b;
+        if (b == Blocks.KELP || b == Blocks.KELP_PLANT) {
+            var below = ctx.world().getBlockState(p.below()).getBlock();
+            return below == Blocks.KELP || below == Blocks.KELP_PLANT;
+        }
         return false;
     }
 

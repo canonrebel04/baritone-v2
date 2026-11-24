@@ -20,6 +20,7 @@ package baritone.process.getitem.tasks;
 import baritone.Baritone;
 import baritone.api.process.PathingCommand;
 import baritone.process.getitem.GameData;
+import baritone.process.getitem.advanced.BookshelfPower;
 import baritone.process.getitem.advanced.EnchantPlanner;
 import baritone.process.getitem.plan.PlanStep;
 import net.minecraft.core.BlockPos;
@@ -71,7 +72,7 @@ public final class EnchantTask extends StationMenuTask<EnchantmentMenu> {
         if (r < 0 && m.getSlot(1).getItem().isEmpty()) return abort("no lapis lazuli");
         if (r == 0) return pause();
         if (m.costs[0] <= 0 && m.costs[1] <= 0 && m.costs[2] <= 0) {
-            if (++offerWait > 60) return abort("the enchanting table offers nothing for this item");
+            if (++offerWait > 60) return abort("the enchanting table offers nothing for this item" + shelfNote());
             return pause();
         }
         String[] clue = new String[3];
@@ -87,9 +88,9 @@ public final class EnchantTask extends StationMenuTask<EnchantmentMenu> {
         int lapis = m.getSlot(1).getItem().getCount();
         int pick = EnchantPlanner.pickOffer(wanted, clue, clueLevel, m.costs, levels, lapis);
         if (pick < 0) {
-            if (!reroll) return abort("the enchanting table doesn't offer " + wanted.keySet());
+            if (!reroll) return abort("the enchanting table doesn't offer " + wanted.keySet() + shelfNote());
             pick = EnchantPlanner.cheapestOffer(m.costs, levels, lapis);
-            if (pick < 0) return abort("not enough levels for any enchanting offer");
+            if (pick < 0) return abort("not enough levels for any enchanting offer" + shelfNote());
         }
         if (!pacer.ready()) return pause();
         ctx.minecraft().gameMode.handleInventoryButtonClick(m.containerId, pick);
@@ -100,6 +101,17 @@ public final class EnchantTask extends StationMenuTask<EnchantmentMenu> {
 
     @Override
     public String status() {
-        return step.label;
+        int n = shelves();
+        return n >= 0 ? step.label + " (" + n + " bookshelves)" : step.label;
+    }
+
+    private int shelves() {
+        var pos = stationPos();
+        return pos == null || ctx.world() == null ? -1 : BookshelfPower.count(ctx.world(), pos);
+    }
+
+    private String shelfNote() {
+        int n = shelves();
+        return n < 0 ? "" : " (" + n + " bookshelves)";
     }
 }

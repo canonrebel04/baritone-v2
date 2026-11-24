@@ -2383,6 +2383,13 @@ public final class Settings {
     /** Get Item (A33/A39): harvest ripe crops on farms seen nearby (only what is ripe; replants via FarmProcess). */
     public final Setting<Boolean> getItemUseFarms = new Setting<>(true);
 
+    /**
+     * Get Item (A36 leftover): before harvesting a known farm, hoe dirt / grass / a dirt path that is already
+     * next to water into farmland. Default off so it cannot till unexpected ground. Farm <i>building</i>
+     * (placing dirt, water, or fences) is not done.
+     */
+    public final Setting<Boolean> getItemHoeSoil = new Setting<>(false);
+
     /** Get Item (A29): fish for cod / salmon / pufferfish / tropical fish (crafts a rod if needed). */
     public final Setting<Boolean> getItemUseFishing = new Setting<>(true);
 
