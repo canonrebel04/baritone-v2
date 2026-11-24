@@ -18,12 +18,12 @@
 package baritone.pathing.movement;
 
 import baritone.api.utils.input.Input;
-import net.minecraft.util.Mth;
 
 import java.util.stream.Stream;
 
 public record MovementOption(Input input1, Input input2, float motionX, float motionZ) {
     private static final float SPRINT_MULTIPLIER = 1.3f;
+    private static final float INV_SQRT2 = 0.70710678f;
 
     public MovementOption(Input input1, float motionX, float motionZ) {
         this(input1, null, motionX, motionZ);
@@ -39,19 +39,33 @@ public record MovementOption(Input input1, Input input2, float motionX, float mo
     }
 
     public float distanceToSq(float otherX, float otherZ) {
-        return Mth.abs(motionX() - otherX) + Mth.abs(motionZ() - otherZ);
+        float dx = motionX() - otherX;
+        float dz = motionZ() - otherZ;
+        return dx * dx + dz * dz;
     }
-    
+
+    /**
+     * Generates the 8 normalized WASD movement directions for a player whose forward unit vector
+     * in Minecraft world coordinates is {@code (motionX, motionZ) = (-sin(yaw), cos(yaw))}.
+     * In Minecraft's XZ plane (+X east, +Z south), left is (+motionZ, -motionX) and right is (-motionZ, +motionX).
+     */
     public static Stream<MovementOption> getOptions(float motionX, float motionZ, boolean canSprint) {
+        float fwdScale = canSprint ? SPRINT_MULTIPLIER : 1.0f;
+        float diagFwdScale = fwdScale * INV_SQRT2;
+        float leftX = motionZ;
+        float leftZ = -motionX;
+        float rightX = -motionZ;
+        float rightZ = motionX;
+
         return Stream.of(
-                new MovementOption(Input.MOVE_FORWARD, canSprint ? motionX * SPRINT_MULTIPLIER : motionX, canSprint ? motionZ * SPRINT_MULTIPLIER : motionZ),
+                new MovementOption(Input.MOVE_FORWARD, motionX * fwdScale, motionZ * fwdScale),
                 new MovementOption(Input.MOVE_BACK, -motionX, -motionZ),
-                new MovementOption(Input.MOVE_LEFT, -motionZ, motionX),
-                new MovementOption(Input.MOVE_RIGHT, motionZ, -motionX),
-                new MovementOption(Input.MOVE_FORWARD, Input.MOVE_LEFT, (canSprint ? motionX * SPRINT_MULTIPLIER : motionX) - motionZ, (canSprint ? motionZ * SPRINT_MULTIPLIER : motionZ) + motionX),
-                new MovementOption(Input.MOVE_FORWARD, Input.MOVE_RIGHT, (canSprint ? motionX * SPRINT_MULTIPLIER : motionX) + motionZ, (canSprint ? motionZ * SPRINT_MULTIPLIER : motionZ) - motionX),
-                new MovementOption(Input.MOVE_BACK, Input.MOVE_LEFT, -motionX - motionZ, -motionZ + motionX),
-                new MovementOption(Input.MOVE_BACK, Input.MOVE_RIGHT, -motionX + motionZ, -motionZ - motionX)
+                new MovementOption(Input.MOVE_LEFT, leftX, leftZ),
+                new MovementOption(Input.MOVE_RIGHT, rightX, rightZ),
+                new MovementOption(Input.MOVE_FORWARD, Input.MOVE_LEFT, (motionX + leftX) * diagFwdScale, (motionZ + leftZ) * diagFwdScale),
+                new MovementOption(Input.MOVE_FORWARD, Input.MOVE_RIGHT, (motionX + rightX) * diagFwdScale, (motionZ + rightZ) * diagFwdScale),
+                new MovementOption(Input.MOVE_BACK, Input.MOVE_LEFT, (-motionX + leftX) * INV_SQRT2, (-motionZ + leftZ) * INV_SQRT2),
+                new MovementOption(Input.MOVE_BACK, Input.MOVE_RIGHT, (-motionX + rightX) * INV_SQRT2, (-motionZ + rightZ) * INV_SQRT2)
         );
     }
 }

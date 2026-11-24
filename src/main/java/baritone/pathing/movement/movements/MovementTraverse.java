@@ -103,13 +103,7 @@ public class MovementTraverse extends Movement {
                     sneaking = true;
                     WC += (SNEAK_ONE_BLOCK_COST - WALK_ONE_BLOCK_COST) / 2;
                 }
-                double footingFavor = context.combatBlastResistantFootingFavor;
-                Block footing = destOn.getBlock();
-                if (context.combatMode && Double.isFinite(footingFavor) && footingFavor > 0
-                        && (footing == Blocks.BEDROCK || footing == Blocks.OBSIDIAN
-                        || footing == Blocks.CRYING_OBSIDIAN || footing == Blocks.REINFORCED_DEEPSLATE)) {
-                    WC *= footingFavor;
-                }
+                WC *= context.blastResistantFootingMultiplier(destOn);
             }
             double hardness1 = MovementHelper.getMiningDurationTicks(context, destX, y, destZ, pb1, false);
             if (hardness1 >= COST_INF) {

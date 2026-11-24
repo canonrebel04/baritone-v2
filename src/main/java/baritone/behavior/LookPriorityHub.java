@@ -51,7 +51,10 @@ public class LookPriorityHub implements ILookPriorityHub {
                 this.requests.remove(req);
                 continue;
             }
-            if (req.getTicksRemaining() > 0) {
+            if (req.getTicksRemaining() == 0) {
+                req.release();
+                this.requests.remove(req);
+            } else if (req.getTicksRemaining() > 0) {
                 req.decrementLifetime();
                 if (req.getTicksRemaining() <= 0) {
                     req.release();

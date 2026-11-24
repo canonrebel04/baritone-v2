@@ -31,6 +31,7 @@ import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.movements.*;
+import baritone.pathing.movement.sim.MovementTelemetry;
 import baritone.utils.BlockStateInterface;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
@@ -222,12 +223,17 @@ public class PathExecutor implements IPathExecutor, Helper {
         }
         MovementStatus movementStatus = movement.update();
         if (movementStatus == UNREACHABLE || movementStatus == FAILED) {
+            MovementTelemetry.recordFailure(
+                    movement.getSrc().x, movement.getSrc().y, movement.getSrc().z,
+                    movement.getDest().x, movement.getDest().y, movement.getDest().z,
+                    telemetryMoveName(movement));
             logDebug("Movement returns status " + movementStatus);
             cancel();
             return true;
         }
         if (movementStatus == SUCCESS) {
-            //System.out.println("Movement done, next path");
+            double est = currentMovementOriginalCostEstimate != null ? currentMovementOriginalCostEstimate : 1.0;
+            MovementTelemetry.recordSuccess(telemetryMoveName(movement), Math.max(1, ticksOnCurrent), est);
             pathPosition++;
             onChangeInPathPosition();
             onTick();
@@ -239,6 +245,10 @@ public class PathExecutor implements IPathExecutor, Helper {
             }
             ticksOnCurrent++;
             if (ticksOnCurrent > currentMovementOriginalCostEstimate + Baritone.settings().movementTimeoutTicks.value) {
+                MovementTelemetry.recordFailure(
+                        movement.getSrc().x, movement.getSrc().y, movement.getSrc().z,
+                        movement.getDest().x, movement.getDest().y, movement.getDest().z,
+                        telemetryMoveName(movement));
                 // only cancel if the total time has exceeded the initial estimate
                 // as you break the blocks required, the remaining cost goes down, to the point where
                 // ticksOnCurrent is greater than recalculateCost + 100
@@ -462,7 +472,7 @@ public class PathExecutor implements IPathExecutor, Helper {
                 BetterBlockPos fallDest = new BetterBlockPos(data.second());
                 if (!path.positions().contains(fallDest)) {
                     throw new IllegalStateException(String.format(
-                            "Fall override at %s %s %s returned illegal destination %s %s %s",
+                            "Fall override at %s returned illegal destination %s",
                             current.getSrc(), fallDest));
                 }
                 if (ctx.playerFeet().equals(fallDest)) {
@@ -577,10 +587,29 @@ public class PathExecutor implements IPathExecutor, Helper {
         if (!MovementHelper.canWalkOn(ctx, current.getDest().offset(current.getDirection()))) {
             return false;
         }
-        if (next instanceof MovementTraverse && next.getDirection().equals(current.getDirection())) {
+        if (next instanceof MovementTraverse && next.getDirection().equals(current.getDirection().above())) {
             return true;
         }
         return next instanceof MovementDiagonal && Baritone.settings().allowOvershootDiagonalDescend.value;
+    }
+
+    private static String telemetryMoveName(Movement m) {
+        BlockPos d = m.getDirection();
+        int dx = Integer.signum(d.getX());
+        int dz = Integer.signum(d.getZ());
+        if (m instanceof MovementDownward) return "DOWNWARD";
+        if (m instanceof MovementPillar) return "PILLAR";
+        if (m instanceof MovementDiagonal) {
+            String ns = dz < 0 ? "NORTH" : "SOUTH";
+            String ew = dx > 0 ? "EAST" : "WEST";
+            return "DIAGONAL_" + ns + ew;
+        }
+        String cardinal = dz < 0 ? "NORTH" : dz > 0 ? "SOUTH" : dx > 0 ? "EAST" : "WEST";
+        if (m instanceof MovementTraverse) return "TRAVERSE_" + cardinal;
+        if (m instanceof MovementAscend) return "ASCEND_" + cardinal;
+        if (m instanceof MovementDescend || m instanceof MovementFall) return "DESCEND_" + cardinal;
+        if (m instanceof MovementParkour) return "PARKOUR_" + cardinal;
+        return m.getClass().getSimpleName();
     }
 
     private void onChangeInPathPosition() {

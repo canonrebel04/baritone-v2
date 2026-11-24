@@ -675,22 +675,29 @@ public interface MovementHelper extends ActionCosts, Helper {
     }
 
     static void moveTowards(IPlayerContext ctx, MovementState state, BlockPos pos) {
+        moveTowards(ctx, state, VecUtils.getBlockPosCenter(pos));
+    }
+
+    static void moveTowards(IPlayerContext ctx, MovementState state, Vec3 target) {
         state.setTarget(new MovementTarget(
                 RotationUtils.calcRotationFromVec3d(ctx.playerHead(),
-                        VecUtils.getBlockPosCenter(pos),
+                        target,
                         ctx.playerRotations()).withPitch(ctx.playerRotations().getPitch()),
                 false
         )).setInput(Input.MOVE_FORWARD, true);
     }
 
     static void moveTowardsWithoutRotation(IPlayerContext ctx, MovementState state, float idealYaw) {
+        float curYawRad = ctx.playerRotations().getYaw() * DEG_TO_RAD_F;
+        float idealYawRad = idealYaw * DEG_TO_RAD_F;
+        // Minecraft forward unit vector is (-sin(yaw), cos(yaw))
         MovementOption.getOptions(
-                Mth.sin(ctx.playerRotations().getYaw() * DEG_TO_RAD_F),
-                Mth.cos(ctx.playerRotations().getYaw() * DEG_TO_RAD_F),
+                -Mth.sin(curYawRad),
+                Mth.cos(curYawRad),
                 Baritone.settings().allowSprint.value
         ).min(Comparator.comparing(option -> option.distanceToSq(
-                Mth.sin(idealYaw * DEG_TO_RAD_F),
-                Mth.cos(idealYaw * DEG_TO_RAD_F)
+                -Mth.sin(idealYawRad),
+                Mth.cos(idealYawRad)
         ))).ifPresent(selection -> selection.setInputs(state));
     }
 

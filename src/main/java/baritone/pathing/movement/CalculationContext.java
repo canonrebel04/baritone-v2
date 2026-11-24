@@ -412,6 +412,21 @@ public class CalculationContext {
         return 1;
     }
 
+    /**
+     * Returns the combat footing cost multiplier when stepping onto blast-resistant blocks
+     * (bedrock, obsidian, crying obsidian, reinforced deepslate) in {@link #combatMode}.
+     */
+    public double blastResistantFootingMultiplier(BlockState footing) {
+        if (!combatMode || !Double.isFinite(combatBlastResistantFootingFavor) || combatBlastResistantFootingFavor <= 0.0D) {
+            return 1.0D;
+        }
+        Block b = footing.getBlock();
+        if (b == Blocks.BEDROCK || b == Blocks.OBSIDIAN || b == Blocks.CRYING_OBSIDIAN || b == Blocks.REINFORCED_DEEPSLATE) {
+            return combatBlastResistantFootingFavor;
+        }
+        return 1.0D;
+    }
+
     public double placeBucketCost() {
         return placeBlockCost; // shrug
     }

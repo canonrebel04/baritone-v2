@@ -166,7 +166,7 @@ public class MovementDiagonal extends Movement {
             return;
         }
         BlockState cuttingOver2 = context.get(destX, y - 1, z);
-        if ((!context.allowWalkOnMagmaBlocks && cuttingOver1.is(Blocks.MAGMA_BLOCK)) || MovementHelper.isLava(cuttingOver2)) {
+        if ((!context.allowWalkOnMagmaBlocks && cuttingOver2.is(Blocks.MAGMA_BLOCK)) || MovementHelper.isLava(cuttingOver2)) {
             return;
         }
         boolean water = false;
@@ -248,7 +248,7 @@ public class MovementDiagonal extends Movement {
                 multiplier *= SPRINT_MULTIPLIER;
             }
         }
-        res.cost = multiplier * SQRT_2;
+        res.cost = multiplier * SQRT_2 * context.blastResistantFootingMultiplier(destWalkOn);
         if (descend) {
             res.cost += Math.max(FALL_N_BLOCKS_COST[1], CENTER_AFTER_FALL_COST);
             res.y = y - 1;

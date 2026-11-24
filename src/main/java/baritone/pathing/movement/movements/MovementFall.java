@@ -53,8 +53,16 @@ public class MovementFall extends Movement {
     private static final ItemStack STACK_BUCKET_WATER = new ItemStack(Items.WATER_BUCKET);
     private static final ItemStack STACK_BUCKET_EMPTY = new ItemStack(Items.BUCKET);
 
+    private Boolean cachedWillPlaceBucket = null;
+
     public MovementFall(IBaritone baritone, BetterBlockPos src, BetterBlockPos dest) {
         super(baritone, src, dest, MovementFall.buildPositionsToBreak(src, dest));
+    }
+
+    @Override
+    public void reset() {
+        super.reset();
+        this.cachedWillPlaceBucket = null;
     }
 
     @Override
@@ -78,9 +86,12 @@ public class MovementFall extends Movement {
     }
 
     private boolean willPlaceBucket() {
-        CalculationContext context = new CalculationContext(baritone);
-        MutableMoveResult result = new MutableMoveResult();
-        return MovementDescend.dynamicFallCost(context, src.x, src.y, src.z, dest.x, dest.z, 0, context.get(dest.x, src.y - 2, dest.z), result);
+        if (cachedWillPlaceBucket == null) {
+            CalculationContext context = new CalculationContext(baritone);
+            MutableMoveResult result = new MutableMoveResult();
+            cachedWillPlaceBucket = MovementDescend.dynamicFallCost(context, src.x, src.y, src.z, dest.x, dest.z, 0, context.get(dest.x, src.y - 2, dest.z), result);
+        }
+        return cachedWillPlaceBucket;
     }
 
     @Override
@@ -106,12 +117,14 @@ public class MovementFall extends Movement {
                 return state.setStatus(MovementStatus.UNREACHABLE);
             }
 
-            if (ctx.player().position().y - dest.getY() < ctx.playerController().getBlockReachDistance() && !ctx.player().onGround()) {
+            double yAboveDest = ctx.player().position().y - dest.getY();
+            double fallSpeed = Math.abs(ctx.player().getDeltaMovement().y);
+            double reach = ctx.playerController().getBlockReachDistance();
+            // Pre-aim straight down ~3 ticks before entering reach so smoothed look finishes rotating in time
+            if (yAboveDest < reach + fallSpeed * 3.0 && !ctx.player().onGround()) {
                 ctx.player().getInventory().setSelectedSlot(ctx.player().getInventory().findSlotMatchingItem(STACK_BUCKET_WATER));
-
                 targetRotation = new Rotation(toDest.getYaw(), 90.0F);
-
-                if (ctx.isLookingAt(dest) || ctx.isLookingAt(dest.below())) {
+                if (yAboveDest < reach && (ctx.isLookingAt(dest) || ctx.isLookingAt(dest.below()))) {
                     state.setInput(Input.CLICK_RIGHT, true);
                 }
             }

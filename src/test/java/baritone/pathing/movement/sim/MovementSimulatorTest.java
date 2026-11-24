@@ -111,4 +111,15 @@ public class MovementSimulatorTest {
         assertTrue("High failure rate should raise adaptive cost multiplier, got " + mult, mult > 1.3 && mult <= 1.8);
         MovementTelemetry.reset();
     }
+
+    @Test
+    public void testHeadHitterCeilingWorksAtNonZeroY() {
+        MovementSimulator.SimConfig ceiling = new MovementSimulator.SimConfig(
+                PlayerPhysics.BASE_MOVEMENT_SPEED, 0, 0, 0,
+                PlayerPhysics.BASE_GROUND_SLIPPERINESS, 1.0, false, true);
+        MovementSimulator.SimState s = new MovementSimulator.SimState(0.0, 64.0, 0.0, 0.0, 0.0, 0.25, true, true);
+        MovementSimulator.step(s, MovementSimulator.SimInput.forward(0.0f, true, true), ceiling);
+        assertEquals(64.2, s.y, 1e-6);
+        assertTrue(s.vy <= 0.0);
+    }
 }
